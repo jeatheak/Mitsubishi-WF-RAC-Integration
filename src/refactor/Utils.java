@@ -12,9 +12,9 @@ public class Utils {
         return allocate;
     }
 
-    public static int getMatch(ByteBuffer compareByteBuffer, int[]... inputMatrix) {
+    public static int findMatch(int content, int... inputMatrix) {
         for (int i = 0; i < inputMatrix.length; i++)
-            if (compare(inputMatrix[i], compareByteBuffer))
+            if (inputMatrix[i] == content)
                 return i;
 
         return -1;
@@ -40,8 +40,8 @@ public class Utils {
         return Arrays.copyOfRange(ByteBuffer.allocate(4).putInt(i).array(), 3, 4)[0];
     }
 
-    public static ByteBuffer and(int[] byteBuffer, ByteBuffer byteBuffer2) {
-        return and(toBytes(byteBuffer), byteBuffer2);
+    public static ByteBuffer and(int[] byteBuffer, byte[] byteBuffer2) {
+        return and(toBytes(byteBuffer), ByteBuffer.wrap(byteBuffer2));
     }
 
     public static ByteBuffer and(int[] byteBuffer, int[] byteBuffer2) {

@@ -8,7 +8,7 @@ public class aircoParser {
 
         // System.out.println(sendRequest.getAircoStat());
 
-        parseAirco("AACij6r/AAAAAAAQCgAAAAAAAf////8sy4AEAAcqkAAAiAAAAAAAAAAAAAOAIJD/gBCb/5QQAAAGyw==");
+        parseAirco("AACqj6j/AAAAAAAQCgAAAAAAAf////9FqIAECAcojgAAiAAAAAAAAAAAAAOAII7/gBCW/5QQAADrgg==");
     }
 
     private static void parseAirco(String input) {
