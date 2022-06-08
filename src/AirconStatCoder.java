@@ -164,11 +164,11 @@ public class AirconStatCoder {
     }
 
     static {
-        int[] iArr = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        int[] iArr = om_n_au;
         zeros = iArr;
         STATUS_MODEL_NO_TYPE_SEPARATE_2021 = iArr;
         STATUS_VACANT_PROPERTY_OFF = iArr;
-        int[] iArr2 = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
+        int[] iArr2 = COMMAND_VACANT_PROPERTY_ON;
         STATUS_VACANT_PROPERTY_ON = iArr2;
         STATUS_VACANT_PROPERTY_MAX_BIT = iArr2;
         STATUS_OPERATION_MODE2_OFF = iArr;
@@ -214,7 +214,7 @@ public class AirconStatCoder {
         ByteBuffer andBytes4;
         ByteBuffer andBytes5;
         int length;
-        int i3;
+        int segment;
         Double d;
         Double d2;
         Integer num;
@@ -253,7 +253,7 @@ public class AirconStatCoder {
                 i = 4;
             }
             airconStat.setOperationMode(i);
-            andBytes = andBytes(toBytes(new int[] { 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }), wrap2);
+            andBytes = andBytes(toBytes(af_p_00), wrap2);
             if (!equalBytes(toBytes(af_n_00), andBytes)) {
                 airconStat.setAirFlow(0);
             } else if (equalBytes(toBytes(af_n_01), andBytes)) {
@@ -266,7 +266,7 @@ public class AirconStatCoder {
                 airconStat.setAirFlow(4);
             }
             if (!equalBytes(toBytes(as_n_on),
-                    andBytes(toBytes(new int[] { 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }), wrap2))) {
+                    andBytes(toBytes(as_p_on), wrap2))) {
                 airconStat.setWindDirectionUD(0);
             } else {
                 ByteBuffer andBytes7 = andBytes(
@@ -282,7 +282,7 @@ public class AirconStatCoder {
                 }
             }
             if (!equalBytes(toBytes(av_n_on),
-                    andBytes(toBytes(new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0 }), wrap2))) {
+                    andBytes(toBytes(av_p_on), wrap2))) {
                 airconStat.setWindDirectionLR(0);
             } else {
                 ByteBuffer andBytes8 = andBytes(
@@ -303,7 +303,7 @@ public class AirconStatCoder {
                     airconStat.setWindDirectionLR(7);
                 }
             }
-            andBytes2 = andBytes(toBytes(new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0 }), wrap2);
+            andBytes2 = andBytes(toBytes(en_p_on), wrap2);
             if (!equalBytes(toBytes(en_n_of), andBytes2)) {
                 airconStat.setEntrust(0);
             } else if (equalBytes(toBytes(en_n_on), andBytes2)) {
@@ -348,16 +348,10 @@ public class AirconStatCoder {
             }
             length = copyOfRange.length / 4;
             ByteBuffer wrap4 = ByteBuffer.wrap(copyOfRange);
-            i3 = 0;
-            d = null;
-            d2 = null;
-            num = null;
-            d3 = null;
-            d4 = null;
-            num2 = null;
+            segment = 0;
 
-            while (i3 < length) {
-                int i9 = i3 * 4;
+            while (segment < length) {
+                int i9 = segment * 4;
                 wrap4.position(i9);
                 byte b = wrap4.get();
                 wrap4.position(i9 + 1);
@@ -407,7 +401,7 @@ public class AirconStatCoder {
                     }
                     j = 4611686018427387904L;
                 }
-                i3++;
+                segment++;
                 i8 = i4;
                 i6 = 1;
                 i7 = 3;
@@ -416,16 +410,16 @@ public class AirconStatCoder {
         }
         i = 0;
         airconStat.setOperationMode(i);
-        andBytes = andBytes(toBytes(new int[] { 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }), wrap2);
+        andBytes = andBytes(toBytes(af_p_00), wrap2);
         if (!equalBytes(toBytes(af_n_00), andBytes)) {
         }
         if (!equalBytes(toBytes(as_n_on),
-                andBytes(toBytes(new int[] { 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }), wrap2))) {
+                andBytes(toBytes(as_p_on), wrap2))) {
         }
         if (!equalBytes(toBytes(av_n_on),
-                andBytes(toBytes(new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0 }), wrap2))) {
+                andBytes(toBytes(av_p_on), wrap2))) {
         }
-        andBytes2 = andBytes(toBytes(new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0 }), wrap2);
+        andBytes2 = andBytes(toBytes(en_p_on), wrap2);
         if (!equalBytes(toBytes(en_n_of), andBytes2)) {
         }
         wrap3.position(6);
@@ -449,14 +443,14 @@ public class AirconStatCoder {
         }
         length = copyOfRange.length / 4;
         ByteBuffer wrap42 = ByteBuffer.wrap(copyOfRange);
-        i3 = 0;
+        segment = 0;
         d = null;
         d2 = null;
         num = null;
         d3 = null;
         d4 = null;
         num2 = null;
-        while (i3 < length) {
+        while (segment < length) {
         }
         return airconStat;
     }
