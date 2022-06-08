@@ -9,8 +9,6 @@ import src.AirconStat;
 public class SmallDecoder {
     public static AirconStat fromBase64(AirconStat airconStat, String str) {
         return translateBytesToAirconStat(Base64.getDecoder().decode(str.replace("\n", "")));
-        // return byteToStat(airconStat, Base64.getDecoder().decode(str.replace("\n",
-        // "")));
     }
 
     private static final double ELECTRIC_ENERGY_COFFICIENT = 0.25d;
@@ -35,34 +33,14 @@ public class SmallDecoder {
         airconStat.setErrorCode(code == 0 ? "00"
                 : (content[6] & -128) <= 0 ? "M" + String.format(Locale.US, "%02d", code) : "E" + code);
 
-        // TODO: MODELNUMBER \\
-
         // Get IndoorTemp, OutdoorTemp and electric \\
         byte[] valueSegment = Arrays.copyOfRange(contentByteArray, startLength + 19,
                 contentByteArray.length - 2);
 
+        System.out.println(valueSegment[6]);
         airconStat.setIndoorTemp(Constants.indoorTemp[256 + valueSegment[2]]);
         airconStat.setOutdoorTemp(Constants.outdoorTemp[256 + valueSegment[6]]);
         airconStat.setElectric(((valueSegment[11] << 8) + valueSegment[10]) * ELECTRIC_ENERGY_COFFICIENT);
-
-        // for (int segment = 0; segment < valueSegment.length / 4; segment++) {
-        // int startPos = segment * 4;
-        // byte b = valueSegment[startPos];
-        // byte b2 = valueSegment[startPos + 1];
-        // byte value = valueSegment[startPos + 2];
-        // byte b4 = valueSegment[startPos + 3];
-        // if (b == -128 && b2 == 16) {
-        // System.out.println("out: " + (startPos + 2));
-        // // airconStat.setOutdoorTemp(Constants.outdoorTemp[256 + value]);
-        // } else if (b == -128 && b2 == 32) {
-        // System.out.println("in: " + (startPos + 2));
-        // airconStat.setIndoorTemp(Constants.indoorTemp[256 + value]);
-        // } else if (b == -108 && b2 == 16) {
-        // System.out.println("elec: " + (startPos + 2));
-        // airconStat.setElectric(((b4 << 8) + value) * ELECTRIC_ENERGY_COFFICIENT);
-        // }
-
-        // }
 
         return airconStat;
     }
