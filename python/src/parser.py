@@ -7,6 +7,7 @@ from .models.aircon import Aircon
 class Parser:
     def translateBytes(inputString: str) -> Aircon:
         ac: Aircon = Aircon()
+        print(inputString)
 
         # convert to byte array
         contentByteArray = b64decode(bytearray(inputString, encoding='UTF'))
@@ -32,7 +33,8 @@ class Parser:
             31 & content[11], 0, 1, 2, 3, 4, 5, 6) + 1)
         ac.Entrust = (4 == (12 & content[12]))
         ac.CoolHotJudge = ((content[8] & 8) <= 0)
-
+        ac.ModelNr = Utils.findMatch(content[0] & 127, 0,1,2)
+        ac.Vacant = content[10] & 1
         code = content[6] & 127
         ac.ErrorCode = ('00' if code == 0 else 'M{code:02d}'.format(
             code) if (content[6] & -128) <= 0 else "E" + code)
@@ -40,8 +42,8 @@ class Parser:
         valueSegment = contentByteArray[startLength +
                                         19:len(contentByteArray) - 2]
 
-        ac.IndoorTemp = (Constants.indoorTemp[256 + valueSegment[2]])
-        ac.OutdoorTemp = (Constants.outdoorTemp[256 + valueSegment[6]])
+        # ac.IndoorTemp = (Constants.indoorTemp[256 + valueSegment[2]])
+        # ac.OutdoorTemp = (Constants.outdoorTemp[256 + valueSegment[6]])
         # ac.Electric = (((valueSegment[11] << 8) + valueSegment[10]) * 0.25)
 
         return ac

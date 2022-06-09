@@ -3,7 +3,7 @@ class Aircon:
     OutdoorTemp: float
     PresetTemp: float
     Electric: float
-    
+    ModelNr: int
     Operation: bool
     OperationMode: int
     AirFlow: int
@@ -11,3 +11,4 @@ class Aircon:
     WindDirectionLR: int
     Entrust: bool
     ErrorCode: str
+    Vacant: bool
