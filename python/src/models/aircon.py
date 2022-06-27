@@ -1,14 +1,7 @@
-class Aircon:
+from .airconBase import AirconBase
+
+class Aircon(AirconBase):
     IndoorTemp: float
     OutdoorTemp: float
-    PresetTemp: float
     Electric: float
-    ModelNr: int
-    Operation: bool
-    OperationMode: int
-    AirFlow: int
-    WindDirectionUD: int
-    WindDirectionLR: int
-    Entrust: bool
     ErrorCode: str
-    Vacant: bool

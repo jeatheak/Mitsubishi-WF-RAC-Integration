@@ -10,19 +10,19 @@ public class AirconStat {
     }
 
     public int getAirFlow() {
-        return 1;
+        return 0;
     }
 
     public int getWindDirectionUD() {
-        return 1;
+        return 2;
     }
 
     public int getWindDirectionLR() {
-        return 1;
+        return 5;
     }
 
     public double getPresetTemp() {
-        return 21.0;
+        return 22.0;
     }
 
     public int getEntrust() {

@@ -1,0 +1,11 @@
+class AirconBase:
+    Operation: bool
+    OperationMode: int
+    AirFlow: int
+    WindDirectionUD: int
+    WindDirectionLR: int
+    PresetTemp: float
+    Entrust: bool
+    ModelNr: int
+    Vacant: bool
+    CoolHotJudge: bool
