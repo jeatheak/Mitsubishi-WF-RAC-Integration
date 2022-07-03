@@ -12,7 +12,7 @@ class Repository:
     
     def sendAircoCommand( command:str, ip: str):
         url = 'http://%s:51443/beaver/command/setAirconStat'%ip
-        myobj = {'apiVer':'1.0','command':'setAirconStat','contents': { 'airconId':'a043b05ad1f2', 'airconStat':command },'deviceId':'a68d811862d2ef38','operatorId':'54302674-f763-4deb-bdba-46d8d92c152d','timestamp': time.time()}
+        myobj = {'apiVer':'1.0','command':'setAirconStat','contents': { 'airconId':'a043b05ad1f2', 'airconStat':command },'deviceId':'a68d811862d2ef38','operatorId':'54302674-f763-4deb-bdba-46d8d92c152d','timestamp': round(time.time())}
 
         x = post(url, json=myobj)
 
