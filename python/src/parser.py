@@ -239,9 +239,10 @@ class Parser:
 
         valueSegment = contentByteArray[startLength + 19:len(contentByteArray) - 2]
 
-        if(len(valueSegment) >= 11):
+        if(len(valueSegment) >= 8):
             ac.IndoorTemp = (Constants.indoorTemp[256 + valueSegment[2]])
             ac.OutdoorTemp = (Constants.outdoorTemp[256 + valueSegment[6]])
+        if(len(valueSegment) >= 11):
             ac.Electric = (((valueSegment[11] << 8) + valueSegment[10]) * 0.25)
 
         return ac
