@@ -6,10 +6,10 @@ from src.utils import Utils
 from base64 import b64decode
 
 woonkamer = Parser.translateBytes(Repository.getAirconStats(ip='192.168.178.207'))
-print(woonkamer.IndoorTemp)
+woonkamer.Operation = False
 
-# outputJson = Parser.toBase64(airconStat=Utils.convertAirconToAirconStat(woonkamer))
-# response = Parser.translateBytes(Repository.sendAircoCommand(command=outputJson, ip='192.168.178.207'))
+outputJson = Parser.toBase64(airconStat=Utils.convertAirconToAirconStat(woonkamer))
+response = Parser.translateBytes(Repository.sendAircoCommand(command=outputJson, ip='192.168.178.207'))
 
 # convertedAircon = json.dumps(response.__dict__, sort_keys=False, indent=4)
-# print(convertedAircon)
+# print(convertedAircon)baby
