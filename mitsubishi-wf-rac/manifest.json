@@ -2,10 +2,11 @@
   "domain": "mitsubishi-wf-rac",
   "name": "Mitsubishi WF-RAC",
   "version": "0.0.1",
-  "config_flow": true,
+  "config_flow": false,
   "documentation": "https://github.com/jeatheak/Mitsubishi-WF-RAC-Integration/",
   "dependencies": [],
   "codeowners": ["jeatheak"],
   "iot_class": "local_polling",
+  "zeroconf": ["_beaver._tcp.local."],
   "requirements": []
 }
