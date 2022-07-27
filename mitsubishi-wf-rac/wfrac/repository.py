@@ -2,7 +2,6 @@
 
 import time
 from requests import post
-from homeassistant.core import HomeAssistant
 
 
 class DetailResponse:
