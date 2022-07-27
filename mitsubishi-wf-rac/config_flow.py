@@ -7,7 +7,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries, exceptions
-from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN  # pylint:disable=unused-import
@@ -17,6 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_NAME): str,
         vol.Required(CONF_HOST, default="127.0.0.1"): str,
         vol.Required(CONF_PORT, default=51443): vol.Coerce(int),
     }
@@ -28,12 +29,15 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     if len(data["host"]) < 3:
         raise InvalidHost
 
+    if len(data["name"]) < 3:
+        raise InvalidName
+
     repository = Repository(data["host"], data["port"])
     result = await hass.async_add_executor_job(repository.get_details)
     if not result:
         raise CannotConnect
 
-    return {"title": data["host"]}
+    return {"title": data["name"]}
 
 
 class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -54,11 +58,9 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidHost:
-                # The error string is set here, and should be translated.
-                # This example does not currently cover translations, see the
-                # comments on `DATA_SCHEMA` for further details.
-                # Set the error on the `host` field, not the entire form.
                 errors["host"] = "cannot_connect"
+            except InvalidName:
+                errors["name"] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -74,4 +76,8 @@ class CannotConnect(exceptions.HomeAssistantError):
 
 
 class InvalidHost(exceptions.HomeAssistantError):
+    """Error to indicate there is an invalid hostname."""
+
+
+class InvalidName(exceptions.HomeAssistantError):
     """Error to indicate there is an invalid hostname."""

@@ -8,29 +8,28 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import CONF_ICON, CONF_NAME, TEMP_CELSIUS, CONF_TYPE
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.const import TEMP_CELSIUS
 from homeassistant.util import Throttle
 
 from .wfrac.device import Device
-from .const import DOMAIN
+from .const import DOMAIN, ATTR_INSIDE_TEMPERATURE, ATTR_OUTSIDE_TEMPERATURE
 
 _LOGGER = logging.getLogger(__name__)
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
-
-# def setup_platform(hass, config, add_entities, discovery_info=None):
-#     """Set up platform."""
-#     for device in hass.data[DEVICES]:
-#         entities = [TemperatureSensor(device, "Indoor")]
-#         add_entities(entities)
+MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
+    """Setup sensor entries"""
+
     for device in hass.data[DOMAIN]:
-        entities = [TemperatureSensor(device, "Indoor")]
-        async_add_entities(entities)
+        if device.host == entry.data["host"]:
+            _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
+            entities = [TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE)]
+            entities.append(
+                TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE)
+            )
+            async_add_entities(entities)
 
 
 class TemperatureSensor(SensorEntity):
@@ -40,17 +39,23 @@ class TemperatureSensor(SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, api: Device, name: str) -> None:
+    def __init__(self, api: Device, name: str, custom_type: str) -> None:
         """Initialize the sensor."""
         self._api = api
-        self._attr_name = name
+        self._custom_type = custom_type
+        self._attr_name = f"{api.name} {name}"
+        self._attr_unique_id = f"wf_rac-{self._api.airco_id}-{self._custom_type}"
 
     @property
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def state(self):
         """Return the state of the sensor."""
-        _LOGGER.info("Update: %s", self._api.airco_id)
-        return self._api.airco.IndoorTemp
+        # _LOGGER.info("Update: %s [%s]", self._api.airco_id, self._custom_type)
+        if self._custom_type == ATTR_INSIDE_TEMPERATURE:
+            return self._api.airco.IndoorTemp
+        if self._custom_type == ATTR_OUTSIDE_TEMPERATURE:
+            return self._api.airco.OutdoorTemp
+
+        return None
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):

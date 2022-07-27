@@ -16,16 +16,21 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
 class Device:
     """Device Class"""
 
-    def __init__(self, hass: HomeAssistantType, hostname: str, port: int) -> None:
+    def __init__(
+        self, hass: HomeAssistantType, name: str, hostname: str, port: int
+    ) -> None:
         self._api = Repository(hostname, port)
         self._parser = RacParser()
         self._hass = hass
 
         self._airco = None
         self._operator_id = None
+        self._host = hostname
+        self._port = port
         self._airco_id = None
         self._is_setup = False
         self._available = True
+        self._name = name
 
     async def setup(self):
         """Get the Airco Details"""
@@ -79,6 +84,21 @@ class Device:
     def operator_id(self) -> str:
         """Return Airco Operator ID"""
         return self._operator_id
+
+    @property
+    def host(self) -> str:
+        """Get Host (IP)"""
+        return self._host
+
+    @property
+    def port(self) -> int:
+        """Get Port"""
+        return self._port
+
+    @property
+    def name(self) -> str:
+        """Get given Airco name"""
+        return self._name
 
     @property
     def airco_id(self) -> str:
