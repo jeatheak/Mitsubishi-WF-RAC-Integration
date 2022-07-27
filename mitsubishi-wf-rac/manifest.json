@@ -2,7 +2,7 @@
   "domain": "mitsubishi-wf-rac",
   "name": "Mitsubishi WF-RAC",
   "version": "0.0.1",
-  "config_flow": false,
+  "config_flow": true,
   "documentation": "https://github.com/jeatheak/Mitsubishi-WF-RAC-Integration/",
   "dependencies": [],
   "codeowners": ["jeatheak"],
