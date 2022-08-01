@@ -4,17 +4,6 @@ import time
 from requests import post
 
 
-class DetailResponse:
-    """Model to store the airco details in"""
-
-    airco_id: str
-    operator_id: str
-
-    def __init__(self, airco_id: str, operator_id: str) -> None:
-        self.airco_id = airco_id
-        self.operator_id = operator_id
-
-
 class Repository:
     """Simple Api class to send and get Aircon information"""
 
@@ -24,20 +13,20 @@ class Repository:
         self._hostname = hostname
         self._port = port
 
-    def get_details(self) -> DetailResponse:
+    def get_details(self) -> str:
         """Simple command to get aircon details"""
         url = f"http://{self._hostname}:{self._port}/beaver/command/getAirconStat"
         myobj = {
             "apiVer": self.api_version,
             "command": "getAirconStat",
-            "deviceId": "1",  # can be random, till aws api is added
-            "operatorId": "1",  # not known at the moment
+            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "operatorId": "1",  # is generated UUID
             "timestamp": round(time.time()),
         }
 
         response = post(url, json=myobj).json()["contents"]
 
-        return DetailResponse(response["airconId"], response["remoteList"][0])
+        return response["airconId"]
 
     def update_account_info(self, operator_id: str, airco_id: str) -> str:
         """Update the account info on the airco (sets to operator id of the device)"""
@@ -45,8 +34,8 @@ class Repository:
         myobj = {
             "apiVer": self.api_version,
             "command": "updateAccountInfo",
-            "deviceId": "1",  # can be random, till aws api is added
-            "operatorId": operator_id,
+            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "operatorId": operator_id,  # is generated UUID
             "contents": {
                 "accountId": operator_id,
                 "airconId": airco_id,
@@ -56,7 +45,21 @@ class Repository:
             "timestamp": round(time.time()),
         }
 
-        return post(url, json=myobj).json()["contents"]["airconStat"]
+        return post(url, json=myobj).json()
+
+    def del_account_info(self, operator_id: str, airco_id: str) -> str:
+        """delete the account info on the airco"""
+        url = f"http://{self._hostname}:{self._port}/beaver/command/deleteAccountInfo"
+        myobj = {
+            "apiVer": self.api_version,
+            "command": "deleteAccountInfo",
+            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "operatorId": operator_id,  # is generated UUID
+            "contents": {"accountId": operator_id, "airconId": airco_id},
+            "timestamp": round(time.time()),
+        }
+
+        return post(url, json=myobj).json()
 
     def get_aircon_stats(
         self,
@@ -67,8 +70,8 @@ class Repository:
         myobj = {
             "apiVer": self.api_version,
             "command": "getAirconStat",
-            "deviceId": "1",  # can be random, till aws api is added
-            "operatorId": operator_id,
+            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "operatorId": operator_id,  # is generated UUID
             "timestamp": round(time.time()),
         }
 
@@ -81,8 +84,8 @@ class Repository:
             "apiVer": self.api_version,
             "command": "setAirconStat",
             "contents": {"airconId": airco_id, "airconStat": command},
-            "deviceId": "1",  # can be random, till aws api is added
-            "operatorId": operator_id,
+            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "operatorId": operator_id,  # is generated UUID
             "timestamp": round(time.time()),
         }
 

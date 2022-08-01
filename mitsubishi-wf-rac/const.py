@@ -15,6 +15,9 @@ from homeassistant.components.climate.const import (
 
 DOMAIN = "mitsubishi-wf-rac"
 DEVICES = "wf-rac-devices"
+
+CONF_OPERATOR_ID = "operator_id"
+
 ATTR_TARGET_TEMPERATURE = "target_temperature"
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"
 ATTR_OUTSIDE_TEMPERATURE = "outside_temperature"
