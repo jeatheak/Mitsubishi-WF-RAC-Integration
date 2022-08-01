@@ -18,8 +18,8 @@
         "title": "WF-RAC AC connection info"
       },
       "discovery_confirm": {
-        "description": "Do you want to add the airco `{name}` to Home Assistant?",
-        "title": "Discovered airco {name}",
+        "description": "The airco with id: {id}, IP: {host} and port: {port} was discovered. Please give it a name.",
+        "title": "Discovered WF-RAC airco",
         "data": {
           "name": "Airco Name"
         }

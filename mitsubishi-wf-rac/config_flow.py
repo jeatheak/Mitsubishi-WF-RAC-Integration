@@ -9,7 +9,7 @@ import voluptuous as vol
 
 from homeassistant.components import zeroconf, onboarding
 from homeassistant import config_entries, exceptions
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_BASE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 
@@ -29,18 +29,18 @@ DATA_SCHEMA = vol.Schema(
 
 async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
-    if len(data["host"]) < 3:
+    if len(data[CONF_HOST]) < 3:
         raise InvalidHost
 
-    if len(data["name"]) < 3:
+    if len(data[CONF_NAME]) < 3:
         raise InvalidName
 
-    repository = Repository(data["host"], data["port"])
+    repository = Repository(data[CONF_HOST], data[CONF_PORT])
     result = await hass.async_add_executor_job(repository.get_details)
     if not result:
         raise CannotConnect
 
-    return {"title": data["name"]}
+    return {"title": data[CONF_NAME]}
 
 
 class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -57,18 +57,20 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
+                user_input[CONF_HOST] = self._discovery_info[CONF_HOST]
+                user_input[CONF_PORT] = self._discovery_info[CONF_PORT]
                 info = await validate_input(self.hass, user_input)
 
                 return self.async_create_entry(title=info["title"], data=user_input)
             except CannotConnect:
-                errors["base"] = "cannot_connect"
+                errors[CONF_BASE] = "cannot_connect"
             except InvalidHost:
-                errors["host"] = "cannot_connect"
+                errors[CONF_HOST] = "cannot_connect"
             except InvalidName:
-                errors["name"] = "name_invalid"
+                errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
-                errors["base"] = "unknown"
+                errors[CONF_BASE] = "unknown"
 
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
@@ -78,16 +80,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_NAME, default=f"Airco {self._discovery_info[CONF_NAME]}"
                     ): str,
-                    vol.Required(
-                        CONF_HOST, default=self._discovery_info[CONF_HOST]
-                    ): str,
-                    vol.Required(
-                        CONF_PORT, default=self._discovery_info[CONF_PORT]
-                    ): vol.Coerce(int),
                 }
             ),
             errors=errors,
-            description_placeholders={"name": self._name},
+            description_placeholders={
+                "id": self._discovery_info[CONF_NAME],
+                "host": self._discovery_info[CONF_HOST],
+                "port": self._discovery_info[CONF_PORT],
+            },
         )
 
     async def async_step_zeroconf(
@@ -130,14 +130,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return self.async_create_entry(title=info["title"], data=user_input)
             except CannotConnect:
-                errors["base"] = "cannot_connect"
+                errors[CONF_BASE] = "cannot_connect"
             except InvalidHost:
-                errors["host"] = "cannot_connect"
+                errors[CONF_HOST] = "cannot_connect"
             except InvalidName:
-                errors["name"] = "name_invalid"
+                errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
-                errors["base"] = "unknown"
+                errors[CONF_BASE] = "unknown"
 
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
