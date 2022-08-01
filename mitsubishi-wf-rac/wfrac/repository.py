@@ -39,6 +39,25 @@ class Repository:
 
         return DetailResponse(response["airconId"], response["remoteList"][0])
 
+    def update_account_info(self, operator_id: str, airco_id: str) -> str:
+        """Update the account info on the airco (sets to operator id of the device)"""
+        url = f"http://{self._hostname}:{self._port}/beaver/command/updateAccountInfo"
+        myobj = {
+            "apiVer": self.api_version,
+            "command": "updateAccountInfo",
+            "deviceId": "1",  # can be random, till aws api is added
+            "operatorId": operator_id,
+            "contents": {
+                "accountId": operator_id,
+                "airconId": airco_id,
+                "remote": 0,  # TODO: test what difference it will make to set it to 1 (True, add it to remoteList?)
+                "timezone": "Europe/Amsterdam",  # TODO: change to auto generate
+            },
+            "timestamp": round(time.time()),
+        }
+
+        return post(url, json=myobj).json()["contents"]["airconStat"]
+
     def get_aircon_stats(
         self,
         operator_id: str,

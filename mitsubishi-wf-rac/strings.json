@@ -2,20 +2,19 @@
   "config": {
     "step": {
       "user": {
-        "title": "WF-RAC AC connection info",
         "data": {
           "name": "[%key:common::config_flow::data::name%]",
           "host": "[%key:common::config_flow::data::host%]",
           "port": "[%key:common::config_flow::data::port%]"
-        }
+        },
+        "description": "Please fill in the correct information to add the Airco Manually",
+        "title": "WF-RAC AC connection info"
       },
       "discovery_confirm": {
         "description": "Do you want to add the airco `{name}` to Home Assistant?",
         "title": "Discovered airco {name}",
         "data": {
-          "name": "[%key:common::config_flow::data::name%]",
-          "host": "[%key:common::config_flow::data::host%]",
-          "port": "[%key:common::config_flow::data::port%]"
+          "name": "[%key:common::config_flow::data::name%]"
         }
       }
     },

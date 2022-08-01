@@ -1,0 +1,29 @@
+{
+  "config": {
+    "error": {
+      "cannot_connect": "Could not connect with the Arico"
+    },
+    "abort": {
+      "existing_instance_updated": "Updated existing configuration.",
+      "already_configured": "Airco is already configured"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "name": "Airco Name",
+          "host": "Host (IP) address",
+          "port": "Port"
+        },
+        "description": "Please fill in the correct information to add the Airco Manually",
+        "title": "WF-RAC AC connection info"
+      },
+      "discovery_confirm": {
+        "description": "Do you want to add the airco `{name}` to Home Assistant?",
+        "title": "Discovered airco {name}",
+        "data": {
+          "name": "Airco Name"
+        }
+      }
+    }
+  }
+}

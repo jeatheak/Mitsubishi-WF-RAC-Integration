@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from uuid import uuid4
 from typing import Any
 
 import voluptuous as vol
@@ -19,11 +20,12 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_NAME, description={"suggested_value": "Airco Living"}): str,
-        vol.Required(CONF_HOST, description={"suggested_value": "192.168.1.5"}): str,
-        vol.Required(CONF_PORT, default=51443): vol.Coerce(int),
+        vol.Required(CONF_NAME, description={"suggested_value": "Airco unknown"}): str,
+        vol.Required(CONF_HOST): str,
+        vol.Optional(CONF_PORT, default=51443): int,
     }
 )
+
 
 async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
@@ -47,6 +49,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info = {}
+    DOMAIN = DOMAIN
 
     async def async_step_discovery_confirm(self, user_input=None):
         """Handle the initial step."""
@@ -69,16 +72,27 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
-            step_id="discovery_confirm", data_schema=vol.Schema(
+            step_id="discovery_confirm",
+            data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_NAME, default=f"Airco {self._discovery_info[CONF_NAME]}"): str,
-                    vol.Required(CONF_HOST, default=self._discovery_info[CONF_HOST]): str,
-                    vol.Required(CONF_PORT, default=self._discovery_info[CONF_PORT]): vol.Coerce(int),
+                    vol.Required(
+                        CONF_NAME, default=f"Airco {self._discovery_info[CONF_NAME]}"
+                    ): str,
+                    vol.Required(
+                        CONF_HOST, default=self._discovery_info[CONF_HOST]
+                    ): str,
+                    vol.Required(
+                        CONF_PORT, default=self._discovery_info[CONF_PORT]
+                    ): vol.Coerce(int),
                 }
-            ), errors=errors, description_placeholders={"name": self._name}
+            ),
+            errors=errors,
+            description_placeholders={"name": self._name},
         )
 
-    async def async_step_zeroconf(self, discovery_info: zeroconf.ZeroconfServiceInfo) -> FlowResult:
+    async def async_step_zeroconf(
+        self, discovery_info: zeroconf.ZeroconfServiceInfo
+    ) -> FlowResult:
         """Handle zeroconf discovery."""
 
         local_name = discovery_info.hostname[:-1]
@@ -102,8 +116,8 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if already_configured:
                 return self.async_abort(reason="already_configured")
 
-        self._discovery_info = {CONF_HOST: host,CONF_NAME: node_name,CONF_PORT: 51443}
-        
+        self._discovery_info = {CONF_HOST: host, CONF_NAME: node_name, CONF_PORT: port}
+
         return await self.async_step_discovery_confirm()
 
     async def async_step_user(self, user_input=None):
