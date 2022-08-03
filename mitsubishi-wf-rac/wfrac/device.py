@@ -65,7 +65,7 @@ class Device:
         except Exception as ex:
             _LOGGER.debug("Could not delete account from airco %s", ex)
 
-    async def set_airco(self):
+    async def set_airco(self, operation: bool):
         """Private method to send airco command"""
 
         if self.airco is None:
@@ -73,6 +73,7 @@ class Device:
             return  # return because there is nothing to send
 
         _airco_stat = AirconStat(self._airco)
+        _airco_stat.Operation = operation
         _command = self._parser.to_base64(_airco_stat)
         try:
             _raw_response = await self._hass.async_add_executor_job(
