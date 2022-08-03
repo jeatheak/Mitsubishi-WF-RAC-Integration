@@ -17,37 +17,34 @@ class Device:
     """Device Class"""
 
     def __init__(
-        self, hass: HomeAssistantType, name: str, hostname: str, port: int
+        self,
+        hass: HomeAssistantType,
+        name: str,
+        hostname: str,
+        port: int,
+        device_id: str,
+        operator_id: str,
+        airco_id: str,
     ) -> None:
-        self._api = Repository(hostname, port)
+        self._api = Repository(hostname, port, operator_id, device_id)
         self._parser = RacParser()
         self._hass = hass
 
         self._airco = None
-        self._operator_id = None
+        self._operator_id = operator_id
+        self._device_id = device_id
         self._host = hostname
         self._port = port
-        self._airco_id = None
-        self._is_setup = False
+        self._airco_id = airco_id
         self._available = True
         self._name = name
-
-    async def setup(self):
-        """Get the Airco Details"""
-        airco_details = await self._hass.async_add_executor_job(self._api.get_details)
-
-        self._operator_id = airco_details.operator_id
-        self._airco_id = airco_details.airco_id
-        self._is_setup = True
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def update(self):
         """Update the device information from API"""
-        if not self._is_setup:
-            await self.setup()
 
         _raw_response = await self._hass.async_add_executor_job(
-            self._api.get_aircon_stats, self._operator_id
+            self._api.get_aircon_stats
         )
 
         if _raw_response is None:
@@ -57,10 +54,19 @@ class Device:
 
         self._airco = self._parser.translate_bytes(_raw_response)
 
+    async def delete_account(self):
+        """Delete account (operator id) from the airco"""
+
+        try:
+            await self._hass.async_add_executor_job(
+                self._api.del_account_info,
+                self._airco_id,
+            )
+        except Exception as ex:
+            _LOGGER.debug("Could not delete account from airco %s", ex)
+
     async def set_airco(self):
         """Private method to send airco command"""
-        if not self._is_setup:
-            self.setup()
 
         if self.airco is None:
             await self._hass.async_add_executor_job(self.update)
@@ -71,7 +77,6 @@ class Device:
         try:
             _raw_response = await self._hass.async_add_executor_job(
                 self._api.send_airco_command,
-                self._operator_id,
                 self._airco_id,
                 _command,
             )
@@ -84,6 +89,11 @@ class Device:
     def operator_id(self) -> str:
         """Return Airco Operator ID"""
         return self._operator_id
+
+    @property
+    def device_id(self) -> str:
+        """Return Airco device ID"""
+        return self._device_id
 
     @property
     def host(self) -> str:

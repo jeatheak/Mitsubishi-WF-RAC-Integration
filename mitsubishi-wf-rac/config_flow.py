@@ -2,18 +2,24 @@
 from __future__ import annotations
 
 import logging
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 import voluptuous as vol
 
-from homeassistant.components import zeroconf, onboarding
+from homeassistant.components import zeroconf
 from homeassistant import config_entries, exceptions
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_BASE
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_PORT,
+    CONF_NAME,
+    CONF_BASE,
+    CONF_DEVICE_ID,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DOMAIN  # pylint:disable=unused-import
+from .const import CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN
 from .wfrac.repository import Repository
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,22 +33,6 @@ DATA_SCHEMA = vol.Schema(
 )
 
 
-async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
-    """Validate the user input allows us to connect."""
-    if len(data[CONF_HOST]) < 3:
-        raise InvalidHost
-
-    if len(data[CONF_NAME]) < 3:
-        raise InvalidName
-
-    repository = Repository(data[CONF_HOST], data[CONF_PORT])
-    result = await hass.async_add_executor_job(repository.get_details)
-    if not result:
-        raise CannotConnect
-
-    return {"title": data[CONF_NAME]}
-
-
 class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
@@ -50,6 +40,61 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info = {}
     DOMAIN = DOMAIN
+
+    async def _async_validate_input(
+        self, hass: HomeAssistant, data: dict
+    ) -> dict[str, Any]:
+        """Validate the user input allows us to connect."""
+        if len(data[CONF_HOST]) < 3:
+            raise InvalidHost
+
+        if len(data[CONF_NAME]) < 3:
+            raise InvalidName
+
+        for entry in self._async_current_entries():
+            if CONF_NAME in entry.data and entry.data[CONF_NAME] in (data[CONF_NAME]):
+                raise InvalidName
+
+        repository = Repository(
+            data[CONF_HOST],
+            data[CONF_PORT],
+            data[CONF_OPERATOR_ID],
+            data[CONF_DEVICE_ID],
+        )
+
+        airco_id = await hass.async_add_executor_job(repository.get_details)
+        data[CONF_AIRCO_ID] = airco_id
+        if not airco_id:
+            raise CannotConnect
+
+        _LOGGER.info(
+            "Trying to register OperatorId[%s] on Airco[%s]",
+            data[CONF_OPERATOR_ID],
+            data[CONF_AIRCO_ID],
+        )
+        result = await hass.async_add_executor_job(
+            repository.update_account_info, airco_id
+        )
+        if not result:
+            raise CannotConnect
+
+        return {"title": data[CONF_NAME]}
+
+    async def _async_fetch_operator_id(self):
+        """Fetch UUID operator id if exists otherwise create it"""
+        for entry in self._async_current_entries():
+            if CONF_OPERATOR_ID in entry.data:
+                return entry.data[CONF_OPERATOR_ID]
+
+        return str(uuid4())
+
+    async def _async_fetch_device_id(self):
+        """Fetch unique device id if exists otherwise create it"""
+        for entry in self._async_current_entries():
+            if CONF_DEVICE_ID in entry.data:
+                return entry.data[CONF_DEVICE_ID]
+
+        return uuid4().hex
 
     async def async_step_discovery_confirm(self, user_input=None):
         """Handle the initial step."""
@@ -59,7 +104,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 user_input[CONF_HOST] = self._discovery_info[CONF_HOST]
                 user_input[CONF_PORT] = self._discovery_info[CONF_PORT]
-                info = await validate_input(self.hass, user_input)
+
+                user_input[CONF_OPERATOR_ID] = await self._async_fetch_operator_id()
+                user_input[CONF_DEVICE_ID] = await self._async_fetch_device_id()
+
+                info = await self._async_validate_input(self.hass, user_input)
 
                 return self.async_create_entry(title=info["title"], data=user_input)
             except CannotConnect:
@@ -126,7 +175,15 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                info = await validate_input(self.hass, user_input)
+
+                user_input[CONF_OPERATOR_ID] = await self._async_fetch_operator_id()
+                user_input[CONF_DEVICE_ID] = await self._async_fetch_device_id()
+
+                info = await self._async_validate_input(self.hass, user_input)
+
+                _LOGGER.warning(
+                    f"Got {user_input[CONF_OPERATOR_ID]} and {user_input[CONF_DEVICE_ID]}"
+                )
 
                 return self.async_create_entry(title=info["title"], data=user_input)
             except CannotConnect:
