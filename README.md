@@ -13,5 +13,5 @@ List of things it needs implemented
 - [ ] add climate entity
 - [ ] add airco as device instead of seperate entities
 - [x] add zeroconf discovery
-- [ ] add updateAccount info to config flow
+- [x] add updateAccount info to config flow
 - [ ] add to HACS
