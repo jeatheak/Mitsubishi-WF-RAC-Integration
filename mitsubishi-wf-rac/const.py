@@ -17,6 +17,7 @@ DOMAIN = "mitsubishi-wf-rac"
 DEVICES = "wf-rac-devices"
 
 CONF_OPERATOR_ID = "operator_id"
+CONF_AIRCO_ID = "airco_id"
 
 ATTR_TARGET_TEMPERATURE = "target_temperature"
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"

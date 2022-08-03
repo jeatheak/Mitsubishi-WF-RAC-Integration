@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import voluptuous as vol
 
-from homeassistant.components import zeroconf, onboarding
+from homeassistant.components import zeroconf
 from homeassistant import config_entries, exceptions
 from homeassistant.const import (
     CONF_HOST,
@@ -19,7 +19,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONF_OPERATOR_ID, DOMAIN  # pylint:disable=unused-import
+from .const import CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN
 from .wfrac.repository import Repository
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,10 +55,25 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if CONF_NAME in entry.data and entry.data[CONF_NAME] in (data[CONF_NAME]):
                 raise InvalidName
 
-        repository = Repository(data[CONF_HOST], data[CONF_PORT])
-        # result = await hass.async_add_executor_job(repository.get_details)
+        repository = Repository(
+            data[CONF_HOST],
+            data[CONF_PORT],
+            data[CONF_OPERATOR_ID],
+            data[CONF_DEVICE_ID],
+        )
+
+        airco_id = await hass.async_add_executor_job(repository.get_details)
+        data[CONF_AIRCO_ID] = airco_id
+        if not airco_id:
+            raise CannotConnect
+
+        _LOGGER.info(
+            "Trying to register OperatorId[%s] on Airco[%s]",
+            data[CONF_OPERATOR_ID],
+            data[CONF_AIRCO_ID],
+        )
         result = await hass.async_add_executor_job(
-            repository.update_account_info, data[CONF_OPERATOR_ID], data[CONF_DEVICE_ID]
+            repository.update_account_info, airco_id
         )
         if not result:
             raise CannotConnect
@@ -160,10 +175,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                info = await self._async_validate_input(self.hass, user_input)
 
                 user_input[CONF_OPERATOR_ID] = await self._async_fetch_operator_id()
                 user_input[CONF_DEVICE_ID] = await self._async_fetch_device_id()
+
+                info = await self._async_validate_input(self.hass, user_input)
 
                 _LOGGER.warning(
                     f"Got {user_input[CONF_OPERATOR_ID]} and {user_input[CONF_DEVICE_ID]}"
