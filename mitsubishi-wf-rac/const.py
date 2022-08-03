@@ -8,9 +8,15 @@ from homeassistant.components.climate.const import (
     HVAC_MODE_FAN_ONLY,
     HVAC_MODE_OFF,
     HVAC_MODE_AUTO,
-    SUPPORT_TARGET_TEMPERATURE,
+    ClimateEntityFeature,
     SUPPORT_FAN_MODE,
     SUPPORT_SWING_MODE,
+    HVACMode,
+    FAN_AUTO,
+    FAN_LOW,
+    FAN_MIDDLE,
+    FAN_HIGH,
+    FAN_MEDIUM,
 )
 
 DOMAIN = "mitsubishi-wf-rac"
@@ -19,20 +25,8 @@ DEVICES = "wf-rac-devices"
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"
 
-ATTR_TARGET_TEMPERATURE = "target_temperature"
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"
 ATTR_OUTSIDE_TEMPERATURE = "outside_temperature"
-
-ATTR_SWING_LR_MODE = "horizontal_swing_mode"
-ATTR_SWING_LR_MODES = "horizontal_swing_modes"
-ATTR_SWING_UD_MODE = "vertical_swing_mode"
-ATTR_SWING_UD_MODES = "vertical_swing_modes"
-
-ATTR_STATE_ON = "on"
-ATTR_STATE_OFF = "off"
-
-SERVICE_SET_SWING_LR_MODE = "set_horizontal_swing_mode"
-SERVICE_SET_SWING_LR_MODE = "set_vertical_swing_mode"
 
 SENSOR_TYPE_TEMPERATURE = "temperature"
 
@@ -49,7 +43,29 @@ SENSOR_TYPES = {
     },
 }
 
-SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_FAN_MODE | SUPPORT_SWING_MODE
+SUPPORT_FLAGS = (
+    ClimateEntityFeature.TARGET_TEMPERATURE
+    # | ClimateEntityFeature.SWING_MODE
+    | ClimateEntityFeature.FAN_MODE
+)
+
+SUPPORTED_HVAC_MODES = [
+    HVACMode.OFF,
+    HVACMode.AUTO,
+    HVACMode.COOL,
+    HVACMode.DRY,
+    HVACMode.HEAT,
+    HVACMode.FAN_ONLY,
+]
+
+SUPPORTED_FAN_MODES = [
+    FAN_AUTO,
+    FAN_LOW,
+    FAN_MIDDLE,
+    FAN_HIGH,
+    FAN_MEDIUM,
+]
+
 
 OPERATION_LIST = {
     HVAC_MODE_OFF: "Off",

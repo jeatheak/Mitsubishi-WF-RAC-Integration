@@ -9,6 +9,7 @@ from homeassistant.util import Throttle
 from homeassistant.const import CONF_HOST
 
 from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
+from .wfrac.models.aircon import AirconCommands
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,17 +37,18 @@ class AircoSwitch(SwitchEntity):
         self._attr_is_on = self._device.airco.Operation
 
     async def async_turn_on(self, **kwargs):
-        """Turn on nanoe."""
-        await self._device.set_airco(True)
+        """Turn on."""
+        await self._device.set_airco(AirconCommands.Operation, True)
         self._attr_is_on = self._device.airco.Operation
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the entity off."""
-        await self._device.set_airco(False)
+        """Turn off."""
+        await self._device.set_airco(AirconCommands.Operation, False)
         self._attr_is_on = self._device.airco.Operation
 
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    async def async_update(self):
-        """Retrieve latest state."""
-        await self._device.update()
+    def update(self):
+        """Retrieve latest state. from the Airco Device.
+        The Update will happen in de sensor entity
+        """
+
         self._attr_is_on = self._device.airco.Operation

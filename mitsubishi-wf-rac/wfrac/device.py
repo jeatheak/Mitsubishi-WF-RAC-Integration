@@ -1,5 +1,6 @@
 """Device module"""
 from datetime import timedelta
+from typing import Any
 import logging
 
 from homeassistant.helpers.typing import HomeAssistantType
@@ -7,7 +8,7 @@ from homeassistant.util import Throttle
 
 from .rac_parser import RacParser
 from .repository import Repository
-from .models.aircon import Aircon, AirconStat
+from .models.aircon import Aircon, AirconStat, AirconCommands
 
 _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
@@ -65,15 +66,20 @@ class Device:
         except Exception as ex:
             _LOGGER.debug("Could not delete account from airco %s", ex)
 
-    async def set_airco(self, operation: bool):
+    async def set_airco(self, param: AirconCommands, value: Any) -> None:
         """Private method to send airco command"""
 
         if self.airco is None:
             await self._hass.async_add_executor_job(self.update)
-            return  # return because there is nothing to send
 
         _airco_stat = AirconStat(self._airco)
-        _airco_stat.Operation = operation
+
+        try:
+            setattr(_airco_stat, param, value)
+        except Exception:
+            _LOGGER.warning("Could not find command [%s] in Airco Object!")
+            return
+
         _command = self._parser.to_base64(_airco_stat)
         try:
             _raw_response = await self._hass.async_add_executor_job(
