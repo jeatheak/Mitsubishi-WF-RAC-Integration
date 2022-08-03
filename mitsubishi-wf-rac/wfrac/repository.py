@@ -23,8 +23,8 @@ class Repository:
         myobj = {
             "apiVer": self.api_version,
             "command": "getDeviceInfo",
-            "deviceId": "1",  # is unique device ID (on android it is called android_id)
-            "operatorId": "1",  # is generated UUID
+            "deviceId": self._device_id,  # is unique device ID (on android it is called android_id)
+            "operatorId": self._operator_id,  # is generated UUID
             "timestamp": round(time.time()),
         }
 
@@ -41,7 +41,7 @@ class Repository:
             "contents": {
                 "accountId": self._operator_id,
                 "airconId": airco_id,
-                "remote": 0,  # TODO: test what difference it will make to set it to 1 (True, add it to remoteList?)
+                "remote": 1, 
                 "timezone": "Europe/Amsterdam",  # TODO: change to auto generate
             },
             "timestamp": round(time.time()),
@@ -55,7 +55,7 @@ class Repository:
         myobj = {
             "apiVer": self.api_version,
             "command": "deleteAccountInfo",
-            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "deviceId": self._device_id,  # is unique device ID (on android it is called android_id)
             "operatorId": self._operator_id,  # is generated UUID
             "contents": {"accountId": self._operator_id, "airconId": airco_id},
             "timestamp": round(time.time()),
@@ -71,7 +71,7 @@ class Repository:
         myobj = {
             "apiVer": self.api_version,
             "command": "getAirconStat",
-            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "deviceId": self._device_id,  # is unique device ID (on android it is called android_id)
             "operatorId": self._operator_id,  # is generated UUID
             "timestamp": round(time.time()),
         }
@@ -85,7 +85,7 @@ class Repository:
             "apiVer": self.api_version,
             "command": "setAirconStat",
             "contents": {"airconId": airco_id, "airconStat": command},
-            "deviceId": "1",  # is unique device ID (on android it is called android_id)
+            "deviceId": self._device_id,  # is unique device ID (on android it is called android_id)
             "operatorId": self._operator_id,  # is generated UUID
             "timestamp": round(time.time()),
         }
