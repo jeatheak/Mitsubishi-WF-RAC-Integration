@@ -84,7 +84,12 @@ class AircoClimate(ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
         await self._device.set_airco(
-            {AirconCommands.OperationMode: HVAC_TRANSLATION[hvac_mode]}
+            {
+                AirconCommands.OperationMode: self._device.airco.OperationMode
+                if hvac_mode == HVACMode.OFF
+                else HVAC_TRANSLATION[hvac_mode],
+                AirconCommands.Operation: hvac_mode != HVACMode.OFF,
+            }
         )
         self._update_state()
 

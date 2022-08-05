@@ -78,10 +78,6 @@ class Device:
         """Get the Swing modes based on the Wind Direction setting"""
         airco = self._airco
 
-        _LOGGER.info(
-            "%s, %s, %s", airco.Entrust, airco.WindDirectionLR, airco.WindDirectionUD
-        )
-
         if airco.Entrust:
             return SWING_3D_AUTO
         if airco.WindDirectionLR == 0 and airco.WindDirectionUD == 0:
