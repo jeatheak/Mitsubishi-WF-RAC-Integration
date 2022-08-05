@@ -10,7 +10,7 @@ List of things it needs implemented
 
 - [x] add manual config flow
 - [x] add sensor entities
-- [ ] add climate entity
+- [x] add climate entity
 - [ ] add airco as device instead of seperate entities
 - [x] add zeroconf discovery
 - [x] add updateAccount info to config flow
