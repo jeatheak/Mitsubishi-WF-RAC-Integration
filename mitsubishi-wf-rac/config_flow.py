@@ -52,8 +52,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             raise InvalidName
 
         for entry in self._async_current_entries():
-            if CONF_NAME in entry.data and entry.data[CONF_NAME] in (data[CONF_NAME]):
-                raise InvalidName
+            already_configured = False
+
+            if CONF_HOST in entry.data and entry.data[CONF_HOST] in (data[CONF_HOST]):
+                # Is this address or IP address already configured?
+                already_configured = True
+
+            if already_configured:
+                raise HostAlreadyConfigured
 
         repository = Repository(
             data[CONF_HOST],
@@ -115,6 +121,8 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_BASE] = "cannot_connect"
             except InvalidHost:
                 errors[CONF_HOST] = "cannot_connect"
+            except HostAlreadyConfigured:
+                errors[CONF_HOST] = "host_already_configured"
             except InvalidName:
                 errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
@@ -190,6 +198,8 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_BASE] = "cannot_connect"
             except InvalidHost:
                 errors[CONF_HOST] = "cannot_connect"
+            except HostAlreadyConfigured:
+                errors[CONF_HOST] = "host_already_configured"
             except InvalidName:
                 errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
@@ -212,6 +222,10 @@ class CannotConnect(exceptions.HomeAssistantError):
 
 class InvalidHost(exceptions.HomeAssistantError):
     """Error to indicate there is an invalid hostname."""
+
+
+class HostAlreadyConfigured(exceptions.HomeAssistantError):
+    """Error to indicate there is an duplicate hostname."""
 
 
 class InvalidName(exceptions.HomeAssistantError):

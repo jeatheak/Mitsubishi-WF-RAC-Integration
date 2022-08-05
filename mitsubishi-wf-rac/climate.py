@@ -17,17 +17,15 @@ from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
 from .wfrac.models.aircon import AirconCommands
 from .const import (
     DOMAIN,
+    FAN_MODE_TRANSLATION,
     HVAC_TRANSLATION,
     SUPPORT_FLAGS,
     SUPPORT_SWING_MODES,
     SUPPORTED_FAN_MODES,
     SUPPORTED_HVAC_MODES,
     SWING_3D_AUTO,
+    SWING_MODE_TRANSLATION,
     SWING_OFF,
-    SWING_HORIZONTAL,
-    SWING_BOTH,
-    SWING_VERTICAL,
-    VERTICAL_POSITION_1,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,7 +70,7 @@ class AircoClimate(ClimateEntity):
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new target fan mode."""
         await self._device.set_airco(
-            {AirconCommands.AirFlow: int(0 if fan_mode == FAN_AUTO else fan_mode)}
+            {AirconCommands.AirFlow: FAN_MODE_TRANSLATION[fan_mode]}
         )
         self._update_state()
 
@@ -96,45 +94,14 @@ class AircoClimate(ClimateEntity):
     async def async_set_swing_mode(self, swing_mode: str) -> None:
         """Set new target swing operation."""
         _airco = self._device.airco
-        _swing_auto = _airco.Entrust
+        _swing_auto = swing_mode == SWING_3D_AUTO
         _swing_ud = _airco.WindDirectionUD
-        _swing_lr = _airco.WindDirectionLR
 
-        if _airco.WindDirectionUD != 0:
-            self._device.prev_swing_lr = _airco.WindDirectionLR
-        if _airco.WindDirectionLR != 0:
-            self._device.prev_swing_ud = _airco.WindDirectionUD
-
-        if swing_mode == SWING_3D_AUTO:
-            _swing_auto = True
-        elif swing_mode == SWING_OFF:
-            _swing_auto = False
-            _swing_lr = 3 if _airco.WindDirectionLR == 0 else self._device.prev_swing_lr
-            _swing_ud = 3 if _airco.WindDirectionUD == 0 else self._device.prev_swing_ud
-        elif swing_mode == SWING_HORIZONTAL:
-            _swing_auto = False
-            _swing_lr = 0
-            _swing_ud = self._device.prev_swing_ud
-        elif swing_mode == SWING_VERTICAL:
-            _swing_auto = False
-            _swing_ud = 0
-            _swing_lr = self._device.prev_swing_lr
-        elif swing_mode == SWING_BOTH:
-            _swing_auto = False
-            _swing_ud = 0
-            _swing_lr = 0
-        elif swing_mode.startswith("Up/Down"):
-            _swing_auto = False
-            _swing_ud = int(swing_mode[-1:])
-            _swing_lr = self._device.prev_swing_lr
-        elif swing_mode.startswith("Left/Right"):
-            _swing_auto = False
-            _swing_lr = int(swing_mode[-1:])
-            _swing_ud = self._device.prev_swing_ud
+        if swing_mode != SWING_3D_AUTO:
+            _swing_ud = SWING_MODE_TRANSLATION[swing_mode]
 
         await self._device.set_airco(
             {
-                AirconCommands.WindDirectionLR: _swing_lr,
                 AirconCommands.WindDirectionUD: _swing_ud,
                 AirconCommands.Entrust: _swing_auto,
             }
@@ -152,8 +119,12 @@ class AircoClimate(ClimateEntity):
 
         self._attr_target_temperature = airco.PresetTemp
         self._attr_current_temperature = airco.IndoorTemp
-        self._attr_fan_mode = "auto" if airco.AirFlow == 0 else str(airco.AirFlow)
-        self._attr_swing_mode = self._device.get_swing_mode()
+        self._attr_fan_mode = list(FAN_MODE_TRANSLATION.keys())[airco.AirFlow]
+        self._attr_swing_mode = (
+            SWING_3D_AUTO
+            if airco.Entrust
+            else list(SWING_MODE_TRANSLATION.keys())[airco.WindDirectionUD]
+        )
         self._attr_hvac_mode = list(HVAC_TRANSLATION.keys())[airco.OperationMode]
 
         if airco.Operation is False:

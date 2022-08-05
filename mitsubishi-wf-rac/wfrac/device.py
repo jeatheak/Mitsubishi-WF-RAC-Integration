@@ -83,9 +83,9 @@ class Device:
         if airco.WindDirectionLR == 0 and airco.WindDirectionUD == 0:
             return SWING_BOTH
         if airco.WindDirectionLR == 0 and airco.WindDirectionUD != 0:
-            return SWING_VERTICAL
-        if airco.WindDirectionLR != 0 and airco.WindDirectionUD == 0:
             return SWING_HORIZONTAL
+        if airco.WindDirectionLR != 0 and airco.WindDirectionUD == 0:
+            return SWING_VERTICAL
 
         return SWING_OFF
 

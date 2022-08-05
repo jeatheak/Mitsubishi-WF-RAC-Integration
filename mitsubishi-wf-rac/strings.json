@@ -19,7 +19,9 @@
       }
     },
     "error": {
-      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]"
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "name_invalid": "[%key:common::config_flow::error::name_invalid%]",
+      "host_already_configured": "[%key:common::config_flow::error::host_already_configured%]"
     },
     "abort": {
       "existing_instance_updated": "Updated existing configuration.",
