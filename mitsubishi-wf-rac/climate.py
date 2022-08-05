@@ -60,12 +60,10 @@ class AircoClimate(ClimateEntity):
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set new target temperature."""
-        _LOGGER.info("Set preset temp to: %s", kwargs.get(ATTR_TEMPERATURE))
         await self._device.set_airco(
             {AirconCommands.PresetTemp: kwargs.get(ATTR_TEMPERATURE)}
         )
         self._update_state()
-        _LOGGER.info("Got temp: %s", self._device.airco.PresetTemp)
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new target fan mode."""
