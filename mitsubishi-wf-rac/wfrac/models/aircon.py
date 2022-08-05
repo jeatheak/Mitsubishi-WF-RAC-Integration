@@ -12,9 +12,9 @@ class AirconCommands(StrEnum):
     WindDirectionUD = "WindDirectionUD"
     WindDirectionLR = "WindDirectionLR"
     PresetTemp = "PresetTemp"
+    Entrust = "Entrust"
     # CoolHotJudge = ''
 
-    # Entrust = 'Entrust'
     # Vacant = ''
     # ModelNr = ''
     # IsSelfCleanOperation = ''

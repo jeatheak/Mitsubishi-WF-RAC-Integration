@@ -4,11 +4,19 @@ from typing import Any
 import logging
 
 from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.components.climate.const import (
+    SWING_OFF,
+    SWING_HORIZONTAL,
+    SWING_VERTICAL,
+    SWING_BOTH,
+)
 from homeassistant.util import Throttle
 
 from .rac_parser import RacParser
 from .repository import Repository
 from .models.aircon import Aircon, AirconStat, AirconCommands
+
+from ..const import SWING_3D_AUTO
 
 _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
@@ -40,6 +48,9 @@ class Device:
         self._available = True
         self._name = name
 
+        self.prev_swing_lr: int = None
+        self.prev_swing_ud: int = None
+
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def update(self):
         """Update the device information from API"""
@@ -55,6 +66,33 @@ class Device:
 
         self._airco = self._parser.translate_bytes(_raw_response)
 
+        if self.prev_swing_lr is None or self.prev_swing_ud is None:
+            self.prev_swing_lr = (
+                3 if self._airco.WindDirectionLR == 0 else self._airco.WindDirectionLR
+            )
+            self.prev_swing_ud = (
+                3 if self._airco.WindDirectionUD == 0 else self._airco.WindDirectionUD
+            )
+
+    def get_swing_mode(self) -> str:
+        """Get the Swing modes based on the Wind Direction setting"""
+        airco = self._airco
+
+        _LOGGER.info(
+            "%s, %s, %s", airco.Entrust, airco.WindDirectionLR, airco.WindDirectionUD
+        )
+
+        if airco.Entrust:
+            return SWING_3D_AUTO
+        if airco.WindDirectionLR == 0 and airco.WindDirectionUD == 0:
+            return SWING_BOTH
+        if airco.WindDirectionLR == 0 and airco.WindDirectionUD != 0:
+            return SWING_VERTICAL
+        if airco.WindDirectionLR != 0 and airco.WindDirectionUD == 0:
+            return SWING_HORIZONTAL
+
+        return SWING_OFF
+
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
 
@@ -66,7 +104,7 @@ class Device:
         except Exception as ex:
             _LOGGER.debug("Could not delete account from airco %s", ex)
 
-    async def set_airco(self, param: AirconCommands, value: Any) -> None:
+    async def set_airco(self, params: dict[AirconCommands, Any]) -> None:
         """Private method to send airco command"""
 
         if self.airco is None:
@@ -75,7 +113,8 @@ class Device:
         _airco_stat = AirconStat(self._airco)
 
         try:
-            setattr(_airco_stat, param, value)
+            for command in params:
+                setattr(_airco_stat, command, params[command])
         except Exception:
             _LOGGER.warning("Could not find command [%s] in Airco Object!")
             return

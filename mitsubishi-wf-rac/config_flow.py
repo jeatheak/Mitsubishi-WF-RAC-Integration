@@ -86,7 +86,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if CONF_OPERATOR_ID in entry.data:
                 return entry.data[CONF_OPERATOR_ID]
 
-        return str(uuid4())
+        return f"hassio-{str(uuid4())[7:]}"
 
     async def _async_fetch_device_id(self):
         """Fetch unique device id if exists otherwise create it"""
@@ -94,7 +94,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if CONF_DEVICE_ID in entry.data:
                 return entry.data[CONF_DEVICE_ID]
 
-        return uuid4().hex
+        return f"homeassistant-device-{uuid4().hex[21:]}"
 
     async def async_step_discovery_confirm(self, user_input=None):
         """Handle the initial step."""
