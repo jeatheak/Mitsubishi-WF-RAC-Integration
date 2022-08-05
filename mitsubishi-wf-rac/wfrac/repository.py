@@ -41,7 +41,7 @@ class Repository:
             "contents": {
                 "accountId": self._operator_id,
                 "airconId": airco_id,
-                "remote": 1, 
+                "remote": 1,
                 "timezone": "Europe/Amsterdam",  # TODO: change to auto generate
             },
             "timestamp": round(time.time()),
@@ -63,9 +63,7 @@ class Repository:
 
         return post(url, json=myobj).json()
 
-    def get_aircon_stats(
-        self,
-    ) -> str:
+    def get_aircon_stats(self, raw=False) -> str:
         """Get the Aricon Stats from the Airco"""
         url = f"http://{self._hostname}:{self._port}/beaver/command/getAirconStat"
         myobj = {
@@ -75,6 +73,9 @@ class Repository:
             "operatorId": self._operator_id,  # is generated UUID
             "timestamp": round(time.time()),
         }
+
+        if raw is True:
+            return post(url, json=myobj).json()
 
         return post(url, json=myobj).json()["contents"]["airconStat"]
 
@@ -90,4 +91,5 @@ class Repository:
             "timestamp": round(time.time()),
         }
 
+        # return post(url, json=myobj).json()
         return post(url, json=myobj).json()["contents"]["airconStat"]

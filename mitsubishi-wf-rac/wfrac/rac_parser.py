@@ -236,9 +236,15 @@ class RacParser:
         # get operation mode: check if 3th byte and byte 60 matches 8,16,12 or 4 (add 1)
         ac_device.OperationMode = find_match(60 & content[2], 8, 16, 12, 4) + 1
         ac_device.AirFlow = find_match(15 & content[3], 7, 0, 1, 2, 6)
-        ac_device.WindDirectionUD = find_match(240 & content[3], 0, 16, 31, 48) + 1
+        ac_device.WindDirectionUD = (
+            0
+            if content[2] & 192 == 64
+            else find_match(240 & content[3], 0, 16, 32, 48) + 1
+        )
         ac_device.WindDirectionLR = (
-            find_match(31 & content[11], 0, 1, 2, 3, 4, 5, 6) + 1
+            0
+            if content[12] & 3 == 1
+            else find_match(31 & content[11], 0, 1, 2, 3, 4, 5, 6) + 1
         )
         ac_device.Entrust = 4 == (12 & content[12])
         ac_device.CoolHotJudge = (content[8] & 8) <= 0

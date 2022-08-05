@@ -39,25 +39,24 @@ class TemperatureSensor(SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, api: Device, name: str, custom_type: str) -> None:
+    def __init__(self, device: Device, name: str, custom_type: str) -> None:
         """Initialize the sensor."""
-        self._api = api
+        self._device = device
         self._custom_type = custom_type
-        self._attr_name = f"{api.name} {name}"
-        self._attr_unique_id = f"wf_rac-{self._api.airco_id}-{self._custom_type}"
+        self._attr_name = f"{device.name} {name}"
+        self._attr_unique_id = (
+            f"{DOMAIN}-{self._device.airco_id}-{self._custom_type}-sensor"
+        )
+        self._update_state()
 
-    @property
-    def state(self):
-        """Return the state of the sensor."""
-        # _LOGGER.info("Update: %s [%s]", self._api.airco_id, self._custom_type)
+    def _update_state(self) -> None:
         if self._custom_type == ATTR_INSIDE_TEMPERATURE:
-            return self._api.airco.IndoorTemp
-        if self._custom_type == ATTR_OUTSIDE_TEMPERATURE:
-            return self._api.airco.OutdoorTemp
-
-        return None
+            self._attr_native_value = self._device.airco.IndoorTemp
+        elif self._custom_type == ATTR_OUTSIDE_TEMPERATURE:
+            self._attr_native_value = self._device.airco.OutdoorTemp
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
         """Retrieve latest state."""
-        await self._api.update()
+        await self._device.update()
+        self._update_state()
