@@ -44,6 +44,7 @@ class TemperatureSensor(SensorEntity):
         self._device = device
         self._custom_type = custom_type
         self._attr_name = f"{device.name} {name}"
+        self._attr_device_info = device.device_info
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-{self._custom_type}-sensor"
         )

@@ -1,5 +1,6 @@
 """Device module"""
 from datetime import timedelta
+from multiprocessing import connection
 from typing import Any
 import logging
 
@@ -10,13 +11,14 @@ from homeassistant.components.climate.const import (
     SWING_VERTICAL,
     SWING_BOTH,
 )
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.util import Throttle
 
 from .rac_parser import RacParser
 from .repository import Repository
 from .models.aircon import Aircon, AirconStat, AirconCommands
 
-from ..const import SWING_3D_AUTO
+from ..const import DOMAIN, SWING_3D_AUTO
 
 _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
@@ -126,6 +128,17 @@ class Device:
             _LOGGER.debug("Could not send airco data %s", ex)
 
         self._airco = self._parser.translate_bytes(_raw_response)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return a device description for device registry."""
+        return {
+            "sw_version": f"{self.operator_id}",
+            "identifiers": {(DOMAIN, self.airco_id)},
+            "manufacturer": "Mitsubishi (WF-RAC)",
+            "model": self.airco.ModelNr,
+            "name": self.name,
+        }
 
     @property
     def operator_id(self) -> str:

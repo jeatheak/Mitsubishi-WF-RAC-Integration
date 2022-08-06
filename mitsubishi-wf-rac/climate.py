@@ -55,6 +55,7 @@ class AircoClimate(ClimateEntity):
     def __init__(self, device: Device) -> None:
         self._device = device
         self._attr_name = device.name
+        self._attr_device_info = device.device_info
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-climate"
         self._update_state()
 

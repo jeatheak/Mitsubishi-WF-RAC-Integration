@@ -11,10 +11,11 @@ List of things it needs implemented
 - [x] add manual config flow
 - [x] add sensor entities
 - [x] add climate entity
-- [ ] add airco as device instead of seperate entities
+- [x] add airco as device
 - [x] add zeroconf discovery
 - [x] add updateAccount info to config flow
 - [ ] add to HACS
 
 # support
+
 <a href="https://www.buymeacoffee.com/jeatheak" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
