@@ -1,5 +1,25 @@
 """Aircon Base"""
 
+from aenum import StrEnum
+
+
+class AirconCommands(StrEnum):
+    """Enum of all the supported airco commands"""
+
+    Operation = "Operation"
+    OperationMode = "OperationMode"
+    AirFlow = "AirFlow"
+    WindDirectionUD = "WindDirectionUD"
+    WindDirectionLR = "WindDirectionLR"
+    PresetTemp = "PresetTemp"
+    Entrust = "Entrust"
+    # CoolHotJudge = ''
+
+    # Vacant = ''
+    # ModelNr = ''
+    # IsSelfCleanOperation = ''
+    # IsSelfCleanReset = ''
+
 
 class AirconBase:
     """Base class of the aircon class"""

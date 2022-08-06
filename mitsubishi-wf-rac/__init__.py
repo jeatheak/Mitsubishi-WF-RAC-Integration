@@ -20,6 +20,8 @@ from .wfrac.device import Device
 
 _LOGGER = logging.getLogger(__name__)
 
+COMPONENT_TYPES = ["sensor", "climate"]
+
 
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
@@ -41,9 +43,10 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
     except Exception as ex:
         _LOGGER.warning("Something whent wrong setting up device [%s] %s", device, ex)
 
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
+    for component in COMPONENT_TYPES:
+        hass.async_create_task(
+            hass.config_entries.async_forward_entry_setup(entry, component)
+        )
 
     return True
 
