@@ -77,6 +77,8 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         if not result:
             raise CannotConnect
+        if int(result["result"]) == 2:
+            raise ToManyDevicesRegistered
 
         return {"title": data[CONF_NAME]}
 
@@ -115,6 +117,13 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_BASE] = "cannot_connect"
             except InvalidHost:
                 errors[CONF_HOST] = "cannot_connect"
+<<<<<<< Updated upstream
+=======
+            except HostAlreadyConfigured:
+                errors[CONF_HOST] = "host_already_configured"
+            except ToManyDevicesRegistered:
+                errors[CONF_HOST] = "to_many_devices_registered"
+>>>>>>> Stashed changes
             except InvalidName:
                 errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
@@ -190,6 +199,13 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_BASE] = "cannot_connect"
             except InvalidHost:
                 errors[CONF_HOST] = "cannot_connect"
+<<<<<<< Updated upstream
+=======
+            except HostAlreadyConfigured:
+                errors[CONF_HOST] = "host_already_configured"
+            except ToManyDevicesRegistered:
+                errors[CONF_HOST] = "to_many_devices_registered"
+>>>>>>> Stashed changes
             except InvalidName:
                 errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
@@ -216,3 +232,7 @@ class InvalidHost(exceptions.HomeAssistantError):
 
 class InvalidName(exceptions.HomeAssistantError):
     """Error to indicate there is an invalid hostname."""
+
+
+class ToManyDevicesRegistered(exceptions.HomeAssistantError):
+    """Error to indicated that there are to many devices registered"""

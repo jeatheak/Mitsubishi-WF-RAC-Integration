@@ -1,7 +1,14 @@
 {
   "config": {
     "error": {
+<<<<<<< Updated upstream
       "cannot_connect": "Could not connect with the Arico"
+=======
+      "cannot_connect": "Could not connect with the Arico",
+      "name_invalid": "Name is already taken or is shorter than 3 characters",
+      "host_already_configured": "Airco IP already configured",
+      "to_many_devices_registered": "There are to many devices registered for this airco. Please delete a device (in the app) or do a factory reset of the module."
+>>>>>>> Stashed changes
     },
     "abort": {
       "existing_instance_updated": "Updated existing configuration.",
