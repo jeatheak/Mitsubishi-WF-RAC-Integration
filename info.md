@@ -2,7 +2,7 @@
 
 This is a Homeassistant integration for implementing the WF-RAC Airco modules into Homeassistant
 
-`!! Note: This is an experimental integration that is reversed engineert. Therefore there can by unwanted results !!`
+`❗ Note: This is an experimental integration that is reversed engineert. Therefore there can by unwanted results ❗`
 
 # Todo 📃
 
@@ -14,7 +14,9 @@ List of things it needs implemented
 - [x] add airco as device
 - [x] add zeroconf discovery
 - [x] add updateAccount info to config flow
-- [ ] add to HACS
+- [x] add to HACS
+- [ ] add energy sensor
+- [ ] add min/max temperature settings
 
 # support
 
