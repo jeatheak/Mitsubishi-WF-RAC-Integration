@@ -8,7 +8,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import TEMP_CELSIUS
+from homeassistant.const import TEMP_CELSIUS, ENERGY_KILO_WATT_HOUR
 from homeassistant.util import Throttle
 
 from .wfrac.device import Device
@@ -29,6 +29,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
             entities.append(
                 TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE)
             )
+            if not device.airco.Electric is None:
+                entities.append(EnergySensor(device))
+
             async_add_entities(entities)
 
 
@@ -60,4 +63,27 @@ class TemperatureSensor(SensorEntity):
     async def async_update(self):
         """Retrieve latest state."""
         await self._device.update()
+        self._update_state()
+
+
+class EnergySensor(SensorEntity):
+    """Representation of a Sensor."""
+
+    _attr_native_unit_of_measurement: str | None = ENERGY_KILO_WATT_HOUR
+    _attr_device_class: SensorDeviceClass | str | None = SensorDeviceClass.ENERGY
+    _attr_state_class: SensorStateClass | str | None = SensorStateClass.MEASUREMENT
+
+    def __init__(self, device: Device) -> None:
+        """Initialize the sensor."""
+        self._device = device
+        self._attr_name = f"{device.name} energy"
+        self._attr_device_info = device.device_info
+        self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-energy-sensor"
+        self._update_state()
+
+    def _update_state(self) -> None:
+        self._attr_native_value = self._device.airco.Electric
+
+    async def async_update(self):
+        """Retrieve latest state."""
         self._update_state()
