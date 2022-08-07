@@ -16,7 +16,7 @@ List of things it needs implemented
 - [x] add updateAccount info to config flow
 - [x] add to HACS
 - [ ] add energy sensor
-- [ ] add min/max temperature settings
+- [x] add min/max temperature settings
 
 # support
 
