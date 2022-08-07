@@ -51,6 +51,8 @@ class AircoClimate(ClimateEntity):
     _attr_fan_mode: str = FAN_AUTO
     _attr_swing_mode: str | None = SWING_OFF
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
+    _attr_min_temp: float = 16
+    _attr_max_temp: float = 30
 
     def __init__(self, device: Device) -> None:
         self._device = device
