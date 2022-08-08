@@ -212,8 +212,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_HOST] = "cannot_connect"
             except HostAlreadyConfigured as argument:
                 arguments = argument
-                _LOGGER.warning(arguments.device[CONF_NAME])
-                _LOGGER.warning(arguments.device[CONF_HOST])
                 errors[CONF_HOST] = "host_already_configured"
             except ToManyDevicesRegistered:
                 errors[CONF_BASE] = "to_many_devices_registered"
