@@ -1,16 +1,7 @@
-"""The WF-RAC sensor integration."""
+"""The WF-RAC sensor integration."""  # pylint: disable=invalid-name
 import logging
 
-import asyncio
-from typing import Dict
-
-import voluptuous as vol
-
-from homeassistant.components.zeroconf import async_get_instance
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.exceptions import ConfigEntryNotReady
-import homeassistant.helpers.config_validation as cv
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import HomeAssistantType
 
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_DEVICE_ID
@@ -40,7 +31,7 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
         api = Device(hass, name, device, port, device_id, operator_id, airco_id)
         await api.update()  # initial update to get fresh values
         hass.data[DOMAIN].append(api)
-    except Exception as ex:
+    except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.warning("Something whent wrong setting up device [%s] %s", device, ex)
 
     for component in COMPONENT_TYPES:
@@ -51,12 +42,8 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
     return True
 
 
-async def async_unload_entry(hass, entry: ConfigEntry):
-    """Unload a config entry."""
-    await asyncio.wait(
-        [hass.config_entries.async_forward_entry_unload(entry, "sensor")]
-    )
-
+async def async_remove_entry(hass, entry: ConfigEntry) -> None:
+    """Handle removal of an entry."""
     for device in hass.data[DOMAIN]:
         temp_device: Device = device
         if temp_device.host == entry.data[CONF_HOST]:
@@ -68,15 +55,9 @@ async def async_unload_entry(hass, entry: ConfigEntry):
                     temp_device.airco_id,
                 )
                 hass.data[DOMAIN].remove(temp_device)
-            except Exception as ex:
+            except Exception as ex:  # pylint: disable=broad-except
                 _LOGGER.warning(
                     "Something whent wrong deleting account from airco [%s] %s",
                     temp_device.name,
                     ex,
                 )
-
-    if DOMAIN in hass.data:
-        if len(hass.data[DOMAIN]) <= 0:
-            hass.data.pop(DOMAIN)
-
-    return True
