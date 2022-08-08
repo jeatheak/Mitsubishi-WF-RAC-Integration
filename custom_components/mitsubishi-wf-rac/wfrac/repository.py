@@ -77,7 +77,7 @@ class Repository:
         if raw is True:
             return post(url, json=myobj).json()
 
-        return post(url, json=myobj).json()["contents"]["airconStat"]
+        return post(url, json=myobj).json()["contents"]
 
     def send_airco_command(self, airco_id: str, command: str) -> str:
         """send command to the Airco"""

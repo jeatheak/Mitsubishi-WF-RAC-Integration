@@ -42,6 +42,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self._airco_id = airco_id
         self._available = True
         self._name = name
+        self._firmware = ""
+        self._connected_accounts = -1
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def update(self):
@@ -64,7 +66,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
             )
             return
 
-        self._airco = self._parser.translate_bytes(_raw_response)
+        self._connected_accounts = _raw_response["numOfAccount"]
+        self._firmware = f'{_raw_response["firmType"]}, mcu: {_raw_response["mcu"]["firmVer"]}, wireless: {_raw_response["wireless"]["firmVer"]}'
+        self._airco = self._parser.translate_bytes(_raw_response["airconStat"])
 
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
@@ -76,6 +80,21 @@ class Device:  # pylint: disable=too-many-instance-attributes
             )
         except Exception as ex:  # pylint: disable=broad-except
             _LOGGER.debug("Could not delete account from airco %s", ex)
+            return
+
+        return _raw_response
+
+    async def add_account(self):
+        """Add account (operator id) from the airco"""
+
+        try:
+            _raw_response = await self._hass.async_add_executor_job(
+                self._api.update_account_info,
+                self._airco_id,
+                self._hass.config.time_zone,
+            )
+        except Exception as ex:  # pylint: disable=broad-except
+            _LOGGER.debug("Could not add account from airco %s", ex)
             return
 
         return _raw_response
@@ -111,10 +130,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
     def device_info(self) -> DeviceInfo:
         """Return a device description for device registry."""
         return {
-            "sw_version": f"{self.operator_id}",
+            "sw_version": self._firmware,
             "identifiers": {(DOMAIN, self.airco_id)},
             "manufacturer": "Mitsubishi (WF-RAC)",
-            "model": self.airco.ModelNr,
+            # "model": self.airco.ModelNr,
             "name": self.name,
         }
 
@@ -122,6 +141,11 @@ class Device:  # pylint: disable=too-many-instance-attributes
     def operator_id(self) -> str:
         """Return Airco Operator ID"""
         return self._operator_id
+
+    @property
+    def num_accounts(self) -> str:
+        """Return Accounts connected"""
+        return self._connected_accounts
 
     @property
     def device_id(self) -> str:

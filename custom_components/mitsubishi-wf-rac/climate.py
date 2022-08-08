@@ -20,12 +20,12 @@ from .const import (
     FAN_MODE_TRANSLATION,
     HVAC_TRANSLATION,
     SUPPORT_FLAGS,
+    SWING_VERTICAL_AUTO,
     SUPPORT_SWING_MODES,
     SUPPORTED_FAN_MODES,
     SUPPORTED_HVAC_MODES,
     SWING_3D_AUTO,
     SWING_MODE_TRANSLATION,
-    SWING_OFF,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class AircoClimate(ClimateEntity):
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
     _attr_hvac_mode: HVACMode = HVACMode.OFF
     _attr_fan_mode: str = FAN_AUTO
-    _attr_swing_mode: str | None = SWING_OFF
+    _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
     _attr_min_temp: float = 16
     _attr_max_temp: float = 30
