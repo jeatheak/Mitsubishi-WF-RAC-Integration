@@ -268,6 +268,8 @@ class RacParser:
             ac_device.OutdoorTemp = outdoorTempList[256 + value_segment[6]]
         if len(value_segment) >= 11:
             ac_device.Electric = ((value_segment[11] << 8) + value_segment[10]) * 0.25
+        else:
+            ac_device.Electric = None
 
         return ac_device
 

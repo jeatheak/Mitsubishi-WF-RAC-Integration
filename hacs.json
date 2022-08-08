@@ -1,3 +1,5 @@
 {
-  "name": "Smart M-Air (Mitsubishi WF-RAC)"
+  "name": "Smart M-Air (Mitsubishi WF-RAC)",
+  "homeassistant": "2022.5",
+  "render_readme": true
 }

@@ -53,13 +53,18 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         for entry in self._async_current_entries():
             already_configured = False
+            _device = None
 
             if CONF_HOST in entry.data and entry.data[CONF_HOST] in (data[CONF_HOST]):
                 # Is this address or IP address already configured?
                 already_configured = True
+                _device = entry.data
 
             if already_configured:
-                raise HostAlreadyConfigured
+                raise HostAlreadyConfigured(
+                    f"Already configured {CONF_HOST}",
+                    device=_device,
+                )
 
         repository = Repository(
             data[CONF_HOST],
@@ -79,7 +84,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data[CONF_AIRCO_ID],
         )
         result = await hass.async_add_executor_job(
-            repository.update_account_info, airco_id
+            repository.update_account_info, airco_id, hass.config.time_zone
         )
         if not result:
             raise CannotConnect
@@ -126,7 +131,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except HostAlreadyConfigured:
                 errors[CONF_HOST] = "host_already_configured"
             except ToManyDevicesRegistered:
-                errors[CONF_HOST] = "to_many_devices_registered"
+                errors[CONF_BASE] = "to_many_devices_registered"
             except InvalidName:
                 errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
@@ -185,6 +190,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
 
         errors = {}
+        arguments = None
         if user_input is not None:
             try:
 
@@ -194,7 +200,9 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await self._async_validate_input(self.hass, user_input)
 
                 _LOGGER.warning(
-                    f"Got {user_input[CONF_OPERATOR_ID]} and {user_input[CONF_DEVICE_ID]}"
+                    "Got %s and %s",
+                    user_input[CONF_OPERATOR_ID],
+                    user_input[CONF_DEVICE_ID],
                 )
 
                 return self.async_create_entry(title=info["title"], data=user_input)
@@ -202,10 +210,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_BASE] = "cannot_connect"
             except InvalidHost:
                 errors[CONF_HOST] = "cannot_connect"
-            except HostAlreadyConfigured:
+            except HostAlreadyConfigured as argument:
+                arguments = argument
                 errors[CONF_HOST] = "host_already_configured"
             except ToManyDevicesRegistered:
-                errors[CONF_HOST] = "to_many_devices_registered"
+                errors[CONF_BASE] = "to_many_devices_registered"
             except InvalidName:
                 errors[CONF_NAME] = "name_invalid"
             except Exception:  # pylint: disable=broad-except
@@ -214,7 +223,15 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors
+            step_id="user",
+            data_schema=DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "error_name": arguments.device[CONF_NAME]
+                if not arguments is None
+                else "",
+                # "ip": user_input[CONF_HOST],
+            },
         )
 
     @property
@@ -232,6 +249,10 @@ class InvalidHost(exceptions.HomeAssistantError):
 
 class HostAlreadyConfigured(exceptions.HomeAssistantError):
     """Error to indicate there is an duplicate hostname."""
+
+    def __init__(self, *args: object, device) -> None:
+        super().__init__(*args)
+        self.device = device
 
 
 class InvalidName(exceptions.HomeAssistantError):

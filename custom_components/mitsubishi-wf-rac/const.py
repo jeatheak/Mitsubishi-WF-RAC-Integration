@@ -6,15 +6,10 @@ from homeassistant.components.climate.const import (
     HVAC_MODE_HEAT,
     HVAC_MODE_DRY,
     HVAC_MODE_FAN_ONLY,
-    HVAC_MODE_OFF,
     HVAC_MODE_AUTO,
     ClimateEntityFeature,
     HVACMode,
     FAN_AUTO,
-    SWING_BOTH,
-    SWING_HORIZONTAL,
-    SWING_OFF,
-    SWING_VERTICAL,
 )
 
 DOMAIN = "mitsubishi-wf-rac"
@@ -22,6 +17,8 @@ DEVICES = "wf-rac-devices"
 
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"
+ATTR_DEVICE_ID = "device_id"
+ATTR_CONNECTED_ACCOUNTS = "connected_accounts"
 
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"
 ATTR_OUTSIDE_TEMPERATURE = "outside_temperature"
