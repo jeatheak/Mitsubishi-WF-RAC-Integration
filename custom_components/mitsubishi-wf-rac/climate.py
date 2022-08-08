@@ -36,7 +36,7 @@ async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities):
     """Setup climate entities"""
     for device in hass.data[DOMAIN]:
         if device.host == entry.data[CONF_HOST]:
-            _LOGGER.info("Setup switch for: %s, %s", device.name, device.airco_id)
+            _LOGGER.info("Setup climate for: %s, %s", device.name, device.airco_id)
             async_add_entities([AircoClimate(device)])
 
 

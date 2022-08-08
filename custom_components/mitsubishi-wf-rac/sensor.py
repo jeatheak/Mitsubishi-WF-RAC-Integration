@@ -62,7 +62,6 @@ class TemperatureSensor(SensorEntity):
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
         """Retrieve latest state."""
-        await self._device.update()
         self._update_state()
 
 
@@ -71,12 +70,12 @@ class EnergySensor(SensorEntity):
 
     _attr_native_unit_of_measurement: str | None = ENERGY_KILO_WATT_HOUR
     _attr_device_class: SensorDeviceClass | str | None = SensorDeviceClass.ENERGY
-    _attr_state_class: SensorStateClass | str | None = SensorStateClass.MEASUREMENT
+    _attr_state_class: SensorStateClass | str | None = SensorStateClass.TOTAL_INCREASING
 
     def __init__(self, device: Device) -> None:
         """Initialize the sensor."""
         self._device = device
-        self._attr_name = f"{device.name} energy"
+        self._attr_name = f"{device.name} energy usage cycle"
         self._attr_device_info = device.device_info
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-energy-sensor"
         self._update_state()
