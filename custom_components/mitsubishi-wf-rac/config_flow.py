@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import voluptuous as vol
 
+import homeassistant.helpers.config_validation as cv
 from homeassistant.components import zeroconf
 from homeassistant import config_entries, exceptions
 from homeassistant.const import (
@@ -15,6 +16,7 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_BASE,
     CONF_DEVICE_ID,
+    CONF_FORCE_UPDATE,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
@@ -26,9 +28,12 @@ _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_NAME, description={"suggested_value": "Airco unknown"}): str,
-        vol.Required(CONF_HOST): str,
-        vol.Optional(CONF_PORT, default=51443): int,
+        vol.Required(
+            CONF_NAME, description={"suggested_value": "Airco unknown"}
+        ): cv.string,
+        vol.Required(CONF_HOST): cv.string,
+        vol.Optional(CONF_PORT, default=51443): cv.port,
+        vol.Optional(CONF_FORCE_UPDATE, default=False): cv.boolean,
     }
 )
 
@@ -55,7 +60,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             already_configured = False
             _device = None
 
-            if CONF_HOST in entry.data and entry.data[CONF_HOST] in (data[CONF_HOST]):
+            if (
+                not data[CONF_FORCE_UPDATE]
+                and CONF_HOST in entry.data
+                and entry.data[CONF_HOST] in (data[CONF_HOST])
+            ):
                 # Is this address or IP address already configured?
                 already_configured = True
                 _device = entry.data

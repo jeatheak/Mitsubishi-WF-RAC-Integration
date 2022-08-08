@@ -15,7 +15,8 @@
         "data": {
           "name": "Airco Name",
           "host": "Host (IP) address",
-          "port": "Port"
+          "port": "Port",
+          "force_update": "Ignore Duplicate IP (can/will cause Errors so check error log)"
         },
         "description": "Please fill in the correct information to add the Airco Manually",
         "title": "WF-RAC AC connection info"
