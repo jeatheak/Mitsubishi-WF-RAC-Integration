@@ -30,7 +30,7 @@ class Repository:
 
         return post(url, json=myobj).json()["contents"]["airconId"]
 
-    def update_account_info(self, airco_id: str) -> str:
+    def update_account_info(self, airco_id: str, time_zone: str) -> str:
         """Update the account info on the airco (sets to operator id of the device)"""
         url = f"http://{self._hostname}:{self._port}/beaver/command/updateAccountInfo"
         myobj = {
@@ -41,8 +41,8 @@ class Repository:
             "contents": {
                 "accountId": self._operator_id,
                 "airconId": airco_id,
-                "remote": 1,
-                "timezone": "Europe/Amsterdam",  # TODO: change to auto generate
+                "remote": 0,
+                "timezone": time_zone,
             },
             "timestamp": round(time.time()),
         }
