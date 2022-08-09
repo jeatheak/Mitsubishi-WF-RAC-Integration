@@ -61,7 +61,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _device = None
 
             if (
-                not data[CONF_FORCE_UPDATE]
+                not data.get(CONF_FORCE_UPDATE)
                 and CONF_HOST in entry.data
                 and entry.data[CONF_HOST] in (data[CONF_HOST])
             ):
