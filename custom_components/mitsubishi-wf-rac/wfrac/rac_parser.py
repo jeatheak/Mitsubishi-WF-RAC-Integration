@@ -259,17 +259,20 @@ class RacParser:
             else "E" + code
         )
 
-        value_segment = content_byte_array[
-            start_length + 19 : len(content_byte_array) - 2
-        ]
+        vals = content_byte_array[start_length + 19 : len(content_byte_array) - 2]
+        pos = 0
 
-        if len(value_segment) >= 8:
-            ac_device.IndoorTemp = indoorTempList[256 + value_segment[2]]
-            ac_device.OutdoorTemp = outdoorTempList[256 + value_segment[6]]
-        if len(value_segment) >= 11:
-            ac_device.Electric = ((value_segment[11] << 8) + value_segment[10]) * 0.25
-        else:
-            ac_device.Electric = None
+        while pos < (len(vals) / 4):
+            _n = pos * 4
+            if (256 + vals[_n]) == 128 and vals[_n + 1] == 16:
+                ac_device.OutdoorTemp = outdoorTempList[256 + vals[_n + 2]]
+            if (256 + vals[_n]) == 128 and vals[_n + 1] == 32:
+                ac_device.IndoorTemp = indoorTempList[256 + vals[_n + 2]]
+            if (256 + vals[_n]) == 148 and vals[_n + 1] == 16:
+                ac_device.Electric = (
+                    ((vals[_n + 3] & -1) << 8) + (vals[_n + 2] & -1)
+                ) * 0.25
+            pos += 1
 
         return ac_device
 
