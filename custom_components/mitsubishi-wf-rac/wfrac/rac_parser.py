@@ -260,6 +260,7 @@ class RacParser:
         )
 
         vals = content_byte_array[start_length + 19 : len(content_byte_array) - 2]
+        ac_device.Electric = None
         for i in range(0, len(vals), 4):
             if vals[i] == -128 and vals[i + 1] == 16:
                 ac_device.IndoorTemp = outdoorTempList[vals[i + 2] & 0xFF]
