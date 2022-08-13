@@ -260,19 +260,13 @@ class RacParser:
         )
 
         vals = content_byte_array[start_length + 19 : len(content_byte_array) - 2]
-        pos = 0
-
-        while pos < (len(vals) / 4):
-            _n = pos * 4
-            if (256 + vals[_n]) == 128 and vals[_n + 1] == 16:
-                ac_device.OutdoorTemp = outdoorTempList[256 + vals[_n + 2]]
-            if (256 + vals[_n]) == 128 and vals[_n + 1] == 32:
-                ac_device.IndoorTemp = indoorTempList[256 + vals[_n + 2]]
-            if (256 + vals[_n]) == 148 and vals[_n + 1] == 16:
-                ac_device.Electric = (
-                    ((vals[_n + 3] & -1) << 8) + (vals[_n + 2] & -1)
-                ) * 0.25
-            pos += 1
+        for i in range(0, len(vals), 4):
+            if vals[i] == -128 and vals[i + 1] == 16:
+                ac_device.IndoorTemp = outdoorTempList[vals[i + 2] & 0xFF]
+            if vals[i] == -128 and vals[i + 1] == 32:
+                ac_device.OutdoorTemp = indoorTempList[vals[i + 2] & 0xFF]
+            if vals[i] == -108 and vals[i + 1] == 16:
+                ac_device.Electric = ((vals[i + 3] << 8) + vals[i + 2]) * 0.25
 
         return ac_device
 
