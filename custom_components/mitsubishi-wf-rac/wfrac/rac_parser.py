@@ -263,9 +263,9 @@ class RacParser:
         ac_device.Electric = None
         for i in range(0, len(vals), 4):
             if vals[i] == -128 and vals[i + 1] == 16:
-                ac_device.IndoorTemp = outdoorTempList[vals[i + 2] & 0xFF]
+                ac_device.OutdoorTemp = outdoorTempList[vals[i + 2] & 0xFF]
             if vals[i] == -128 and vals[i + 1] == 32:
-                ac_device.OutdoorTemp = indoorTempList[vals[i + 2] & 0xFF]
+                ac_device.IndoorTemp = indoorTempList[vals[i + 2] & 0xFF]
             if vals[i] == -108 and vals[i + 1] == 16:
                 ac_device.Electric = ((vals[i + 3] << 8) + vals[i + 2]) * 0.25
 
