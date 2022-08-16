@@ -7,15 +7,15 @@ This is a Homeassistant integration for implementing the WF-RAC Airco modules in
 
 `❗ Note: This is an experimental integration that is reversed engineert. Therefore there can by unwanted results ❗`
 
-# Todo 📃
+# Todo 📃 and Bug report 🐞
 
-See [Github To Do List](https://github.com/jeatheak/Mitsubishi-WF-RAC-Integration/issues)
+See [Github To Do & Bug List](https://github.com/jeatheak/Mitsubishi-WF-RAC-Integration/issues)
 
-# support
+# Support
 
 <a href="https://www.buymeacoffee.com/jeatheak" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
 
-# installation
+# Installation
 
 Install using [HACS](https://hacs.xyz)
 In HACS go to the three dots int the upper right corner choose add custom repository and add https://github.com/jeatheak/Mitsubishi-WF-RAC-Integration to the list.
