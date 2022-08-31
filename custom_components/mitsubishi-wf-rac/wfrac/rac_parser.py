@@ -267,7 +267,7 @@ class RacParser:
             if vals[i] == -128 and vals[i + 1] == 32:
                 ac_device.IndoorTemp = indoorTempList[vals[i + 2] & 0xFF]
             if vals[i] == -108 and vals[i + 1] == 16:
-                ac_device.Electric = ((vals[i + 3] << 8) + vals[i + 2]) * 0.25
+                ac_device.Electric = int.from_bytes(vals[i + 2: i + 3], "little", signed=False ) * 0.25
 
         return ac_device
 
