@@ -63,7 +63,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if (
                 not data.get(CONF_FORCE_UPDATE)
                 and CONF_HOST in entry.data
-                and entry.data[CONF_HOST] in (data[CONF_HOST])
+                and entry.data[CONF_HOST] == data[CONF_HOST]
             ):
                 # Is this address or IP address already configured?
                 already_configured = True
