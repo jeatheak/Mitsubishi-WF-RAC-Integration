@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 from uuid import uuid4
+from functools import partial
 
 import voluptuous as vol
 
@@ -139,6 +140,15 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=description_placeholders
         )
 
+    @staticmethod
+    def _field(user_input, name, which, default=None):
+        """Helper for creating schema fields"""
+        value = user_input.get(name, default) if user_input else default
+        description = None
+        if value is not None:
+            description = {"suggested_value": value}
+        return which(name, description=description)
+
     async def async_step_discovery_confirm(self, user_input=None):
         """Handle adding device discovered by zeroconf."""
 
@@ -152,17 +162,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             for key in [CONF_HOST, CONF_PORT]:
                 user_input[key] = self._discovery_info[key]
 
+        field = partial(self._field, user_input)
+        data_schema = vol.Schema({
+            field(CONF_NAME, vol.Required, f"Airco {self._discovery_info[CONF_NAME]}") : str,
+        })
+
         return await self._async_create_common(
             step_id="discovery_confirm",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_NAME,
-                        default=(user_input or {}).get(CONF_NAME,
-                                                       f"Airco {self._discovery_info[CONF_NAME]}")
-                    ): str,
-                }
-            ),
+            data_schema=data_schema,
             user_input=user_input,
             description_placeholders=description_placeholders
         )
@@ -170,22 +177,13 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Handle adding device manually."""
 
-        def desc(key, default=None):
-            value = user_input.get(key, default) if user_input else default
-            if value is not None:
-                return {"suggested_value": value}
-            return None
-
-        data_schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_NAME, description=desc(CONF_NAME, "Airco unknown")
-                ): cv.string,
-                vol.Required(CONF_HOST, description=desc(CONF_HOST)): cv.string,
-                vol.Optional(CONF_PORT, description=desc(CONF_PORT, 51443), default=51443): cv.port,
-                vol.Optional(CONF_FORCE_UPDATE, description=desc(CONF_FORCE_UPDATE), default=False): cv.boolean,
-            }
-        )
+        field = partial(self._field, user_input)
+        data_schema = vol.Schema({
+            field(CONF_NAME, vol.Required, "Airco unknown") : cv.string,
+            field(CONF_HOST, vol.Required) : cv.string,
+            field(CONF_PORT, vol.Optional, 51443): cv.port,
+            field(CONF_FORCE_UPDATE, vol.Optional, False): cv.boolean,
+        })
 
         return await self._async_create_common(
             step_id="user",
@@ -276,6 +274,6 @@ class InvalidName(KnownError):
     applies_to_field = CONF_NAME
 
 class ToManyDevicesRegistered(KnownError):
-    """Error to indicated that there are to many devices registered"""
+    """Error to indicate that there are to many devices registered"""
     error_name = "to_many_devices_registered"
     applies_to_field = CONF_BASE
