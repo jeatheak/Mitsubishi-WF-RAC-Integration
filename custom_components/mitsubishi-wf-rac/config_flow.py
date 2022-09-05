@@ -85,7 +85,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not result:
             raise CannotConnect
         if int(result["result"]) == 2:
-            raise ToManyDevicesRegistered
+            raise TooManyDevicesRegistered
 
         return data
 
@@ -225,7 +225,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def _name(self) -> str | None:
         return self.context.get(CONF_NAME)
 
-
 # pylint: disable=too-few-public-methods
 
 class KnownError(exceptions.HomeAssistantError):
@@ -273,7 +272,7 @@ class InvalidName(KnownError):
     error_name = "name_invalid"
     applies_to_field = CONF_NAME
 
-class ToManyDevicesRegistered(KnownError):
-    """Error to indicate that there are to many devices registered"""
-    error_name = "to_many_devices_registered"
+class TooManyDevicesRegistered(KnownError):
+    """Error to indicate that there are too many devices registered"""
+    error_name = "too_many_devices_registered"
     applies_to_field = CONF_BASE

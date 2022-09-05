@@ -5,7 +5,7 @@
       "cannot_connect": "Could not connect with the Airco: {reason}",
       "name_invalid": "Name is already taken or is shorter than 3 characters",
       "host_already_configured": "Airco IP already configured as [{error_name}]",
-      "to_many_devices_registered": "There are to many devices registered for this airco. Please delete a device (in the app) or do a factory reset of the module."
+      "too_many_devices_registered": "There are too many devices registered for this airco. Please delete a device (in the app) or do a factory reset of the module."
     },
     "abort": {
       "existing_instance_updated": "Updated existing configuration.",

@@ -5,7 +5,7 @@
       "cannot_connect": "Kan niet verbinden met de Airco ",
       "name_invalid": "De naam is al in gebruik, of is korter dan 3 tekens. ",
       "host_already_configured": "IP is al geconfigureerd voor [{error_name}]",
-      "to_many_devices_registered": "Er zijn te veel apparaten geregistreerd op deze airco. Verwijder een apparaat of reset de module."
+      "too_many_devices_registered": "Er zijn te veel apparaten geregistreerd op deze airco. Verwijder een apparaat of reset de module."
     },
     "abort": {
       "existing_instance_updated": "Huidige configuratie is geüpdatet.",
