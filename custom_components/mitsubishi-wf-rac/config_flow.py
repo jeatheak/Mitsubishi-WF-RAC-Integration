@@ -35,6 +35,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     DOMAIN = DOMAIN
 
     def _find_entry_matching(self, key, matches):
+        """Returns the first entry where matches(entry.data[key]) returns True"""
         for entry in self._async_current_entries():
             if key in entry.data and matches(entry.data[key]):
                 return entry
@@ -43,7 +44,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _async_register_airco(
         self, hass: HomeAssistant, data: dict
     ) -> dict[str, Any]:
-        """Validate the user input allows us to connect."""
+        """Validate the user input allows us to connect, and register with the airco device"""
         if len(data[CONF_HOST]) < 3:
             raise InvalidHost
 
@@ -230,8 +231,15 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 # pylint: disable=too-few-public-methods
 
 class KnownError(exceptions.HomeAssistantError):
-    """Base class for errors known to this config flow"""
-    error_name = NotImplemented
+    """Base class for errors known to this config flow.
+
+    [error_name] is the value passed to [errors] in async_show_form, which should match a key
+    under "errors" in strings.json
+
+    [applies_to_field] is the name of the field name that contains the error (for
+    async_show_form); if the field doesn't exist in the form CONF_BASE will be used instead.
+    """
+    error_name = "unknown_error"
     applies_to_field = CONF_BASE
 
     def __init__(self, *args: object, **kwargs: dict[str, str]) -> None:
@@ -241,6 +249,9 @@ class KnownError(exceptions.HomeAssistantError):
     def get_errors_and_placeholders(self, schema):
         """Return dicts of errors and description_placeholders, for adding to async_show_form"""
         key = self.applies_to_field
+        # Errors will only be displayed to the user if the key is actually in the form (or
+        # CONF_BASE for a general error), so we'll check the schema (seems weird there
+        # isn't a more efficient way to do this...)
         if key not in {k.schema for k in schema}:
             key = CONF_BASE
         return ({key : self.error_name}, self._extra_info or {})
