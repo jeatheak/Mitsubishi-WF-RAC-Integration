@@ -1,6 +1,7 @@
 {
   "config": {
     "error": {
+      "unexpected_error": "Er is een onverwachte fout opgetreden. Raadpleeg het logboek voor details.",
       "cannot_connect": "Kan niet verbinden met de Airco ",
       "name_invalid": "De naam is al in gebruik, of is korter dan 3 tekens. ",
       "host_already_configured": "IP is al geconfigureerd voor [{error_name}]",

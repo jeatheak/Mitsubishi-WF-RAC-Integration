@@ -20,6 +20,7 @@
       }
     },
     "error": {
+      "unexpected_error": "[%key:common::config_flow::error::unexpected_error%]",
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
       "name_invalid": "[%key:common::config_flow::error::name_invalid%]",
       "host_already_configured": "[%key:common::config_flow::error::host_already_configured%]",
