@@ -4,15 +4,20 @@ from __future__ import annotations
 import time
 import logging
 import threading
-import requests
 
 from typing import Any
+from datetime import datetime, timedelta
+
+import requests
 
 _LOGGER = logging.getLogger(__name__)
 # log http requests/responses to separate logger, to allow easily turning on/off from
 # configuration.yaml
 _HTTP_LOG = _LOGGER.getChild("http")
 
+# ensure that we don't overwhelm the aircon unit by waiting at least
+# this long between successive requests
+_MIN_TIME_BETWEEN_REQUESTS = timedelta(seconds=1)
 
 class Repository:
     """Simple Api class to send and get Aircon information"""
@@ -27,6 +32,7 @@ class Repository:
         self._operator_id = operator_id
         self._device_id = device_id
         self._mutex = threading.Lock()
+        self._next_request_after = datetime.now()
 
     def _post(self,
               command: str,
@@ -44,9 +50,21 @@ class Repository:
 
         # ensure only one thread is talking to the device at a time
         with self._mutex:
-            _HTTP_LOG.debug("POSTing to %s: %r", url, data)
+            wait_for = (self._next_request_after - datetime.now()).total_seconds()
+            if wait_for > 0:
+                _LOGGER.debug("Waiting for %r until we can send a request", wait_for)
+                # TODO: make this whole thing async so we don't
+                # actually tie up a thread while we wait
+                time.sleep(wait_for)
+            _HTTP_LOG.debug("POSTing to %s: %r",
+                            url,
+                            data)
             response = requests.post(url, json=data)
-            _HTTP_LOG.debug("Got response (%r): %r", response.status_code, response.text)
+            _HTTP_LOG.debug("Got response (%r) from %r: %r",
+                            response.status_code,
+                            self._hostname,
+                            response.text)
+            self._next_request_after = datetime.now() + _MIN_TIME_BETWEEN_REQUESTS
 
         # raise an exception if the airco returned an error
         response.raise_for_status()
