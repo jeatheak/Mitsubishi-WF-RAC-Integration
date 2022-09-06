@@ -1,4 +1,6 @@
 """ for sensor integration."""
+# pylint: disable = too-few-public-methods
+
 from __future__ import annotations
 from datetime import timedelta
 import logging
@@ -32,7 +34,6 @@ _LOGGER = logging.getLogger(__name__)
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 
-
 async def async_setup_entry(hass, entry, async_add_entities):
     """Setup sensor entries"""
 
@@ -49,13 +50,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 DiagnosticsSensor(device, "Accounts", ATTR_CONNECTED_ACCOUNTS, True),
                 DiagnosticsSensor(device, "Error", CONF_ERROR),
             ]
-            if not device.airco.Electric is None:
+            if device.airco.Electric is not None:
                 entities.append(EnergySensor(device))
 
             async_add_entities(entities)
 
-
 class DiagnosticsSensor(SensorEntity):
+    # pylint: disable = too-many-instance-attributes
     """Representation of a Sensor."""
 
     _attr_entity_category: EntityCategory | None = EntityCategory.DIAGNOSTIC

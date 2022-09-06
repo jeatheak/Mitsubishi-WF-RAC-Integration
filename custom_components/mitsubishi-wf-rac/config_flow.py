@@ -82,7 +82,8 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data[CONF_DEVICE_ID],
         )
 
-        airco_id = await hass.async_add_executor_job(repository.get_details)
+        airco_id = await hass.async_add_executor_job(repository.get_airco_id)
+
         data[CONF_AIRCO_ID] = airco_id
         if not airco_id:
             raise CannotConnect
