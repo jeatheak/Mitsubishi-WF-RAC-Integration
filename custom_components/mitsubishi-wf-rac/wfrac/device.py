@@ -60,7 +60,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 return
         except Exception as ex:  # pylint: disable=broad-except
             _LOGGER.error(
-                "Error: something whent wrong updating the airco [%s] valus - error: %s",
+                "Error: something went wrong updating the airco [%s] valus - error: %s",
                 self.name,
                 ex,
             )
@@ -121,8 +121,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 self._airco_id,
                 _command,
             )
-        except Exception as ex:  # pylint: disable=broad-except
-            _LOGGER.debug("Could not send airco data %s", ex)
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Could not send airco data")
+            return
 
         self._airco = self._parser.translate_bytes(_raw_response)
 
