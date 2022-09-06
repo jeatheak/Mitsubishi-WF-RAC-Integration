@@ -20,10 +20,11 @@
       }
     },
     "error": {
+      "unexpected_error": "[%key:common::config_flow::error::unexpected_error%]",
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
       "name_invalid": "[%key:common::config_flow::error::name_invalid%]",
       "host_already_configured": "[%key:common::config_flow::error::host_already_configured%]",
-      "to_many_devices_registered": "[%key:common::config_flow::error::to_many_devices_registered%]"
+      "too_many_devices_registered": "[%key:common::config_flow::error::too_many_devices_registered%]"
     },
     "abort": {
       "existing_instance_updated": "Updated existing configuration.",
