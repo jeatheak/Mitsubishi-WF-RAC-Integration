@@ -30,7 +30,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         operator_id: str,
         airco_id: str,
     ) -> None:
-        self._api = Repository(hostname, port, operator_id, device_id)
+        self._api = Repository(hass, hostname, port, operator_id, device_id)
         self._parser = RacParser()
         self._hass = hass
 
@@ -50,54 +50,38 @@ class Device:  # pylint: disable=too-many-instance-attributes
         """Update the device information from API"""
 
         try:
-            _raw_response = await self._hass.async_add_executor_job(
-                self._api.get_aircon_stats
-            )
+            response = await self._api.get_aircon_stats()
 
-            if _raw_response is None:
+            if response is None:
                 self._available = False
                 _LOGGER.warning("Received no data for device %s", self._airco_id)
                 return
-        except Exception as ex:  # pylint: disable=broad-except
-            _LOGGER.error(
-                "Error: something went wrong updating the airco [%s] valus - error: %s",
-                self.name,
-                ex,
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception(
+                "Error: something went wrong updating the airco [%s] values",
+                self.name
             )
             return
 
-        self._connected_accounts = _raw_response["numOfAccount"]
-        self._firmware = f'{_raw_response["firmType"]}, mcu: {_raw_response["mcu"]["firmVer"]}, wireless: {_raw_response["wireless"]["firmVer"]}'
-        self._airco = self._parser.translate_bytes(_raw_response["airconStat"])
+        self._connected_accounts = response["numOfAccount"]
+        # pylint: disable = line-too-long
+        self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
+        self._airco = self._parser.translate_bytes(response["airconStat"])
 
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
-
         try:
-            _raw_response = await self._hass.async_add_executor_job(
-                self._api.del_account_info,
-                self._airco_id,
-            )
-        except Exception as ex:  # pylint: disable=broad-except
-            _LOGGER.debug("Could not delete account from airco %s", ex)
-            return
-
-        return _raw_response
+            return await self._api.del_account_info(self._airco_id)
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Could not delete account from airco %s", self._airco_id)
 
     async def add_account(self):
         """Add account (operator id) from the airco"""
-
         try:
-            _raw_response = await self._hass.async_add_executor_job(
-                self._api.update_account_info,
-                self._airco_id,
-                self._hass.config.time_zone,
-            )
-        except Exception as ex:  # pylint: disable=broad-except
-            _LOGGER.debug("Could not add account from airco %s", ex)
-            return
-
-        return _raw_response
+            return await self._api.update_account_info(self._airco_id,
+                                                       self._hass.config.time_zone)
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Could not add account from airco %s", self._airco_id)
 
     async def set_airco(self, params: dict[AirconCommands, Any]) -> None:
         """Private method to send airco command"""
@@ -105,27 +89,19 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if self.airco is None:
             await self._hass.async_add_executor_job(self.update)
 
-        _airco_stat = AirconStat(self._airco)
+        airco_stat = AirconStat(self._airco)
 
-        try:
-            for command in params:
-                setattr(_airco_stat, command, params[command])
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.warning("Could not find command [%s] in Airco Object!")
-            return
+        for key, value in params.items():
+            setattr(airco_stat, key, value)
 
-        _command = self._parser.to_base64(_airco_stat)
+        command = self._parser.to_base64(airco_stat)
         try:
-            _raw_response = await self._hass.async_add_executor_job(
-                self._api.send_airco_command,
-                self._airco_id,
-                _command,
-            )
+            response = await self._api.send_airco_command(self._airco_id, command)
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Could not send airco data")
             return
 
-        self._airco = self._parser.translate_bytes(_raw_response)
+        self._airco = self._parser.translate_bytes(response)
 
     @property
     def device_info(self) -> DeviceInfo:
