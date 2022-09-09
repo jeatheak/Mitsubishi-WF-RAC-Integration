@@ -59,6 +59,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 raise HostAlreadyConfigured(error_name=existing_entry.data[CONF_NAME])
 
         repository = Repository(
+            hass,
             data[CONF_HOST],
             data[CONF_PORT],
             data[CONF_OPERATOR_ID],
@@ -66,7 +67,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         try:
-            airco_id = await hass.async_add_executor_job(repository.get_details)
+            airco_id = await repository.get_airco_id()
         except Exception as query_failed:
             raise CannotConnect(reason=str(query_failed)) from query_failed
 
@@ -79,9 +80,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data[CONF_OPERATOR_ID],
             data[CONF_AIRCO_ID],
         )
-        result = await hass.async_add_executor_job(
-            repository.update_account_info, airco_id, hass.config.time_zone
-        )
+        result = await repository.update_account_info(airco_id, hass.config.time_zone)
         if not result:
             raise CannotConnect
         if int(result["result"]) == 2:
