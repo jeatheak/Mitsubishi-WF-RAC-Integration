@@ -21,18 +21,19 @@ _HTTP_LOG = _LOGGER.getChild("http")
 # this long between successive requests
 _MIN_TIME_BETWEEN_REQUESTS = timedelta(seconds=1)
 
+
 class Repository:
     """Simple Api class to send and get Aircon information"""
 
     api_version = "1.0"
 
     def __init__(  # pylint: disable=too-many-arguments
-            self,
-            hass: HomeAssistantType,
-            hostname: str,
-            port: int,
-            operator_id: str,
-            device_id: str
+        self,
+        hass: HomeAssistantType,
+        hostname: str,
+        port: int,
+        operator_id: str,
+        device_id: str,
     ) -> None:
         self._hass = hass
         self._hostname = hostname
@@ -42,9 +43,7 @@ class Repository:
         self._mutex = asyncio.Lock()
         self._next_request_after = datetime.now()
 
-    async def _post(self,
-                    command: str,
-                    contents: dict[str, Any] | None = None) -> dict:
+    async def _post(self, command: str, contents: dict[str, Any] | None = None) -> dict:
         url = f"http://{self._hostname}:{self._port}/beaver/command/{command}"
         data = {
             "apiVer": self.api_version,
@@ -63,16 +62,17 @@ class Repository:
                 _LOGGER.debug("Waiting for %rs until we can send a request", wait_for)
                 await asyncio.sleep(wait_for)
 
-            _HTTP_LOG.debug("POSTing to %s: %r",
-                            url,
-                            data)
+            _HTTP_LOG.debug("POSTing to %s: %r", url, data)
             response = await self._hass.async_add_executor_job(
-                functools.partial(requests.post, url, json=data))
+                functools.partial(requests.post, url, json=data, timeout=30)
+            )
 
-            _HTTP_LOG.debug("Got response (%r) from %r: %r",
-                            response.status_code,
-                            self._hostname,
-                            response.text)
+            _HTTP_LOG.debug(
+                "Got response (%r) from %r: %r",
+                response.status_code,
+                self._hostname,
+                response.text,
+            )
 
             # remember to set the next request time before we release the lock!
             self._next_request_after = datetime.now() + _MIN_TIME_BETWEEN_REQUESTS
@@ -102,10 +102,7 @@ class Repository:
 
     async def del_account_info(self, airco_id: str) -> str:
         """delete the account info on the airco"""
-        contents = {
-            "accountId": self._operator_id,
-            "airconId": airco_id
-        }
+        contents = {"accountId": self._operator_id, "airconId": airco_id}
         return await self._post("deleteAccountInfo", contents)
 
     async def get_aircon_stats(self, raw=False) -> str:
@@ -115,9 +112,6 @@ class Repository:
 
     async def send_airco_command(self, airco_id: str, command: str) -> str:
         """send command to the Airco"""
-        contents = {
-            "airconId": airco_id,
-            "airconStat": command
-        }
+        contents = {"airconId": airco_id, "airconStat": command}
         result = await self._post("setAirconStat", contents)
         return result["contents"]["airconStat"]
