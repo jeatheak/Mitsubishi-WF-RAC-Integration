@@ -8,5 +8,5 @@
   "codeowners": ["jeatheak"],
   "iot_class": "local_polling",
   "zeroconf": ["_beaver._tcp.local."],
-  "requirements": []
+  "requirements": ["aenum==3.1.11"]
 }
