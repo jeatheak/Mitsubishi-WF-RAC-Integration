@@ -1,5 +1,5 @@
 {
-  "domain": "mitsubishi-wf-rac",
+  "domain": "mitsubishi_wf_rac",
   "name": "Mitsubishi WF-RAC",
   "version": "0.0.1",
   "config_flow": true,

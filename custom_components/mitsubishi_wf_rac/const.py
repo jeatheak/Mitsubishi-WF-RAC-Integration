@@ -12,7 +12,7 @@ from homeassistant.components.climate.const import (
     FAN_AUTO,
 )
 
-DOMAIN = "mitsubishi-wf-rac"
+DOMAIN = "mitsubishi_wf_rac"
 DEVICES = "wf-rac-devices"
 
 CONF_OPERATOR_ID = "operator_id"
