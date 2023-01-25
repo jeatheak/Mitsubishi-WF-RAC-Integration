@@ -38,6 +38,9 @@ SENSOR_TYPES = {
     },
 }
 
+SERVICE_SET_HORIZONTAL_SWING_MODE = "set_horizontal_swing_mode"
+SERVICE_SET_VERTICAL_SWING_MODE = "set_vertical_swing_mode"
+
 SUPPORT_FLAGS = (
     ClimateEntityFeature.TARGET_TEMPERATURE
     | ClimateEntityFeature.SWING_MODE

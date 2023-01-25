@@ -28,11 +28,47 @@ set_horizontal_swing_mode:
       selector:
         select:
           options:
-          - "Left/Right Auto"
-          - "Left-Left"
-          - "Left-Center"
-          - "Center-Center"
-          - "Center-Right"
-          - "Right-Right"
-          - "Left-Right"
-          - "Right-Left"
+            - "Left/Right Auto"
+            - "Left-Left"
+            - "Left-Center"
+            - "Center-Center"
+            - "Center-Right"
+            - "Right-Right"
+            - "Left-Right"
+            - "Right-Left"
+# Service ID
+set_vertical_swing_mode:
+  # Service name as shown in UI
+  name: Set vertical swing mode
+  # Description of the service
+  description: Sets the vertical (up/down) swing mode
+  # If the service accepts entity IDs, target allows the user to specify entities by entity, device, or area. If `target` is specified, `entity_id` should not be defined in the `fields` map. By default it shows only targets matching entities from the same domain as the service, but if further customization is required, target supports the entity, device, and area selectors (https://www.home-assistant.io/docs/blueprint/selectors/). Entity selector parameters will automatically be applied to device and area, and device selector parameters will automatically be applied to area.
+  target:
+    device:
+      integration: mitsubishi_wf_rac
+  # Different fields that your service accepts
+  fields:
+    # Key of the field
+    swing_mode:
+      # Field name as shown in UI
+      name: vertical swing mode
+      # Description of the field
+      description: Which vertical swing mode to set
+      # Whether or not field is required (default = false)
+      required: true
+      # Advanced fields are only shown when the advanced mode is enabled for the user (default = false)
+      advanced: false
+      # Example value that can be passed for this field
+      example: "Up/Down Auto"
+      # The default field value
+      default: "Up/Down Auto"
+      # Selector (https://www.home-assistant.io/docs/blueprint/selectors/) to control the input UI for this field
+      selector:
+        select:
+          options:
+            - "Up/Down Auto"
+            - "Highest"
+            - "Middle"
+            - "Normal"
+            - "Lowest"
+            - "3D Auto"

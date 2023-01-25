@@ -21,7 +21,10 @@ from .const import (
     DOMAIN,
     FAN_MODE_TRANSLATION,
     HVAC_TRANSLATION,
+    SERVICE_SET_HORIZONTAL_SWING_MODE,
+    SERVICE_SET_VERTICAL_SWING_MODE,
     SUPPORT_FLAGS,
+    SWING_HORIZONTAL_AUTO,
     SWING_VERTICAL_AUTO,
     SUPPORT_SWING_MODES,
     SUPPORTED_FAN_MODES,
@@ -33,8 +36,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=10)
-
-SERVICE_SET_HORIZONTAL_SWING_MODE = "set_horizontal_swing_mode"
 
 
 async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities):
@@ -52,6 +53,14 @@ async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities):
             vol.Required("swing_mode"): cv.string,
         },
         "async_set_horizontal_swing_mode",
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_SET_VERTICAL_SWING_MODE,
+        {
+            vol.Required("swing_mode"): cv.string,
+        },
+        "async_set_swing_mode",
     )
 
 
@@ -113,6 +122,11 @@ class AircoClimate(ClimateEntity):
         """Set new target swing operation."""
         _airco = self._device.airco
         _swing_auto = swing_mode == SWING_3D_AUTO
+        _swing_lr = (
+            SWING_HORIZONTAL_AUTO
+            if self._device.airco.Entrust
+            else self._device.airco.WindDirectionLR
+        )
         _swing_ud = _airco.WindDirectionUD
 
         if swing_mode != SWING_3D_AUTO:
@@ -121,6 +135,7 @@ class AircoClimate(ClimateEntity):
         await self._device.set_airco(
             {
                 AirconCommands.WindDirectionUD: _swing_ud,
+                AirconCommands.WindDirectionLR: _swing_lr,
                 AirconCommands.Entrust: _swing_auto,
             }
         )
@@ -130,10 +145,21 @@ class AircoClimate(ClimateEntity):
         """Set new target horizontal swing operation."""
         _airco = self._device.airco
         _swing_lr = HORIZONTAL_SWING_MODE_TRANSLATION[swing_mode]
+        _swing_ud = (
+            SWING_VERTICAL_AUTO
+            if self._device.airco.Entrust
+            else self._device.airco.WindDirectionUD
+        )
 
         _LOGGER.debug("airco: %s", _airco)
 
-        await self._device.set_airco({AirconCommands.WindDirectionLR: _swing_lr})
+        await self._device.set_airco(
+            {
+                AirconCommands.WindDirectionUD: _swing_ud,
+                AirconCommands.WindDirectionLR: _swing_lr,
+                AirconCommands.Entrust: False,  # always set to false otherwise sevice won't have effect
+            }
+        )
         self._update_state()
 
     async def async_turn_off(self) -> None:
