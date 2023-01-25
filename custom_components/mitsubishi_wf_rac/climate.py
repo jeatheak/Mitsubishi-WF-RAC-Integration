@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 
+import voluptuous as vol
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -12,6 +13,7 @@ from homeassistant.components.climate.const import HVACMode, FAN_AUTO
 from homeassistant.const import TEMP_CELSIUS, ATTR_TEMPERATURE
 from homeassistant.util import Throttle
 from homeassistant.const import CONF_HOST
+from homeassistant.helpers import config_validation as cv, entity_platform
 
 from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
 from .wfrac.models.aircon import AirconCommands
@@ -19,13 +21,17 @@ from .const import (
     DOMAIN,
     FAN_MODE_TRANSLATION,
     HVAC_TRANSLATION,
+    SERVICE_SET_HORIZONTAL_SWING_MODE,
+    SERVICE_SET_VERTICAL_SWING_MODE,
     SUPPORT_FLAGS,
+    SWING_HORIZONTAL_AUTO,
     SWING_VERTICAL_AUTO,
     SUPPORT_SWING_MODES,
     SUPPORTED_FAN_MODES,
     SUPPORTED_HVAC_MODES,
     SWING_3D_AUTO,
     SWING_MODE_TRANSLATION,
+    HORIZONTAL_SWING_MODE_TRANSLATION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,6 +45,24 @@ async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities):
             _LOGGER.info("Setup climate for: %s, %s", device.name, device.airco_id)
             async_add_entities([AircoClimate(device)])
 
+    platform = entity_platform.async_get_current_platform()
+
+    platform.async_register_entity_service(
+        SERVICE_SET_HORIZONTAL_SWING_MODE,
+        {
+            vol.Required("swing_mode"): cv.string,
+        },
+        "async_set_horizontal_swing_mode",
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_SET_VERTICAL_SWING_MODE,
+        {
+            vol.Required("swing_mode"): cv.string,
+        },
+        "async_set_swing_mode",
+    )
+
 
 class AircoClimate(ClimateEntity):
     """Representation of a climate entity"""
@@ -51,6 +75,8 @@ class AircoClimate(ClimateEntity):
     _attr_fan_mode: str = FAN_AUTO
     _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
+    # _attr_horizontal_swing_mode: str | None = SWING_HORIZONTAL_AUTO
+    # _attr_horizontal_swing_modes: list[str] | None = SUPPORT_HORIZONTAL_SWING_MODES
     _attr_min_temp: float = 16
     _attr_max_temp: float = 30
 
@@ -96,6 +122,11 @@ class AircoClimate(ClimateEntity):
         """Set new target swing operation."""
         _airco = self._device.airco
         _swing_auto = swing_mode == SWING_3D_AUTO
+        _swing_lr = (
+            SWING_HORIZONTAL_AUTO
+            if self._device.airco.Entrust
+            else self._device.airco.WindDirectionLR
+        )
         _swing_ud = _airco.WindDirectionUD
 
         if swing_mode != SWING_3D_AUTO:
@@ -104,7 +135,29 @@ class AircoClimate(ClimateEntity):
         await self._device.set_airco(
             {
                 AirconCommands.WindDirectionUD: _swing_ud,
+                AirconCommands.WindDirectionLR: _swing_lr,
                 AirconCommands.Entrust: _swing_auto,
+            }
+        )
+        self._update_state()
+
+    async def async_set_horizontal_swing_mode(self, swing_mode: str) -> None:
+        """Set new target horizontal swing operation."""
+        _airco = self._device.airco
+        _swing_lr = HORIZONTAL_SWING_MODE_TRANSLATION[swing_mode]
+        _swing_ud = (
+            SWING_VERTICAL_AUTO
+            if self._device.airco.Entrust
+            else self._device.airco.WindDirectionUD
+        )
+
+        _LOGGER.debug("airco: %s", _airco)
+
+        await self._device.set_airco(
+            {
+                AirconCommands.WindDirectionUD: _swing_ud,
+                AirconCommands.WindDirectionLR: _swing_lr,
+                AirconCommands.Entrust: False,  # always set to false otherwise sevice won't have effect
             }
         )
         self._update_state()
@@ -126,6 +179,9 @@ class AircoClimate(ClimateEntity):
             if airco.Entrust
             else list(SWING_MODE_TRANSLATION.keys())[airco.WindDirectionUD]
         )
+        # self._attr_horizontal_swing_mode = list(
+        #     HORIZONTAL_SWING_MODE_TRANSLATION.keys()
+        # )[airco.WindDirectionLR]
         self._attr_hvac_mode = list(HVAC_TRANSLATION.keys())[airco.OperationMode]
 
         if airco.Operation is False:
