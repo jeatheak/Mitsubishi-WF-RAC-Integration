@@ -89,9 +89,20 @@ class AircoClimate(ClimateEntity):
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set new target temperature."""
-        await self._device.set_airco(
-            {AirconCommands.PresetTemp: kwargs.get(ATTR_TEMPERATURE)}
-        )
+        opts = {AirconCommands.PresetTemp: kwargs.get(ATTR_TEMPERATURE)}
+
+        if "hvac_mode" in kwargs:
+            hvac_mode = kwargs.get("hvac_mode")
+            opts.update(
+                {
+                    AirconCommands.OperationMode: self._device.airco.OperationMode
+                    if hvac_mode == HVACMode.OFF
+                    else HVAC_TRANSLATION[hvac_mode],
+                    AirconCommands.Operation: hvac_mode != HVACMode.OFF,
+                }
+            )
+
+        await self._device.set_airco(opts)
         self._update_state()
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
