@@ -11,7 +11,7 @@ from .wfrac.device import Device
 
 _LOGGER = logging.getLogger(__name__)
 
-COMPONENT_TYPES = ["sensor", "climate"]
+COMPONENT_TYPES = ["sensor", "climate", "select"]
 
 
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
