@@ -1,7 +1,6 @@
 # Mitsubishi WF-RAC Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
-[![](https://dcbadge.vercel.app/api/server/FNpawYzKqm?theme=default-inverted)](https://discord.gg/FNpawYzKqm)
 
 This is a Homeassistant integration for implementing the WF-RAC Airco modules into Homeassistant
 
