@@ -98,7 +98,9 @@ class SwingSelect(SelectEntity):
 
     def _update_state(self) -> None:
         self.select_option(
-            list(SWING_MODE_TRANSLATION.keys())[
+            SWING_3D_AUTO
+            if self._device.airco.Entrust
+            else list(SWING_MODE_TRANSLATION.keys())[
                 self._device.airco.WindDirectionUD
             ]
         )
