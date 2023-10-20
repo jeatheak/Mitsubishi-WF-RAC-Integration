@@ -12,7 +12,9 @@ from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
 from .const import (
     DOMAIN,
     HORIZONTAL_SWING_MODE_TRANSLATION,
+    SWING_3D_AUTO,
     SWING_MODE_TRANSLATION,
+    SWING_HORIZONTAL_AUTO,
     SUPPORT_HORIZONTAL_SWING_MODES,
     SUPPORT_SWING_MODES
 )
@@ -26,7 +28,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     for device in hass.data[DOMAIN]:
         if device.host == entry.data[CONF_HOST]:
             _LOGGER.info("Setup Select: %s, %s", device.name, device.airco_id)
-            entities = [HorizontalSwingSelect(device), VerticalSwingSelect(device)]
+            entities = [HorizontalSwingSelect(device), SwingSelect(device)]
 
             async_add_entities(entities)
 
@@ -75,8 +77,8 @@ class HorizontalSwingSelect(SelectEntity):
         self._update_state()
 
 
-class VerticalSwingSelect(SelectEntity):
-    """Select component to set the vertical swing direction of the airco"""
+class SwingSelect(SelectEntity):
+    """Select component to set the swing direction of the airco"""
 
     def __init__(self, device: Device) -> None:
         super().__init__()
@@ -107,8 +109,24 @@ class VerticalSwingSelect(SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
+        _airco = self._device.airco
+        _swing_auto = option == SWING_3D_AUTO
+        _swing_lr = (
+            HORIZONTAL_SWING_MODE_TRANSLATION[SWING_HORIZONTAL_AUTO]
+            if self._device.airco.Entrust
+            else self._device.airco.WindDirectionLR
+        )
+        _swing_ud = _airco.WindDirectionUD
+
+        if option != SWING_3D_AUTO:
+            _swing_ud = SWING_MODE_TRANSLATION[option]
+
         await self._device.set_airco(
-            {AirconCommands.WindDirectionUD: SWING_MODE_TRANSLATION[option]}
+            {
+                AirconCommands.WindDirectionUD: _swing_ud,
+                AirconCommands.WindDirectionLR: _swing_lr,
+                AirconCommands.Entrust: _swing_auto,
+            }
         )
         self.select_option(option)
 
