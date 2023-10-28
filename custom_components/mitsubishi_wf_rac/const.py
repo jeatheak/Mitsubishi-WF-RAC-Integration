@@ -23,6 +23,18 @@ ATTR_CONNECTED_ACCOUNTS = "connected_accounts"
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"
 ATTR_OUTSIDE_TEMPERATURE = "outside_temperature"
 
+API="api"
+CURRENT_PRESET_MODE = "current_preset_mode"
+HORIZONTAL_SWING_MODE = "horizontal_swing_mode"
+VERTICAL_SWING_MODE = "vertical_swing_mode"
+FAN_MODE="fan_mode"
+DEVICES="devices"
+NAME="name"
+NUMBER_OF_PRESET_MODES = 4
+PRESET_MODES="preset_modes"
+STORE="store"
+TEMPERATURE="temperature"
+
 SENSOR_TYPE_TEMPERATURE = "temperature"
 
 SENSOR_TYPES = {
@@ -45,6 +57,7 @@ SUPPORT_FLAGS = (
     ClimateEntityFeature.TARGET_TEMPERATURE
     | ClimateEntityFeature.SWING_MODE
     | ClimateEntityFeature.FAN_MODE
+    | ClimateEntityFeature.PRESET_MODE
 )
 
 SUPPORTED_HVAC_MODES = [
@@ -121,10 +134,10 @@ SUPPORT_HORIZONTAL_SWING_MODES = [
 ]
 
 
-FAN_MODE_1 = "1 Lowest"
-FAN_MODE_2 = "2 Low"
-FAN_MODE_3 = "3 High"
-FAN_MODE_4 = "4 Highest"
+FAN_MODE_1 = "1 Laagste"
+FAN_MODE_2 = "2 Laag"
+FAN_MODE_3 = "3 Hoog"
+FAN_MODE_4 = "4 Hoogst"
 
 FAN_MODE_TRANSLATION = {
     FAN_AUTO: 0,

@@ -6,19 +6,37 @@ from homeassistant.helpers.typing import HomeAssistantType
 
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_DEVICE_ID
 
-from .const import CONF_AIRCO_ID, DOMAIN, CONF_OPERATOR_ID
+from .const import API, CONF_AIRCO_ID, CURRENT_PRESET_MODE, DOMAIN, CONF_OPERATOR_ID, FAN_MODE, HORIZONTAL_SWING_MODE, NAME, NUMBER_OF_PRESET_MODES, PRESET_MODES, STORE, TEMPERATURE, VERTICAL_SWING_MODE
 from .wfrac.device import Device
 
 _LOGGER = logging.getLogger(__name__)
 
-COMPONENT_TYPES = ["sensor", "climate", "select"]
+COMPONENT_TYPES = ["sensor", "climate", "number", "select", "text"]
 
 
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
 
+    preset_mode_store = {
+        PRESET_MODES: {
+            i: {
+                NAME: f"{DOMAIN} preset mode {i} name",
+                FAN_MODE: "AUTO",
+                VERTICAL_SWING_MODE: "LOW",
+                HORIZONTAL_SWING_MODE: "LOW",
+                TEMPERATURE: 21,
+            }
+            for i in range(1, NUMBER_OF_PRESET_MODES + 1)
+        },
+        CURRENT_PRESET_MODE: None,
+    }
+
     if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = []
+        hass.data.setdefault(DOMAIN, {})
+        
+    hass.data[DOMAIN][entry.entry_id] = {
+        STORE: preset_mode_store
+    }
 
     device: str = entry.data[CONF_HOST]
     name: str = entry.data[CONF_NAME]
@@ -30,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
     try:
         api = Device(hass, name, device, port, device_id, operator_id, airco_id)
         await api.update()  # initial update to get fresh values
-        hass.data[DOMAIN].append(api)
+        hass.data[DOMAIN][entry.entry_id][API] = api
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.warning("Something whent wrong setting up device [%s] %s", device, ex)
 
@@ -45,7 +63,7 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
 async def async_remove_entry(hass, entry: ConfigEntry) -> None:
     """Handle removal of an entry."""
     for device in hass.data[DOMAIN]:
-        temp_device: Device = device
+        temp_device: Device = device[API]
         if temp_device.host == entry.data[CONF_HOST]:
             try:
                 await temp_device.delete_account()
@@ -54,7 +72,7 @@ async def async_remove_entry(hass, entry: ConfigEntry) -> None:
                     temp_device.operator_id,
                     temp_device.airco_id,
                 )
-                hass.data[DOMAIN].remove(temp_device)
+                hass.data[DOMAIN][entry.entry_uid][API] = None
             except Exception as ex:  # pylint: disable=broad-except
                 _LOGGER.warning(
                     "Something whent wrong deleting account from airco [%s] %s",
