@@ -212,12 +212,12 @@ class AircoClimate(ClimateEntity, RestoreEntity):
 
     def determine_preset_mode(self) -> str | None:
         """Method to determine preset mode"""
-        _LOGGER.error("Determine preset mode")
+        # _LOGGER.error("Determine preset mode")
 
         self.store[CURRENT_PRESET_MODE] = None
         for mode in self.store[PRESET_MODES].values():
             if self._is_current_mode(mode):
-                _LOGGER.error("Determined mode %s", mode[NAME])
+                # _LOGGER.error("Determined mode %s", mode[NAME])
                 self.store[CURRENT_PRESET_MODE] = mode[NAME]
                 break
 
@@ -276,7 +276,7 @@ class AircoClimate(ClimateEntity, RestoreEntity):
                 AirconCommands.Entrust: _swing_auto,
             })
 
-            _LOGGER.error(opts)
+            # _LOGGER.error(opts)
 
             await self._device.set_airco(opts)
             self._update_state()
