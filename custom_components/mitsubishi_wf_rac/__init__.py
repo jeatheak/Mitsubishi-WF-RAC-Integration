@@ -17,7 +17,7 @@ COMPONENT_TYPES = ["sensor", "climate", "number","select", "text"]
 
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
-    default_names = {1: "home", 2: "comfort", 3: "away", 4: "sleep"}
+    default_names = {1: "home", 2: "comfort", 3: "boost", 4: "eco"}
     preset_mode_store = {
         PRESET_MODES: {
             i: {

@@ -31,14 +31,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
             _LOGGER.info("Setup text: %s, %s", device.name, device.airco_id)
             entities: list(TextEntity) = []
 
-            entities.extend(
-                [
-                    PresetModeText(i, store, hass)
-                    for i in range(1, NUMBER_OF_PRESET_MODES + 1)
-                ]
-            )
+            # entities.extend(
+            #     [
+            #         PresetModeText(i, store, hass)
+            #         for i in range(1, NUMBER_OF_PRESET_MODES + 1)
+            #     ]
+            # )
 
-            async_add_entities(entities)
+            # async_add_entities(entities)
 
 class PresetModeText(TextEntity, RestoreEntity):
     """Preset mode text"""
