@@ -212,30 +212,31 @@ class AircoClimate(ClimateEntity, RestoreEntity):
 
     def determine_preset_mode(self) -> str | None:
         """Method to determine preset mode"""
-        # _LOGGER.error("Determine preset mode")
+        _LOGGER.error("Determine preset mode")
 
         self.store[CURRENT_PRESET_MODE] = None
         for mode in self.store[PRESET_MODES].values():
-            if mode[HVAC_MODE] == HVACMode.OFF:
-                is_mode = mode[HVAC_MODE] == self._attr_hvac_mode
-            else:
-                is_mode = mode[TEMPERATURE] == self._attr_target_temperature
-                is_mode = is_mode and mode[HORIZONTAL_SWING_MODE] == self._attr_horizontal_swing_mode
-                is_mode = is_mode and mode[VERTICAL_SWING_MODE] == self._attr_swing_mode
-                is_mode = is_mode and mode[FAN_MODE] == self._attr_fan_mode
-
-            # _LOGGER.error("Temperature %s %s %s", mode[TEMPERATURE], self._attr_target_temperature, mode[TEMPERATURE] == self._attr_target_temperature)
-            # _LOGGER.error("Horizontal swing %s %s %s", mode[HORIZONTAL_SWING_MODE], self._attr_horizontal_swing_mode, mode[HORIZONTAL_SWING_MODE] == self._attr_horizontal_swing_mode)
-            # _LOGGER.error("Vertical swing %s %s %s", mode[VERTICAL_SWING_MODE], self._attr_swing_mode, mode[VERTICAL_SWING_MODE] == self._attr_swing_mode)
-            # _LOGGER.error("Fan mode %s %s %s", mode[FAN_MODE], self._attr_fan_mode, mode[FAN_MODE] == self._attr_fan_mode)
-
-            if is_mode:
-                # _LOGGER.error("Determined preset mode: %s", mode[NAME])
+            if self._is_current_mode(mode):
+                _LOGGER.error("Determined mode %s", mode[NAME])
                 self.store[CURRENT_PRESET_MODE] = mode[NAME]
                 break
 
+    def _is_current_mode(self, mode):
+        _LOGGER.error("Is current mode %s?", mode[NAME])
+        if mode[HVAC_MODE] == HVACMode.OFF:
+            return mode[HVAC_MODE] == self._attr_hvac_mode
+        if mode[TEMPERATURE] != self._attr_target_temperature:
+            return False
+        if mode[FAN_MODE] != self._attr_fan_mode:
+            return False
+        if mode[VERTICAL_SWING_MODE] != self._attr_swing_mode:
+            return False
+        if mode[VERTICAL_SWING_MODE] != SWING_3D_AUTO and mode[HORIZONTAL_SWING_MODE] != self._attr_horizontal_swing_mode:
+            return False
+        
+        return True
 
-    async def set_preset_mode(self, preset_mode):
+    async def async_set_preset_mode(self, preset_mode):
         """Set new preset mode."""
         self.store[CURRENT_PRESET_MODE] = preset_mode
         # self.async_write_ha_state()
@@ -248,10 +249,37 @@ class AircoClimate(ClimateEntity, RestoreEntity):
         if preset_mode_obj[HVAC_MODE] == HVACMode.OFF:
             await self.async_set_hvac_mode(preset_mode_obj[HVAC_MODE])
         else:
-            await self.async_set_temperature(preset_mode_obj[TEMPERATURE])
-            await self.async_set_fan_mode(preset_mode_obj[FAN_MODE])
-            await self.async_set_swing_mode(preset_mode_obj[VERTICAL_SWING_MODE])
-            await self.async_set_horizontal_swing_mode(preset_mode_obj[HORIZONTAL_SWING_MODE])
+
+            opts = {
+                AirconCommands.Operation: True,
+                AirconCommands.PresetTemp: preset_mode_obj[TEMPERATURE],
+                AirconCommands.AirFlow: FAN_MODE_TRANSLATION[preset_mode_obj[FAN_MODE]],
+
+            }
+
+            vertical_swing_mode = preset_mode_obj[VERTICAL_SWING_MODE]
+            horizontal_swing_mode = preset_mode_obj[HORIZONTAL_SWING_MODE]
+            _swing_auto = vertical_swing_mode == SWING_3D_AUTO
+            _swing_lr = (
+                HORIZONTAL_SWING_MODE_TRANSLATION[SWING_HORIZONTAL_AUTO]
+                if _swing_auto
+                else HORIZONTAL_SWING_MODE_TRANSLATION[horizontal_swing_mode]
+            )
+            _swing_ud = self._device.airco.WindDirectionUD
+
+            if vertical_swing_mode != SWING_3D_AUTO:
+                _swing_ud = SWING_MODE_TRANSLATION[vertical_swing_mode]
+
+            opts.update({
+                AirconCommands.WindDirectionUD: _swing_ud,
+                AirconCommands.WindDirectionLR: _swing_lr,
+                AirconCommands.Entrust: _swing_auto,
+            })
+
+            _LOGGER.error(opts)
+
+            await self._device.set_airco(opts)
+            self._update_state()
 
     def _update_state(self) -> None:
         """Private update attributes"""
