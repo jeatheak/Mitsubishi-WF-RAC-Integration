@@ -5,25 +5,27 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import HomeAssistantType
 
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_DEVICE_ID
+from homeassistant.components.climate.const import HVACMode
 
-from .const import API, CONF_AIRCO_ID, CURRENT_PRESET_MODE, DOMAIN, CONF_OPERATOR_ID, FAN_MODE, HORIZONTAL_SWING_MODE, NAME, NUMBER_OF_PRESET_MODES, PRESET_MODES, STORE, TEMPERATURE, VERTICAL_SWING_MODE
+from .const import API, CONF_AIRCO_ID, CURRENT_PRESET_MODE, DOMAIN, CONF_OPERATOR_ID, FAN_MODE, HORIZONTAL_SWING_MODE, HVAC_MODE, NAME, NUMBER_OF_PRESET_MODES, PRESET_MODES, STORE, TEMPERATURE, VERTICAL_SWING_MODE
 from .wfrac.device import Device
 
 _LOGGER = logging.getLogger(__name__)
 
-COMPONENT_TYPES = ["sensor", "climate", "number", "select", "text"]
+COMPONENT_TYPES = ["sensor", "climate", "number","select", "text"]
 
 
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
-
+    default_names = {1: "home", 2: "comfort", 3: "away", 4: "sleep"}
     preset_mode_store = {
         PRESET_MODES: {
             i: {
-                NAME: f"{DOMAIN} preset mode {i} name",
+                NAME: default_names[i],
                 FAN_MODE: "AUTO",
                 VERTICAL_SWING_MODE: "LOW",
                 HORIZONTAL_SWING_MODE: "LOW",
+                HVAC_MODE: HVACMode.HEAT,
                 TEMPERATURE: 21,
             }
             for i in range(1, NUMBER_OF_PRESET_MODES + 1)

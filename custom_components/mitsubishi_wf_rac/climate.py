@@ -25,6 +25,7 @@ from .const import (
     FAN_MODE,
     FAN_MODE_TRANSLATION,
     HORIZONTAL_SWING_MODE,
+    HVAC_MODE,
     HVAC_TRANSLATION,
     NAME,
     PRESET_MODES,
@@ -215,11 +216,13 @@ class AircoClimate(ClimateEntity, RestoreEntity):
 
         self.store[CURRENT_PRESET_MODE] = None
         for mode in self.store[PRESET_MODES].values():
-            # _LOGGER.error("Try mode: %s", mode[NAME])
-            is_mode = mode[TEMPERATURE] == self._attr_target_temperature
-            is_mode = is_mode and mode[HORIZONTAL_SWING_MODE] == self._attr_horizontal_swing_mode
-            is_mode = is_mode and mode[VERTICAL_SWING_MODE] == self._attr_swing_mode
-            is_mode = is_mode and mode[FAN_MODE] == self._attr_fan_mode
+            if mode[HVAC_MODE] == HVACMode.OFF:
+                is_mode = mode[HVAC_MODE] == self._attr_hvac_mode
+            else:
+                is_mode = mode[TEMPERATURE] == self._attr_target_temperature
+                is_mode = is_mode and mode[HORIZONTAL_SWING_MODE] == self._attr_horizontal_swing_mode
+                is_mode = is_mode and mode[VERTICAL_SWING_MODE] == self._attr_swing_mode
+                is_mode = is_mode and mode[FAN_MODE] == self._attr_fan_mode
 
             # _LOGGER.error("Temperature %s %s %s", mode[TEMPERATURE], self._attr_target_temperature, mode[TEMPERATURE] == self._attr_target_temperature)
             # _LOGGER.error("Horizontal swing %s %s %s", mode[HORIZONTAL_SWING_MODE], self._attr_horizontal_swing_mode, mode[HORIZONTAL_SWING_MODE] == self._attr_horizontal_swing_mode)
@@ -242,10 +245,13 @@ class AircoClimate(ClimateEntity, RestoreEntity):
             if mode[NAME] == preset_mode:
                 preset_mode_obj = mode
 
-        await self.async_set_temperature(preset_mode_obj[TEMPERATURE])
-        await self.async_set_fan_mode(preset_mode_obj[FAN_MODE])
-        await self.async_set_swing_mode(preset_mode_obj[VERTICAL_SWING_MODE])
-        await self.async_set_horizontal_swing_mode(preset_mode_obj[HORIZONTAL_SWING_MODE])
+        if preset_mode_obj[HVAC_MODE] == HVACMode.OFF:
+            await self.async_set_hvac_mode(preset_mode_obj[HVAC_MODE])
+        else:
+            await self.async_set_temperature(preset_mode_obj[TEMPERATURE])
+            await self.async_set_fan_mode(preset_mode_obj[FAN_MODE])
+            await self.async_set_swing_mode(preset_mode_obj[VERTICAL_SWING_MODE])
+            await self.async_set_horizontal_swing_mode(preset_mode_obj[HORIZONTAL_SWING_MODE])
 
     def _update_state(self) -> None:
         """Private update attributes"""
