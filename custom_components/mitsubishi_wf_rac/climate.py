@@ -222,7 +222,7 @@ class AircoClimate(ClimateEntity, RestoreEntity):
                 break
 
     def _is_current_mode(self, mode):
-        _LOGGER.error("Is current mode %s?", mode[NAME])
+        # _LOGGER.error("Is current mode %s?", mode[NAME])
         if mode[HVAC_MODE] == HVACMode.OFF:
             return mode[HVAC_MODE] == self._attr_hvac_mode
         if mode[TEMPERATURE] != self._attr_target_temperature:
@@ -276,7 +276,7 @@ class AircoClimate(ClimateEntity, RestoreEntity):
                 AirconCommands.Entrust: _swing_auto,
             })
 
-            # _LOGGER.error(opts)
+            _LOGGER.debug(opts)
 
             await self._device.set_airco(opts)
             self._update_state()
