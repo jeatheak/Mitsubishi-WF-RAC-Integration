@@ -134,7 +134,7 @@ class AircoClimate(ClimateEntity):
         _airco = self._device.airco
         _swing_auto = swing_mode == SWING_3D_AUTO
         _swing_lr = (
-            SWING_HORIZONTAL_AUTO
+            HORIZONTAL_SWING_MODE_TRANSLATION[SWING_HORIZONTAL_AUTO]
             if self._device.airco.Entrust
             else self._device.airco.WindDirectionLR
         )
@@ -157,7 +157,7 @@ class AircoClimate(ClimateEntity):
         _airco = self._device.airco
         _swing_lr = HORIZONTAL_SWING_MODE_TRANSLATION[swing_mode]
         _swing_ud = (
-            SWING_VERTICAL_AUTO
+            HORIZONTAL_SWING_MODE_TRANSLATION[SWING_VERTICAL_AUTO]
             if self._device.airco.Entrust
             else self._device.airco.WindDirectionUD
         )
