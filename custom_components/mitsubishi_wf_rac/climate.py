@@ -10,7 +10,7 @@ from homeassistant.components.climate import (
     ConfigEntry,
 )
 from homeassistant.components.climate.const import HVACMode, FAN_AUTO
-from homeassistant.const import TEMP_CELSIUS, ATTR_TEMPERATURE
+from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.util import Throttle
 from homeassistant.const import CONF_HOST
 from homeassistant.helpers import config_validation as cv, entity_platform
@@ -68,7 +68,7 @@ class AircoClimate(ClimateEntity):
     """Representation of a climate entity"""
 
     _attr_supported_features: int = SUPPORT_FLAGS
-    _attr_temperature_unit: str = TEMP_CELSIUS
+    _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
     _attr_hvac_modes: list[HVACMode] = SUPPORTED_HVAC_MODES
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
     _attr_hvac_mode: HVACMode = HVACMode.OFF
@@ -134,7 +134,7 @@ class AircoClimate(ClimateEntity):
         _airco = self._device.airco
         _swing_auto = swing_mode == SWING_3D_AUTO
         _swing_lr = (
-            HORIZONTAL_SWING_MODE_TRANSLATION[SWING_HORIZONTAL_AUTO]
+            SWING_HORIZONTAL_AUTO
             if self._device.airco.Entrust
             else self._device.airco.WindDirectionLR
         )
@@ -157,7 +157,7 @@ class AircoClimate(ClimateEntity):
         _airco = self._device.airco
         _swing_lr = HORIZONTAL_SWING_MODE_TRANSLATION[swing_mode]
         _swing_ud = (
-            HORIZONTAL_SWING_MODE_TRANSLATION[SWING_VERTICAL_AUTO]
+            SWING_VERTICAL_AUTO
             if self._device.airco.Entrust
             else self._device.airco.WindDirectionUD
         )
