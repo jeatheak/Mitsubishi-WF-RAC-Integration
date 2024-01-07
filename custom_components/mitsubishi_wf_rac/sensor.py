@@ -11,8 +11,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    TEMP_CELSIUS,
-    ENERGY_KILO_WATT_HOUR,
+    UnitOfEnergy,
+    UnitOfTemperature,
     CONF_HOST,
     CONF_ERROR,
 )
@@ -103,7 +103,7 @@ class DiagnosticsSensor(SensorEntity):
 class TemperatureSensor(SensorEntity):
     """Representation of a Sensor."""
 
-    _attr_native_unit_of_measurement = TEMP_CELSIUS
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -133,7 +133,7 @@ class TemperatureSensor(SensorEntity):
 class EnergySensor(SensorEntity):
     """Representation of a Sensor."""
 
-    _attr_native_unit_of_measurement: str | None = ENERGY_KILO_WATT_HOUR
+    _attr_native_unit_of_measurement: str | None = UnitOfEnergy.KILO_WATT_HOUR
     _attr_device_class: SensorDeviceClass | str | None = SensorDeviceClass.ENERGY
     _attr_state_class: SensorStateClass | str | None = SensorStateClass.TOTAL_INCREASING
 

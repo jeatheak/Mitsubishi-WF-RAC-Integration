@@ -12,7 +12,7 @@ from homeassistant.components.climate import (
     ConfigEntry,
 )
 from homeassistant.components.climate.const import HVACMode, FAN_AUTO
-from homeassistant.const import TEMP_CELSIUS, ATTR_TEMPERATURE
+from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.util import Throttle
 from homeassistant.const import CONF_HOST
 from homeassistant.helpers import config_validation as cv, entity_platform
@@ -72,7 +72,7 @@ class AircoClimate(ClimateEntity):
     """Representation of a climate entity"""
 
     _attr_supported_features: int = SUPPORT_FLAGS
-    _attr_temperature_unit: str = TEMP_CELSIUS
+    _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
     _attr_hvac_modes: list[HVACMode] = SUPPORTED_HVAC_MODES
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
     _attr_hvac_mode: HVACMode = HVACMode.OFF
