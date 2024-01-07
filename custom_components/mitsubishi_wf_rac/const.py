@@ -2,11 +2,7 @@
 
 from homeassistant.const import CONF_ICON, CONF_NAME, CONF_TYPE
 from homeassistant.components.climate.const import (
-    HVAC_MODE_COOL,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_DRY,
-    HVAC_MODE_FAN_ONLY,
-    HVAC_MODE_AUTO,
+    HVACMode,
     ClimateEntityFeature,
     HVACMode,
     FAN_AUTO,
@@ -57,11 +53,11 @@ SUPPORTED_HVAC_MODES = [
 ]
 
 HVAC_TRANSLATION = {
-    HVAC_MODE_AUTO: 0,
-    HVAC_MODE_COOL: 1,
-    HVAC_MODE_HEAT: 2,
-    HVAC_MODE_FAN_ONLY: 3,
-    HVAC_MODE_DRY: 4,
+    HVACMode.AUTO: 0,
+    HVACMode.COOL: 1,
+    HVACMode.HEAT: 2,
+    HVACMode.FAN_ONLY: 3,
+    HVACMode.DRY: 4,
 }
 
 SWING_3D_AUTO = "3D Auto"
@@ -145,9 +141,9 @@ SUPPORTED_FAN_MODES = [
 
 OPERATION_LIST = {
     # HVAC_MODE_OFF: "Off",
-    HVAC_MODE_HEAT: "Heat",
-    HVAC_MODE_COOL: "Cool",
-    HVAC_MODE_AUTO: "Auto",
-    HVAC_MODE_DRY: "Dry",
-    HVAC_MODE_FAN_ONLY: "Fan",
+    HVACMode.HEAT: "Heat",
+    HVACMode.COOL: "Cool",
+    HVACMode.AUTO: "Auto",
+    HVACMode.DRY: "Dry",
+    HVACMode.FAN_ONLY: "Fan",
 }
