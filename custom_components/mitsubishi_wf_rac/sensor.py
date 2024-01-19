@@ -21,6 +21,8 @@ from homeassistant.helpers.entity import EntityCategory
 
 from .wfrac.device import Device
 from .const import (
+    API,
+    DEVICES,
     DOMAIN,
     ATTR_INSIDE_TEMPERATURE,
     ATTR_OUTSIDE_TEMPERATURE,
@@ -37,7 +39,8 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 async def async_setup_entry(hass, entry, async_add_entities):
     """Setup sensor entries"""
 
-    for device in hass.data[DOMAIN]:
+    for device_obj in hass.data[DOMAIN].values():
+        device = device_obj[API]
         if device.host == entry.data[CONF_HOST]:
             _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
             entities = [
