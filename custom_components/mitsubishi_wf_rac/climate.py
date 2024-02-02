@@ -83,6 +83,7 @@ class AircoClimate(ClimateEntity):
     # _attr_horizontal_swing_modes: list[str] | None = SUPPORT_HORIZONTAL_SWING_MODES
     _attr_min_temp: float = 16
     _attr_max_temp: float = 30
+    _enable_turn_on_off_backwards_compatibility = False  # Remove after HA 2025.1
 
     def __init__(self, device: Device, hass:HomeAssistantType) -> None:
         self._device = device
