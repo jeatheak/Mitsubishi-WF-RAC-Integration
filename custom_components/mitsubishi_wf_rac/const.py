@@ -38,9 +38,11 @@ SERVICE_SET_HORIZONTAL_SWING_MODE = "set_horizontal_swing_mode"
 SERVICE_SET_VERTICAL_SWING_MODE = "set_vertical_swing_mode"
 
 SUPPORT_FLAGS = (
-    ClimateEntityFeature.TARGET_TEMPERATURE
+    ClimateEntityFeature.FAN_MODE
     | ClimateEntityFeature.SWING_MODE
-    | ClimateEntityFeature.FAN_MODE
+    | ClimateEntityFeature.TARGET_TEMPERATURE
+    | ClimateEntityFeature.TURN_OFF
+    | ClimateEntityFeature.TURN_ON
 )
 
 SUPPORTED_HVAC_MODES = [
