@@ -1,0 +1,34 @@
+{
+  "config": {
+    "error": {
+      "unexpected_error": "Įvyko nežinoma klaida. Pasitikrinkite log failus",
+      "cannot_connect": "Nepavyko prisijungti prie kondicionieriaus: {reason}",
+      "name_invalid": "Pavadinimas jau naudojamas arba yra trumpesnis nei 3 simboliai",
+      "host_already_configured": "Kondicionieriaus IP jau nustatytas kaip [{error_name}]",
+      "too_many_devices_registered": "Su kondicionieriumi susieta per daug įrenginių. Ištrinkitę įrenginį programėlėje arba atstatykite modulį į gamyklinę būseną."
+    },
+    "abort": {
+      "existing_instance_updated": "Esami nustatymai atnaujinti.",
+      "already_configured": "Kondicionierius jau nustatytas"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "name": "Kondicionieriaus pavadinimas",
+          "host": "Host (IP) adresas",
+          "port": "Portas",
+          "force_update": "Ignoruoti dubliuot1 IP (tikėtinai bus klaidos. Patikrinkite log failus)"
+        },
+        "description": "Užpildykite teisingą informaciją norėdami pridėti kondicionių rankiniu būdu",
+        "title": "WF-RAC AC susijungimo informacija"
+      },
+      "discovery_confirm": {
+        "description": "Rastas kondicionierius, kurio id: {id}, IP: {host} ir portas: {port}. Suteikite jam pavadinimą.",
+        "title": "Atrastas WF-RAC kondicionierius",
+        "data": {
+          "name": "Kondicionieriaus pavadinimas"
+        }
+      }
+    }
+  }
+}
