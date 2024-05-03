@@ -1,4 +1,4 @@
-""" for select component used for horizontal swing."""
+"""for select component used for horizontal swing."""
 # pylint: disable = too-few-public-methods
 
 import logging
@@ -22,7 +22,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Setup select entries"""
 
     for device in hass.data[DOMAIN]:
-        if device.host == entry.data[CONF_HOST]:
+        if device.host == entry.options[CONF_HOST]:
             _LOGGER.info("Setup Select: %s, %s", device.name, device.airco_id)
             entities = [HorizontalSwingSelect(device)]
 

@@ -1,23 +1,20 @@
-""" for sensor integration."""
+"""for sensor integration."""
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations
 from datetime import timedelta
 import logging
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntity,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
     UnitOfEnergy,
     UnitOfTemperature,
+    EntityCategory,
     CONF_HOST,
     CONF_ERROR,
 )
 from homeassistant.util import Throttle
-from homeassistant.helpers.entity import EntityCategory
 
 from .wfrac.device import Device
 from .const import (
@@ -34,11 +31,12 @@ _LOGGER = logging.getLogger(__name__)
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 
+
 async def async_setup_entry(hass, entry, async_add_entities):
     """Setup sensor entries"""
 
     for device in hass.data[DOMAIN]:
-        if device.host == entry.data[CONF_HOST]:
+        if device.host == entry.options[CONF_HOST]:
             _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
             entities = [
                 TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
@@ -54,6 +52,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 entities.append(EnergySensor(device))
 
             async_add_entities(entities)
+
 
 class DiagnosticsSensor(SensorEntity):
     # pylint: disable = too-many-instance-attributes

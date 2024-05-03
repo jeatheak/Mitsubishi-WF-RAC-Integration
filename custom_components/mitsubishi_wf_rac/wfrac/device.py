@@ -1,15 +1,16 @@
 """Device module"""
+
 from datetime import timedelta
 from typing import Any
 import logging
 
-from homeassistant.helpers.typing import HomeAssistantType
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.util import Throttle
 
 from .rac_parser import RacParser
 from .repository import Repository
-from .models.aircon import Aircon, AirconStat, AirconCommands
+from .models.aircon import Aircon, AirconStat
 
 from ..const import DOMAIN
 
@@ -22,7 +23,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        hass: HomeAssistantType,
+        hass: HomeAssistant,
         name: str,
         hostname: str,
         port: int,
@@ -34,7 +35,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self._parser = RacParser()
         self._hass = hass
 
-        self._airco = None
+        # self._airco = None
+        self._airco = Aircon()
         self._operator_id = operator_id
         self._device_id = device_id
         self._host = hostname
@@ -58,12 +60,11 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 return
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception(
-                "Error: something went wrong updating the airco [%s] values",
-                self.name
+                "Error: something went wrong updating the airco [%s] values", self.name
             )
             return
 
-        self._connected_accounts = response["numOfAccount"]
+        self._connected_accounts = int(response["numOfAccount"])
         # pylint: disable = line-too-long
         self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
         self._airco = self._parser.translate_bytes(response["airconStat"])
@@ -78,16 +79,20 @@ class Device:  # pylint: disable=too-many-instance-attributes
     async def add_account(self):
         """Add account (operator id) from the airco"""
         try:
-            return await self._api.update_account_info(self._airco_id,
-                                                       self._hass.config.time_zone)
+            return await self._api.update_account_info(
+                self._airco_id, self._hass.config.time_zone
+            )
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Could not add account from airco %s", self._airco_id)
 
-    async def set_airco(self, params: dict[AirconCommands, Any]) -> None:
+    async def set_airco(self, params: dict[str, Any]) -> None:
         """Private method to send airco command"""
 
         if self.airco is None:
             await self._hass.async_add_executor_job(self.update)
+
+        if self._airco is None:
+            raise ValueError()
 
         airco_stat = AirconStat(self._airco)
 
@@ -97,6 +102,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
         command = self._parser.to_base64(airco_stat)
         try:
             response = await self._api.send_airco_command(self._airco_id, command)
+        except ValueError:  # pylint: disable=broad-except
+            _LOGGER.exception("Airco object is empty!")
+            return
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Could not send airco data")
             return
@@ -120,7 +128,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         return self._operator_id
 
     @property
-    def num_accounts(self) -> str:
+    def num_accounts(self) -> int:
         """Return Accounts connected"""
         return self._connected_accounts
 

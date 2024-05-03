@@ -1,8 +1,9 @@
 """The WF-RAC sensor integration."""  # pylint: disable=invalid-name
+
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.core import HomeAssistant
 
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_DEVICE_ID
 
@@ -14,13 +15,31 @@ _LOGGER = logging.getLogger(__name__)
 COMPONENT_TYPES = ["sensor", "climate", "select"]
 
 
-async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate old config entry."""
+
+    print(entry.version)
+
+    if entry.version == 1:
+        new_data = entry.data.copy()
+        new_options = {
+            CONF_HOST: new_data.pop(CONF_HOST),
+        }
+
+        hass.config_entries.async_update_entry(
+            entry, data=new_data, options=new_options, version=2
+        )
+
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
 
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = []
 
-    device: str = entry.data[CONF_HOST]
+    device: str = entry.options[CONF_HOST]
     name: str = entry.data[CONF_NAME]
     device_id: str = entry.data[CONF_DEVICE_ID]
     operator_id: str = entry.data[CONF_OPERATOR_ID]
@@ -46,7 +65,7 @@ async def async_remove_entry(hass, entry: ConfigEntry) -> None:
     """Handle removal of an entry."""
     for device in hass.data[DOMAIN]:
         temp_device: Device = device
-        if temp_device.host == entry.data[CONF_HOST]:
+        if temp_device.host == entry.options[CONF_HOST]:
             try:
                 await temp_device.delete_account()
                 _LOGGER.info(
