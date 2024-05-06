@@ -2,7 +2,7 @@
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.core import HomeAssistant
 
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_DEVICE_ID
 
@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 COMPONENT_TYPES = ["sensor", "climate", "select"]
 
 
-async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
 
     if DOMAIN not in hass.data:
