@@ -13,10 +13,10 @@ from homeassistant.components.climate import (
 )
 from homeassistant.components.climate.const import HVACMode, FAN_AUTO
 from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
+from homeassistant.core import HomeAssistant
 from homeassistant.util import Throttle
 from homeassistant.const import CONF_HOST
 from homeassistant.helpers import config_validation as cv, entity_platform
-from homeassistant.helpers.typing import HomeAssistantType
 
 from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
 from .wfrac.models.aircon import AirconCommands
@@ -85,7 +85,7 @@ class AircoClimate(ClimateEntity):
     _attr_max_temp: float = 30
     _enable_turn_on_off_backwards_compatibility = False  # Remove after HA 2025.1
 
-    def __init__(self, device: Device, hass:HomeAssistantType) -> None:
+    def __init__(self, device: Device, hass:HomeAssistant) -> None:
         self._device = device
         self._hass = hass
 
