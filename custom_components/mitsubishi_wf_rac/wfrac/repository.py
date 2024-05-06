@@ -8,7 +8,7 @@ import functools
 
 from typing import Any
 from datetime import datetime, timedelta
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.core import HomeAssistant
 
 import requests
 
@@ -29,7 +29,7 @@ class Repository:
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        hass: HomeAssistantType,
+        hass: HomeAssistant,
         hostname: str,
         port: int,
         operator_id: str,
