@@ -184,7 +184,7 @@ class AircoClimate(ClimateEntity):
         self._consolidatedParams.update(params)
         
         if will_do_update:
-            self._hass.async_create_task(self._set_airco_after_delay)
+            self._hass.async_create_task(self._set_airco_after_delay())
 
     async def _set_airco_after_delay(self):
         await asyncio.sleep(UPDATE_CONSOLIDATION_PERIOD.total_seconds())
