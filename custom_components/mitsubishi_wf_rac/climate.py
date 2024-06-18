@@ -12,6 +12,7 @@ from homeassistant.components.climate import ClimateEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.climate.const import HVACMode, FAN_AUTO
 from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
+from homeassistant.core import HomeAssistant
 from homeassistant.util import Throttle
 from homeassistant.const import CONF_HOST
 from homeassistant.helpers import config_validation as cv, entity_platform
