@@ -16,7 +16,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import Throttle
 from homeassistant.const import CONF_HOST
 from homeassistant.helpers import config_validation as cv, entity_platform
-from homeassistant.core import HomeAssistant
 
 from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
 from .wfrac.models.aircon import AirconCommands
