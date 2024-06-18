@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Any
 import logging
 
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.util import Throttle
 
@@ -22,7 +22,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        hass: HomeAssistantType,
+        hass: HomeAssistant,
         name: str,
         hostname: str,
         port: int,
