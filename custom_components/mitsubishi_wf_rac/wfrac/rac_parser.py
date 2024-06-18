@@ -220,8 +220,6 @@ class RacParser:
         """Translate bytes"""
 
         ac_device: Aircon = Aircon()
-        # print(inputString)
-
         # convert to byte array
         content_byte_array = b64decode(bytearray(input_string, encoding="UTF"))
         # Convert to signed integers instead of bytes

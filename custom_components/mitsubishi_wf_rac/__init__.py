@@ -18,8 +18,6 @@ COMPONENT_TYPES = ["sensor", "climate", "select"]
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old config entry."""
 
-    print(entry.version)
-
     if entry.version == 1:
         new_data = entry.data.copy()
         new_options = {

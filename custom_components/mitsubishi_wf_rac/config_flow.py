@@ -85,7 +85,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data[CONF_AIRCO_ID],
         )
         result = await repository.update_account_info(airco_id, hass.config.time_zone)
-        print(result)
         if not result:
             raise CannotConnect
         if int(result["result"]) == 2:
@@ -272,8 +271,6 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
-
-        print(self.config_entry.options, self.config_entry.data)
 
         return self.async_show_form(
             step_id="init",
