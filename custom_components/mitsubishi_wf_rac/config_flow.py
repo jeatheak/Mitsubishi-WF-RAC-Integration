@@ -240,8 +240,10 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         info = {CONF_HOST: host, CONF_PORT: port}
 
-        await self.async_set_unique_id(node_name)
+        _conf = await self.async_set_unique_id(node_name)
         self._abort_if_unique_id_configured(updates=info)
+
+        _LOGGER.debug("unique_id: %s", _conf)
 
         existing_entry = self._find_entry_matching(CONF_HOST, lambda h: h == host)
         if existing_entry:
