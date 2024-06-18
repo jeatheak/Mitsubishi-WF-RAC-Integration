@@ -44,6 +44,13 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return entry
         return None
 
+    def _find_entry_matching_option(self, key, matches):
+        """Returns the first entry where matches(entry.options[key]) returns True"""
+        for entry in self._async_current_entries():
+            if key in entry.options and matches(entry.options[key]):
+                return entry
+        return None
+
     async def _async_register_airco(
         self, hass: HomeAssistant, data: dict
     ) -> dict[str, Any]:
@@ -56,7 +63,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if not data.get(CONF_FORCE_UPDATE):
             # Is this hostname or IP address already configured?
-            existing_entry = self._find_entry_matching(
+            existing_entry = self._find_entry_matching_option(
                 CONF_HOST, lambda h: h == data[CONF_HOST]
             )
             if existing_entry:
@@ -245,7 +252,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         _LOGGER.debug("unique_id: %s", _conf)
 
-        existing_entry = self._find_entry_matching(CONF_HOST, lambda h: h == host)
+        existing_entry = self._find_entry_matching_option(CONF_HOST, lambda h: h == host)
         if existing_entry:
             _LOGGER.debug("already configured!")
             return self.async_abort(reason="already_configured")
