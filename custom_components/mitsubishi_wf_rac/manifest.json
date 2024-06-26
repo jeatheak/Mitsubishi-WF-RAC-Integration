@@ -1,12 +1,18 @@
 {
   "domain": "mitsubishi_wf_rac",
   "name": "Mitsubishi WF-RAC",
-  "codeowners": ["jeatheak"],
+  "codeowners": [
+    "jeatheak"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/jeatheak/Mitsubishi-WF-RAC-Integration/",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/jeatheak/Mitsubishi-WF-RAC-Integration/issues",
-  "requirements": ["aenum>=3.1.11"],
-  "version": "0.4.0",
-  "zeroconf": ["_beaver._tcp.local."]
+  "requirements": [
+    "aenum>=3.1.11"
+  ],
+  "version": "2024.6",
+  "zeroconf": [
+    "_beaver._tcp.local."
+  ]
 }
