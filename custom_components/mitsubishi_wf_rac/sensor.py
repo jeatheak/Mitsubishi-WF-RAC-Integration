@@ -93,6 +93,7 @@ class DiagnosticsSensor(SensorEntity):
             self._attr_native_value = self._device.num_accounts
         elif self._custom_type == CONF_ERROR:
             self._attr_native_value = self._device.airco.ErrorCode
+        self._attr_available = self._device.available
 
     async def async_update(self):
         """Retrieve latest state."""
@@ -122,6 +123,7 @@ class TemperatureSensor(SensorEntity):
             self._attr_native_value = self._device.airco.IndoorTemp
         elif self._custom_type == ATTR_OUTSIDE_TEMPERATURE:
             self._attr_native_value = self._device.airco.OutdoorTemp
+        self._attr_available = self._device.available
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
@@ -146,6 +148,7 @@ class EnergySensor(SensorEntity):
 
     def _update_state(self) -> None:
         self._attr_native_value = self._device.airco.Electric
+        self._attr_available = self._device.available
 
     async def async_update(self):
         """Retrieve latest state."""

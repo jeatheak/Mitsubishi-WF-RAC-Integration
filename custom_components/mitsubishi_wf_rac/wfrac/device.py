@@ -42,7 +42,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self._host = hostname
         self._port = port
         self._airco_id = airco_id
-        self._available = True
+        self._available = False
         self._name = name
         self._firmware = ""
         self._connected_accounts = -1
@@ -59,15 +59,21 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 _LOGGER.warning("Received no data for device %s", self._airco_id)
                 return
         except Exception:  # pylint: disable=broad-except
+            self._available = False
             _LOGGER.exception(
                 "Error: something went wrong updating the airco [%s] values", self.name
             )
             return
 
-        self._connected_accounts = int(response["numOfAccount"])
-        # pylint: disable = line-too-long
-        self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
-        self._airco = self._parser.translate_bytes(response["airconStat"])
+        try:
+            self._connected_accounts = int(response["numOfAccount"])
+            # pylint: disable = line-too-long
+            self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
+            self._airco = self._parser.translate_bytes(response["airconStat"])
+            self._available = True
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Could not parse airco data")
+            self._available = False
 
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
@@ -110,6 +116,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
             return
 
         self._airco = self._parser.translate_bytes(response)
+
+    def set_available(self, available: bool):
+        """Set available status"""
+        self._available = available
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -161,3 +171,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
     def airco(self) -> Aircon:
         """Return parsed Aircon object if set otherwise None"""
         return self._airco
+
+    @property
+    def available(self) -> bool:
+        """Return True if device is available"""
+        return self._available

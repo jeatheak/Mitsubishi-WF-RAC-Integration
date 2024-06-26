@@ -208,6 +208,7 @@ class AircoClimate(ClimateEntity):
             if airco.Entrust
             else list(SWING_MODE_TRANSLATION.keys())[airco.WindDirectionUD]
         )
+        self._attr_available = self._device.available
         # self._attr_horizontal_swing_mode = list(
         #     HORIZONTAL_SWING_MODE_TRANSLATION.keys()
         # )[airco.WindDirectionLR]
@@ -233,5 +234,11 @@ class AircoClimate(ClimateEntity):
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
         """Retrieve latest state."""
-        await self._device.update()
-        self._update_state()
+        try:
+            await self._device.update()
+            self._update_state()
+        except Exception: # pylint: disable=broad-except
+            _LOGGER.exception("Error updating airco values")
+            self._attr_available = False
+            self._device.set_available(False)
+            self.async_write_ha_state()

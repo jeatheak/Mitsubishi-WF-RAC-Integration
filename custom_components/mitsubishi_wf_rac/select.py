@@ -5,10 +5,9 @@ import logging
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import CONF_HOST
-from homeassistant.util import Throttle
 
 from .wfrac.models.aircon import AirconCommands
-from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
+from .wfrac.device import Device
 from .const import (
     DOMAIN,
     HORIZONTAL_SWING_MODE_TRANSLATION,
@@ -54,6 +53,7 @@ class HorizontalSwingSelect(SelectEntity):
                 self._device.airco.WindDirectionLR
             ]
         )
+        self._attr_available = self._device.available
 
     def select_option(self, option: str) -> None:
         """Change the selected option."""
@@ -66,8 +66,6 @@ class HorizontalSwingSelect(SelectEntity):
         )
         self.select_option(option)
 
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
         """Retrieve latest state."""
-        await self._device.update()
         self._update_state()
