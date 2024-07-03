@@ -4,7 +4,6 @@ from homeassistant.const import CONF_ICON, CONF_NAME, CONF_TYPE
 from homeassistant.components.climate.const import (
     HVACMode,
     ClimateEntityFeature,
-    HVACMode,
     FAN_AUTO,
 )
 
