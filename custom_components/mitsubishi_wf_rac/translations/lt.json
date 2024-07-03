@@ -30,5 +30,16 @@
         }
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Žemiau pateikiamos parinktys, kurias galite keisti šiam oro kondicionieriui.",
+        "data": {
+          "host": "Host (IP) adresas"
+        },
+        "title": "WF-RAC oro kondicionieriaus prisijungimo informacija"
+      }
+    }
   }
 }

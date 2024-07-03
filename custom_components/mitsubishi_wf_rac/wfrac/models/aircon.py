@@ -41,7 +41,7 @@ class Aircon(AirconBase):
 
     IndoorTemp: float
     OutdoorTemp: float
-    Electric: float
+    Electric: float | None
     ErrorCode: str
 
 

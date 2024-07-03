@@ -30,5 +30,16 @@
       "existing_instance_updated": "Updated existing configuration.",
       "already_configured": "[%key:common::config_flow::abort::already_configured_service%]"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Below are the options you can change for this airco.",
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]"
+        },
+        "title": "WF-RAC AC connection info"
+      }
+    }
   }
 }

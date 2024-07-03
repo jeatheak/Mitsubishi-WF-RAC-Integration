@@ -1,4 +1,5 @@
 """Config flow WF-RAC"""
+
 from __future__ import annotations
 
 import logging
@@ -19,7 +20,7 @@ from homeassistant.const import (
     CONF_DEVICE_ID,
     CONF_FORCE_UPDATE,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .const import CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN
@@ -27,10 +28,11 @@ from .wfrac.repository import Repository
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
-    VERSION = 1
+    VERSION = 2
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info = {}
     DOMAIN = DOMAIN
@@ -39,6 +41,13 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Returns the first entry where matches(entry.data[key]) returns True"""
         for entry in self._async_current_entries():
             if key in entry.data and matches(entry.data[key]):
+                return entry
+        return None
+
+    def _find_entry_matching_option(self, key, matches):
+        """Returns the first entry where matches(entry.options[key]) returns True"""
+        for entry in self._async_current_entries():
+            if key in entry.options and matches(entry.options[key]):
                 return entry
         return None
 
@@ -54,7 +63,9 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if not data.get(CONF_FORCE_UPDATE):
             # Is this hostname or IP address already configured?
-            existing_entry = self._find_entry_matching(CONF_HOST, lambda h: h == data[CONF_HOST])
+            existing_entry = self._find_entry_matching_option(
+                CONF_HOST, lambda h: h == data[CONF_HOST]
+            )
             if existing_entry:
                 raise HostAlreadyConfigured(error_name=existing_entry.data[CONF_NAME])
 
@@ -69,11 +80,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             airco_id = await repository.get_airco_id()
         except Exception as query_failed:
-            raise CannotConnect(reason=str(query_failed)) from query_failed
+            raise CannotConnect(reason=str(query_failed)) from query_failed  # type: ignore
 
         data[CONF_AIRCO_ID] = airco_id
         if not airco_id:
-            raise CannotConnect(reason="unknown reason")
+            raise CannotConnect(reason="unknown reason")  # type: ignore
 
         _LOGGER.info(
             "Trying to register OperatorId[%s] on Airco[%s]",
@@ -103,11 +114,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return f"homeassistant-device-{uuid4().hex[21:]}"
 
     async def _async_create_common(
-            self,
-            step_id: str,
-            data_schema: vol.Schema = None,
-            user_input: dict[str, Any] | None = None,
-            description_placeholders : dict[str, str] | None = None
+        self,
+        step_id: str,
+        data_schema: vol.Schema,
+        user_input: dict[str, Any] | None = None,
+        description_placeholders: dict[str, str] | None = None,
     ):
         """Create a new entry"""
         errors = {}
@@ -120,12 +131,27 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[CONF_DEVICE_ID] = await self._async_fetch_device_id()
 
                 info = await self._async_register_airco(self.hass, user_input)
-                return self.async_create_entry(title=info[CONF_NAME], data=user_input)
+
+                data_input = user_input.copy()
+                options_input = {CONF_HOST: user_input[CONF_HOST]}
+                data_input.pop(CONF_HOST)
+
+                return self.async_create_entry(
+                    title=info[CONF_NAME],
+                    data=data_input,
+                    options=options_input,
+                )
             except KnownError as error:
                 _LOGGER.exception("create failed")
-                errors, placeholders = error.get_errors_and_placeholders(data_schema.schema)
+                errors, placeholders = error.get_errors_and_placeholders(
+                    data_schema.schema
+                )
                 errors.update(errors)
-                description_placeholders.update(placeholders)
+                for key, value in placeholders.items():
+                    if isinstance(value, dict):
+                        description_placeholders[key] = str(value)
+                    else:
+                        description_placeholders[key] = value
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors[CONF_BASE] = "unexpected_error"
@@ -136,7 +162,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id=step_id,
             data_schema=data_schema,
             errors=errors,
-            description_placeholders=description_placeholders
+            description_placeholders=description_placeholders,
         )
 
     @staticmethod
@@ -162,32 +188,44 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[key] = self._discovery_info[key]
 
         field = partial(self._field, user_input)
-        data_schema = vol.Schema({
-            field(CONF_NAME, vol.Required, f"Airco {self._discovery_info[CONF_NAME]}") : str,
-        })
+        data_schema = vol.Schema(
+            {
+                field(
+                    CONF_NAME, vol.Required, f"Airco {self._discovery_info[CONF_NAME]}"
+                ): str,
+            }
+        )
 
         return await self._async_create_common(
             step_id="discovery_confirm",
             data_schema=data_schema,
             user_input=user_input,
-            description_placeholders=description_placeholders
+            description_placeholders=description_placeholders,
         )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return WfRacOptionsFlowHandler(config_entry)
 
     async def async_step_user(self, user_input=None):
         """Handle adding device manually."""
 
         field = partial(self._field, user_input)
-        data_schema = vol.Schema({
-            field(CONF_NAME, vol.Required, "Airco unknown") : cv.string,
-            field(CONF_HOST, vol.Required) : cv.string,
-            field(CONF_PORT, vol.Optional, 51443): cv.port,
-            field(CONF_FORCE_UPDATE, vol.Optional, False): cv.boolean,
-        })
+        data_schema = vol.Schema(
+            {
+                field(CONF_NAME, vol.Required, "Airco unknown"): cv.string,
+                field(CONF_HOST, vol.Required): cv.string,
+                field(CONF_PORT, vol.Optional, 51443): cv.port,
+                field(CONF_FORCE_UPDATE, vol.Optional, False): cv.boolean,
+            }
+        )
 
         return await self._async_create_common(
-            step_id="user",
-            data_schema=data_schema,
-            user_input=user_input
+            step_id="user", data_schema=data_schema, user_input=user_input
         )
 
     async def async_step_zeroconf(
@@ -200,17 +238,19 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         host = discovery_info.host
         port = discovery_info.port
 
-        _LOGGER.debug("zeroconf discovery: hostname=%r, host=%r, port=%r",
-                      discovery_info.hostname,
-                      discovery_info.host,
-                      discovery_info.port)
+        _LOGGER.debug(
+            "zeroconf discovery: hostname=%r, host=%r, port=%r",
+            discovery_info.hostname,
+            discovery_info.host,
+            discovery_info.port,
+        )
 
         info = {CONF_HOST: host, CONF_PORT: port}
 
         await self.async_set_unique_id(node_name)
         self._abort_if_unique_id_configured(updates=info)
 
-        existing_entry = self._find_entry_matching(CONF_HOST, lambda h: h == host)
+        existing_entry = self._find_entry_matching_option(CONF_HOST, lambda h: h == host)
         if existing_entry:
             _LOGGER.debug("already configured!")
             return self.async_abort(reason="already_configured")
@@ -224,7 +264,36 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def _name(self) -> str | None:
         return self.context.get(CONF_NAME)
 
+
+class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
+    """Base class for options handling."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_HOST,
+                        default=self.config_entry.options.get(CONF_HOST),  # type: ignore
+                    ): str,
+                }
+            ),
+        )
+
+
 # pylint: disable=too-few-public-methods
+
 
 class KnownError(exceptions.HomeAssistantError):
     """Base class for errors known to this config flow.
@@ -235,6 +304,7 @@ class KnownError(exceptions.HomeAssistantError):
     [applies_to_field] is the name of the field name that contains the error (for
     async_show_form); if the field doesn't exist in the form CONF_BASE will be used instead.
     """
+
     error_name = "unknown_error"
     applies_to_field = CONF_BASE
 
@@ -250,28 +320,38 @@ class KnownError(exceptions.HomeAssistantError):
         # isn't a more efficient way to do this...)
         if key not in {k.schema for k in schema}:
             key = CONF_BASE
-        return ({key : self.error_name}, self._extra_info or {})
+        return ({key: self.error_name}, self._extra_info or {})
+
 
 class CannotConnect(KnownError):
     """Error to indicate we cannot connect."""
+
     error_name = "cannot_connect"
+
 
 class InvalidHost(KnownError):
     """Error to indicate there is an invalid hostname."""
-    error_name = "cannot_connect"
+
+    error_name = "invalid_host"
     applies_to_field = CONF_HOST
+
 
 class HostAlreadyConfigured(KnownError):
     """Error to indicate there is an duplicate hostname."""
+
     error_name = "host_already_configured"
     applies_to_field = CONF_HOST
 
+
 class InvalidName(KnownError):
     """Error to indicate there is an invalid hostname."""
+
     error_name = "name_invalid"
     applies_to_field = CONF_NAME
 
+
 class TooManyDevicesRegistered(KnownError):
     """Error to indicate that there are too many devices registered"""
+
     error_name = "too_many_devices_registered"
     applies_to_field = CONF_BASE

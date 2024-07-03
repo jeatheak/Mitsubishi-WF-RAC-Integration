@@ -1,4 +1,5 @@
 """WF-RAC parser to decode and ecode wf-rac strings"""
+
 from base64 import b64decode, b64encode
 from .utils import find_match, indoorTempList, outdoorTempList
 from .models.aircon import Aircon, AirconStat
@@ -22,13 +23,15 @@ class RacParser:
 
     def add_variable(self, byte_buffer: bytearray):
         """Concat byte_buffer wit hveriable"""
-        return byte_buffer + [1, 255, 255, 255, 255]
+        return byte_buffer + bytearray([1, 255, 255, 255, 255])
 
-    def command_to_byte(self, aircon_stat: AirconStat):
+    def command_to_byte(self, _aircon_stat: AirconStat):
         """Command to bytes"""
 
-        aircon_stat: AirconStat = aircon_stat
-        stat_byte: bytearray = [0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        aircon_stat: AirconStat = _aircon_stat
+        stat_byte: bytearray = bytearray(
+            [0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
 
         # On/Off
         if aircon_stat.Operation:
@@ -127,11 +130,13 @@ class RacParser:
 
         return stat_byte
 
-    def recieve_to_bytes(self, aircon_stat: AirconStat):
+    def recieve_to_bytes(self, _aircon_stat: AirconStat):
         """Receive command to bytes"""
 
-        aircon_stat: AirconStat = aircon_stat
-        stat_byte: bytearray = [0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        aircon_stat: AirconStat = _aircon_stat
+        stat_byte: bytearray = bytearray(
+            [0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
 
         # On/Off
         if aircon_stat.Operation:
@@ -215,8 +220,6 @@ class RacParser:
         """Translate bytes"""
 
         ac_device: Aircon = Aircon()
-        # print(inputString)
-
         # convert to byte array
         content_byte_array = b64decode(bytearray(input_string, encoding="UTF"))
         # Convert to signed integers instead of bytes
@@ -249,14 +252,14 @@ class RacParser:
         ac_device.Entrust = 4 == (12 & content[12])
         ac_device.CoolHotJudge = (content[8] & 8) <= 0
         ac_device.ModelNr = find_match(content[0] & 127, 0, 1, 2)
-        ac_device.Vacant = content[10] & 1
+        ac_device.Vacant = (content[10] & 1) != 0
         code = content[6] & 127
         ac_device.ErrorCode = (
             "00"
             if code == 0
-            else "M{code:02d}".format(code)
+            else f"M{code:02d}"
             if (content[6] & -128) <= 0
-            else "E" + code
+            else "E" + str(code)
         )
 
         vals = content_byte_array[start_length + 19 : len(content_byte_array) - 2]
@@ -267,12 +270,19 @@ class RacParser:
             if vals[i] == -128 and vals[i + 1] == 32:
                 ac_device.IndoorTemp = indoorTempList[vals[i + 2] & 0xFF]
             if vals[i] == -108 and vals[i + 1] == 16:
-                ac_device.Electric = (int.from_bytes([(v + 256) % 256 for v in vals[i + 2: i + 4]], "little", signed=False ) * 0.25)
+                ac_device.Electric = (
+                    int.from_bytes(
+                        [(v + 256) % 256 for v in vals[i + 2 : i + 4]],
+                        "little",
+                        signed=False,
+                    )
+                    * 0.25
+                )
 
         return ac_device
 
     def crc16ccitt(self, data):
-        # Convert to signed integers instead of bytes
+        """Convert to signed integers instead of bytes"""
         data = [(256 - a) * (-1) if a > 127 else a for a in data]
 
         i = 65535
@@ -288,7 +298,8 @@ class RacParser:
         return i & 65535
 
     def add_crc16(self, byte_buffer: bytearray):
+        """add crc to buffer"""
         crc = RacParser.crc16ccitt(self, byte_buffer)
 
-        return byte_buffer + [crc & 255, (crc >> 8) & 255]
-        # return ByteBuffer + (crc.to_bytes(2, 'big'))
+        crc_bytes = bytearray([crc & 255, (crc >> 8) & 255])  # Convert CRC to bytearray
+        return byte_buffer + crc_bytes

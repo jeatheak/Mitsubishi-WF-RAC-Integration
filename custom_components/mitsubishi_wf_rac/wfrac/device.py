@@ -1,15 +1,16 @@
 """Device module"""
+
 from datetime import timedelta
 from typing import Any
 import logging
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.util import Throttle
 
 from .rac_parser import RacParser
 from .repository import Repository
-from .models.aircon import Aircon, AirconStat, AirconCommands
+from .models.aircon import Aircon, AirconStat
 
 from ..const import DOMAIN
 
@@ -34,13 +35,14 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self._parser = RacParser()
         self._hass = hass
 
-        self._airco = None
+        # self._airco = None
+        self._airco = Aircon()
         self._operator_id = operator_id
         self._device_id = device_id
         self._host = hostname
         self._port = port
         self._airco_id = airco_id
-        self._available = True
+        self._available = False
         self._name = name
         self._firmware = ""
         self._connected_accounts = -1
@@ -57,16 +59,21 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 _LOGGER.warning("Received no data for device %s", self._airco_id)
                 return
         except Exception:  # pylint: disable=broad-except
+            self._available = False
             _LOGGER.exception(
-                "Error: something went wrong updating the airco [%s] values",
-                self.name
+                "Error: something went wrong updating the airco [%s] values", self.name
             )
             return
 
-        self._connected_accounts = response["numOfAccount"]
-        # pylint: disable = line-too-long
-        self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
-        self._airco = self._parser.translate_bytes(response["airconStat"])
+        try:
+            self._connected_accounts = int(response["numOfAccount"])
+            # pylint: disable = line-too-long
+            self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
+            self._airco = self._parser.translate_bytes(response["airconStat"])
+            self._available = True
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Could not parse airco data")
+            self._available = False
 
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
@@ -78,16 +85,20 @@ class Device:  # pylint: disable=too-many-instance-attributes
     async def add_account(self):
         """Add account (operator id) from the airco"""
         try:
-            return await self._api.update_account_info(self._airco_id,
-                                                       self._hass.config.time_zone)
+            return await self._api.update_account_info(
+                self._airco_id, self._hass.config.time_zone
+            )
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Could not add account from airco %s", self._airco_id)
 
-    async def set_airco(self, params: dict[AirconCommands, Any]) -> None:
+    async def set_airco(self, params: dict[str, Any]) -> None:
         """Private method to send airco command"""
 
         if self.airco is None:
             await self._hass.async_add_executor_job(self.update)
+
+        if self._airco is None:
+            raise ValueError()
 
         airco_stat = AirconStat(self._airco)
 
@@ -97,11 +108,18 @@ class Device:  # pylint: disable=too-many-instance-attributes
         command = self._parser.to_base64(airco_stat)
         try:
             response = await self._api.send_airco_command(self._airco_id, command)
+        except ValueError:  # pylint: disable=broad-except
+            _LOGGER.exception("Airco object is empty!")
+            return
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Could not send airco data")
             return
 
         self._airco = self._parser.translate_bytes(response)
+
+    def set_available(self, available: bool):
+        """Set available status"""
+        self._available = available
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -120,7 +138,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         return self._operator_id
 
     @property
-    def num_accounts(self) -> str:
+    def num_accounts(self) -> int:
         """Return Accounts connected"""
         return self._connected_accounts
 
@@ -153,3 +171,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
     def airco(self) -> Aircon:
         """Return parsed Aircon object if set otherwise None"""
         return self._airco
+
+    @property
+    def available(self) -> bool:
+        """Return True if device is available"""
+        return self._available

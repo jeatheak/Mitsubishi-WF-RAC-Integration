@@ -1,4 +1,5 @@
 """Local API for sending and receiving to and from WF-RAC module"""
+
 from __future__ import annotations
 
 import time
@@ -43,7 +44,9 @@ class Repository:
         self._mutex = asyncio.Lock()
         self._next_request_after = datetime.now()
 
-    async def _post(self, command: str, contents: dict[str, Any] | None = None) -> dict:
+    async def _post(
+        self, command: str, contents: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         url = f"http://{self._hostname}:{self._port}/beaver/command/{command}"
         data = {
             "apiVer": self.api_version,
@@ -82,7 +85,7 @@ class Repository:
 
         return response.json()
 
-    async def get_info(self) -> str:
+    async def get_info(self) -> dict:
         """Simple command to get aircon details"""
         return (await self._post("getDeviceInfo"))["contents"]
 
@@ -90,7 +93,9 @@ class Repository:
         """Simple command to get aircon ID"""
         return (await self.get_info())["airconId"]
 
-    async def update_account_info(self, airco_id: str, time_zone: str) -> str:
+    async def update_account_info(
+        self, airco_id: str, time_zone: str
+    ) -> dict[str, Any]:
         """Update the account info on the airco (sets to operator id of the device)"""
         contents = {
             "accountId": self._operator_id,
@@ -100,12 +105,12 @@ class Repository:
         }
         return await self._post("updateAccountInfo", contents)
 
-    async def del_account_info(self, airco_id: str) -> str:
+    async def del_account_info(self, airco_id: str) -> dict:
         """delete the account info on the airco"""
         contents = {"accountId": self._operator_id, "airconId": airco_id}
         return await self._post("deleteAccountInfo", contents)
 
-    async def get_aircon_stats(self, raw=False) -> str:
+    async def get_aircon_stats(self, raw=False) -> dict:
         """Get the Aricon Stats from the Airco"""
         result = await self._post("getAirconStat")
         return result if raw else result["contents"]

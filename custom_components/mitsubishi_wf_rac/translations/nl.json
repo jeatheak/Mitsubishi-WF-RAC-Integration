@@ -30,5 +30,16 @@
         }
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Hieronder zijn instellingen die je kan aanpassen voor deze airco.",
+        "data": {
+          "host": "Host (IP) address"
+        },
+        "title": "WF-RAC AC connectie info"
+      }
+    }
   }
 }
