@@ -5,14 +5,20 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, CONF_DEVICE_ID
+from homeassistant.const import (
+    CONF_HOST, 
+    CONF_PORT, 
+    CONF_NAME, 
+    CONF_DEVICE_ID, 
+    Platform,
+)
 
 from .const import CONF_AIRCO_ID, DOMAIN, CONF_OPERATOR_ID
 from .wfrac.device import Device
 
 _LOGGER = logging.getLogger(__name__)
 
-COMPONENT_TYPES = ["sensor", "climate", "select"]
+PLATFORMS = [Platform.CLIMATE, Platform.SELECT, Platform.SENSOR]
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -51,10 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.warning("Something whent wrong setting up device [%s] %s", device, ex)
 
-    for component in COMPONENT_TYPES:
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, component)
-        )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
