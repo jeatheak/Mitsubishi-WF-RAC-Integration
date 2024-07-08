@@ -77,11 +77,10 @@ class AircoClimate(ClimateEntity):
     _attr_fan_mode: str = FAN_AUTO
     _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
-    # _attr_horizontal_swing_mode: str | None = SWING_HORIZONTAL_AUTO
-    # _attr_horizontal_swing_modes: list[str] | None = SUPPORT_HORIZONTAL_SWING_MODES
     _attr_min_temp: float = 16
     _attr_max_temp: float = 30
-    _enable_turn_on_off_backwards_compatibility = False  # Remove after HA 2025.1
+    _attr_horizontal_swing_mode: str | None = SWING_HORIZONTAL_AUTO
+    _enable_turn_on_off_backwards_compatibility = False
 
     def __init__(self, device: Device, hass: HomeAssistant) -> None:
         self._device = device
@@ -208,10 +207,10 @@ class AircoClimate(ClimateEntity):
             if airco.Entrust
             else list(SWING_MODE_TRANSLATION.keys())[airco.WindDirectionUD]
         )
+        self._attr_horizontal_swing_mode = list(
+            HORIZONTAL_SWING_MODE_TRANSLATION.keys()
+        )[airco.WindDirectionLR]
         self._attr_available = self._device.available
-        # self._attr_horizontal_swing_mode = list(
-        #     HORIZONTAL_SWING_MODE_TRANSLATION.keys()
-        # )[airco.WindDirectionLR]
         self._attr_hvac_mode = list(HVAC_TRANSLATION.keys())[airco.OperationMode]
 
         if airco.Operation is False:
@@ -238,7 +237,7 @@ class AircoClimate(ClimateEntity):
             await self._device.update()
             self._update_state()
         except Exception: # pylint: disable=broad-except
-            _LOGGER.exception("Error updating airco values")
+            _LOGGER.warning("Could not update the airco values")
             self._attr_available = False
             self._device.set_available(False)
             self.async_write_ha_state()
