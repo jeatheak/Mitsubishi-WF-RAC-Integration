@@ -103,7 +103,13 @@ class AircoClimate(ClimateEntity):
         """Set new target temperature."""
         set_temp = kwargs.get(ATTR_TEMPERATURE)
         if set_temp is None:
-            return
+            raise ValueError("Temperature is required")
+
+        if set_temp < self._attr_min_temp:
+            raise ValueError(f"Temperature {set_temp} is below minimum {self._attr_min_temp}")
+
+        if set_temp > self._attr_max_temp:
+            raise ValueError(f"Temperature {set_temp} is above maximum {self._attr_max_temp}")
 
         opts: dict[str, Any] = {AirconCommands.PresetTemp: set_temp}
 
