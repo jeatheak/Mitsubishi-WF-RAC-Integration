@@ -18,6 +18,7 @@ from homeassistant.util import Throttle
 
 from .wfrac.device import Device
 from .const import (
+    ATTR_TARGET_TEMPERATURE,
     DOMAIN,
     ATTR_INSIDE_TEMPERATURE,
     ATTR_OUTSIDE_TEMPERATURE,
@@ -41,6 +42,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             entities = [
                 TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
                 TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
+                TemperatureSensor(device, "Target", ATTR_TARGET_TEMPERATURE, False),
                 DiagnosticsSensor(device, "Airco ID", CONF_AIRCO_ID),
                 DiagnosticsSensor(device, "Operator ID", CONF_OPERATOR_ID, True),
                 DiagnosticsSensor(device, "Device ID", ATTR_DEVICE_ID, True),
@@ -107,10 +109,11 @@ class TemperatureSensor(SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, device: Device, name: str, custom_type: str) -> None:
+    def __init__(self, device: Device, name: str, custom_type: str, enable=True) -> None:
         """Initialize the sensor."""
         self._device = device
         self._custom_type = custom_type
+        self._attr_entity_registry_enabled_default = enable
         self._attr_name = f"{device.name} {name}"
         self._attr_device_info = device.device_info
         self._attr_unique_id = (
@@ -123,6 +126,8 @@ class TemperatureSensor(SensorEntity):
             self._attr_native_value = self._device.airco.IndoorTemp
         elif self._custom_type == ATTR_OUTSIDE_TEMPERATURE:
             self._attr_native_value = self._device.airco.OutdoorTemp
+        elif self._custom_type == ATTR_TARGET_TEMPERATURE:
+            self._attr_native_value = self._device.airco.PresetTemp
         self._attr_available = self._device.available
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)

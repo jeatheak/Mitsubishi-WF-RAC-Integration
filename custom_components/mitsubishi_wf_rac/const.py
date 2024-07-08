@@ -17,6 +17,7 @@ ATTR_CONNECTED_ACCOUNTS = "connected_accounts"
 
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"
 ATTR_OUTSIDE_TEMPERATURE = "outside_temperature"
+ATTR_TARGET_TEMPERATURE = "target_temperature"
 
 SENSOR_TYPE_TEMPERATURE = "temperature"
 
