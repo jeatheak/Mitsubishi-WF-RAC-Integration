@@ -80,7 +80,7 @@ class AircoClimate(ClimateEntity):
     _attr_min_temp: float = 16
     _attr_max_temp: float = 30
     _attr_horizontal_swing_mode: str | None = SWING_HORIZONTAL_AUTO
-    _enable_turn_on_off_backwards_compatibility = False
+    _enable_turn_on_off_backwards_compatibility = False  # Remove after HA 2025.1
 
     def __init__(self, device: Device, hass: HomeAssistant) -> None:
         self._device = device
@@ -91,6 +91,13 @@ class AircoClimate(ClimateEntity):
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-climate"
         self._consolidated_params = {}
         self._update_state()
+
+    @property
+    def extra_state_attributes(self):
+        return {
+                "hvac_mode_state": self._attr_hvac_mode,
+                "horizontal_swing_mode": self._attr_horizontal_swing_mode
+               }
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set new target temperature."""
