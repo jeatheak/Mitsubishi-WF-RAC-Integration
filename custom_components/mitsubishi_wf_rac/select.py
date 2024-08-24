@@ -3,8 +3,8 @@
 
 import logging
 
+from . import MitsubishiWfRacConfigEntry
 from homeassistant.components.select import SelectEntity
-from homeassistant.const import CONF_HOST
 
 from .wfrac.models.aircon import AirconCommands
 from .wfrac.device import Device
@@ -19,15 +19,14 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
     """Setup select entries"""
 
-    for device in hass.data[DOMAIN]:
-        if device.host == entry.options[CONF_HOST]:
-            _LOGGER.info("Setup Horizontal and Vertical Select: %s, %s", device.name, device.airco_id)
-            entities = [HorizontalSwingSelect(device), VerticalSwingSelect(device)]
+    device: Device = entry.runtime_data.device
+    _LOGGER.info("Setup Horizontal and Vertical Select: %s, %s", device.name, device.airco_id)
+    entities = [HorizontalSwingSelect(device), VerticalSwingSelect(device)]
 
-            async_add_entities(entities)
+    async_add_entities(entities)
 
 
 class HorizontalSwingSelect(SelectEntity):

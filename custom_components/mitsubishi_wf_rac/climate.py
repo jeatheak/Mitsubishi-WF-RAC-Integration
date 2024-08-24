@@ -6,6 +6,7 @@ from datetime import timedelta
 import logging
 from typing import Any
 
+from . import MitsubishiWfRacConfigEntry
 import voluptuous as vol
 
 from homeassistant.components.climate import ClimateEntity
@@ -14,7 +15,6 @@ from homeassistant.components.climate.const import HVACMode, FAN_AUTO
 from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.core import HomeAssistant
 from homeassistant.util import Throttle
-from homeassistant.const import CONF_HOST
 from homeassistant.helpers import config_validation as cv, entity_platform
 
 from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
@@ -40,12 +40,11 @@ _LOGGER = logging.getLogger(__name__)
 UPDATE_CONSOLIDATION_PERIOD = timedelta(milliseconds=500)
 
 
-async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
     """Setup climate entities"""
-    for device in hass.data[DOMAIN]:
-        if device.host == entry.options[CONF_HOST]:
-            _LOGGER.info("Setup climate for: %s, %s", device.name, device.airco_id)
-            async_add_entities([AircoClimate(device, hass)])
+    device: Device = entry.runtime_data.device
+    _LOGGER.info("Setup climate for: %s, %s", device.name, device.airco_id)
+    async_add_entities([AircoClimate(device, hass)])
 
     platform = entity_platform.async_get_current_platform()
 

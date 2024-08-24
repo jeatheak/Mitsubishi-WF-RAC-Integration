@@ -1,5 +1,6 @@
 """The WF-RAC sensor integration."""  # pylint: disable=invalid-name
 
+from dataclasses import dataclass
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -20,6 +21,11 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.CLIMATE, Platform.SELECT, Platform.SENSOR]
 
+@dataclass
+class MitsubishiWfRacData:
+    device: Device
+
+type MitsubishiWfRacConfigEntry = ConfigEntry[MitsubishiWfRacData]
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old config entry."""
@@ -37,11 +43,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
-
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = []
 
     device: str = entry.options[CONF_HOST]
     name: str = entry.data[CONF_NAME]
@@ -53,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     try:
         api = Device(hass, name, device, port, device_id, operator_id, airco_id)
         await api.update()  # initial update to get fresh values
-        hass.data[DOMAIN].append(api)
+        entry.runtime_data = MitsubishiWfRacData(api)
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.warning("Something whent wrong setting up device [%s] %s", device, ex)
 
@@ -62,22 +65,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-async def async_remove_entry(hass, entry: ConfigEntry) -> None:
+async def async_remove_entry(hass, entry: MitsubishiWfRacConfigEntry) -> None:
     """Handle removal of an entry."""
-    for device in hass.data[DOMAIN]:
-        temp_device: Device = device
-        if temp_device.host == entry.options[CONF_HOST]:
-            try:
-                await temp_device.delete_account()
-                _LOGGER.info(
-                    "Deleted operator ID [%s] from airco [%s]",
-                    temp_device.operator_id,
-                    temp_device.airco_id,
-                )
-                hass.data[DOMAIN].remove(temp_device)
-            except Exception as ex:  # pylint: disable=broad-except
-                _LOGGER.warning(
-                    "Something whent wrong deleting account from airco [%s] %s",
-                    temp_device.name,
-                    ex,
-                )
+
+    temp_device: Device = entry.runtime_data.device
+    try:
+        await temp_device.delete_account()
+        _LOGGER.info(
+            "Deleted operator ID [%s] from airco [%s]",
+            temp_device.operator_id,
+            temp_device.airco_id,
+        )
+    except Exception as ex:  # pylint: disable=broad-except
+        _LOGGER.warning(
+            "Something whent wrong deleting account from airco [%s] %s",
+            temp_device.name,
+            ex,
+        )
