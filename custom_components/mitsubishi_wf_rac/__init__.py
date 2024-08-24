@@ -64,6 +64,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEnt
 
     return True
 
+async def async_unload_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEntry) -> bool:
+    """Handle unload of entry."""
+
+    # Unload entities for this entry/device.
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    return unload_ok
+
 
 async def async_remove_entry(hass, entry: MitsubishiWfRacConfigEntry) -> None:
     """Handle removal of an entry."""
