@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 
+from . import MitsubishiWfRacConfigEntry
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
@@ -33,27 +34,27 @@ _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
     """Setup sensor entries"""
 
-    for device in hass.data[DOMAIN]:
-        if device.host == entry.options[CONF_HOST]:
-            _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
-            entities = [
-                TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
-                TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
-                TemperatureSensor(device, "Target", ATTR_TARGET_TEMPERATURE, False),
-                DiagnosticsSensor(device, "Airco ID", CONF_AIRCO_ID),
-                DiagnosticsSensor(device, "Operator ID", CONF_OPERATOR_ID, True),
-                DiagnosticsSensor(device, "Device ID", ATTR_DEVICE_ID, True),
-                DiagnosticsSensor(device, "IP", CONF_HOST, True),
-                DiagnosticsSensor(device, "Accounts", ATTR_CONNECTED_ACCOUNTS, True),
-                DiagnosticsSensor(device, "Error", CONF_ERROR),
-            ]
-            if device.airco.Electric is not None:
-                entities.append(EnergySensor(device))
+    device: Device = entry.runtime_data.device
 
-            async_add_entities(entities)
+    _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
+    entities = [
+        TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
+        TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
+        TemperatureSensor(device, "Target", ATTR_TARGET_TEMPERATURE, False),
+        DiagnosticsSensor(device, "Airco ID", CONF_AIRCO_ID),
+        DiagnosticsSensor(device, "Operator ID", CONF_OPERATOR_ID, True),
+        DiagnosticsSensor(device, "Device ID", ATTR_DEVICE_ID, True),
+        DiagnosticsSensor(device, "IP", CONF_HOST, True),
+        DiagnosticsSensor(device, "Accounts", ATTR_CONNECTED_ACCOUNTS, True),
+        DiagnosticsSensor(device, "Error", CONF_ERROR),
+    ]
+    if device.airco.Electric is not None:
+        entities.append(EnergySensor(device))
+
+    async_add_entities(entities)
 
 
 class DiagnosticsSensor(SensorEntity):
