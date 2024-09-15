@@ -1,0 +1,45 @@
+{
+  "config": {
+    "error": {
+      "unexpected_error": "予期しないエラーが発生しました。詳細についてはログを確認してください。",
+      "cannot_connect": "エアコンに接続できませんでした: {reason}",
+      "name_invalid": "名前が既に使用されているか、3文字未満です。",
+      "host_already_configured": "エアコンのIPは既に [{error_name}] として設定されています。",
+      "too_many_devices_registered": "このエアコンには登録されているデバイスが多すぎます。デバイスを削除するか（アプリ内で）、モジュールを工場出荷時設定にリセットしてください。"
+    },
+    "abort": {
+      "existing_instance_updated": "既存の設定が更新されました。",
+      "already_configured": "エアコンは既に設定されています。"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "name": "エアコン名",
+          "host": "ホスト（IP）アドレス",
+          "port": "ポート",
+          "force_update": "重複IPを無視（エラーが発生する可能性があるため、エラーログを確認してください）"
+        },
+        "description": "エアコンを手動で追加するために正しい情報を入力してください。",
+        "title": "WF-RACエアコン接続情報"
+      },
+      "discovery_confirm": {
+        "description": "ID: {id}、IP: {host}、ポート: {port} のエアコンが見つかりました。名前を付けてください。",
+        "title": "検出されたWF-RACエアコン",
+        "data": {
+          "name": "エアコン名"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "以下は、このエアコンの変更可能なオプションです。",
+        "data": {
+          "host": "ホスト（IP）アドレス"
+        },
+        "title": "WF-RACエアコン接続情報"
+      }
+    }
+  }
+}
