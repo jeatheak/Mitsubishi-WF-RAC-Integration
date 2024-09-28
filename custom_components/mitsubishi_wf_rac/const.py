@@ -1,5 +1,6 @@
 """Constants used by the mitsubishi-wf-rac component."""
 
+from datetime import timedelta
 from homeassistant.const import CONF_ICON, CONF_NAME, CONF_TYPE
 from homeassistant.components.climate.const import (
     HVACMode,
@@ -9,6 +10,8 @@ from homeassistant.components.climate.const import (
 
 DOMAIN = "mitsubishi_wf_rac"
 DEVICES = "wf-rac-devices"
+
+MIN_TIME_BETWEEN_UPDATES=timedelta(seconds=60)
 
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"

@@ -1,6 +1,5 @@
 """Device module"""
 
-from datetime import timedelta
 from typing import Any
 import logging
 
@@ -12,10 +11,9 @@ from .rac_parser import RacParser
 from .repository import Repository
 from .models.aircon import Aircon, AirconStat
 
-from ..const import DOMAIN
+from ..const import DOMAIN, MIN_TIME_BETWEEN_UPDATES
 
 _LOGGER = logging.getLogger(__name__)
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
 
 
 class Device:  # pylint: disable=too-many-instance-attributes

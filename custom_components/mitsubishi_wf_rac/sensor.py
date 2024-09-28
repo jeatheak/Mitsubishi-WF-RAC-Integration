@@ -2,7 +2,6 @@
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations
-from datetime import timedelta
 import logging
 
 from . import MitsubishiWfRacConfigEntry
@@ -27,11 +26,10 @@ from .const import (
     CONF_AIRCO_ID,
     ATTR_DEVICE_ID,
     ATTR_CONNECTED_ACCOUNTS,
+    MIN_TIME_BETWEEN_UPDATES
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 
 
 async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):

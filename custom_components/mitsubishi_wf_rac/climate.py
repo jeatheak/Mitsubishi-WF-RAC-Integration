@@ -17,7 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import Throttle
 from homeassistant.helpers import config_validation as cv, entity_platform
 
-from .wfrac.device import MIN_TIME_BETWEEN_UPDATES, Device
+from .wfrac.device import Device
 from .wfrac.models.aircon import AirconCommands
 from .const import (
     DOMAIN,
@@ -34,6 +34,7 @@ from .const import (
     SWING_3D_AUTO,
     SWING_MODE_TRANSLATION,
     HORIZONTAL_SWING_MODE_TRANSLATION,
+    MIN_TIME_BETWEEN_UPDATES
 )
 
 _LOGGER = logging.getLogger(__name__)
