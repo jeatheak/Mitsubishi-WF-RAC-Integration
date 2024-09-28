@@ -15,6 +15,8 @@ MIN_TIME_BETWEEN_UPDATES=timedelta(seconds=60)
 
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"
+CONF_AVAILABILITY_CHECK = "availability_check"
+CONF_AVAILABILITY_RETRY_LIMIT = "availability_retry_limit"
 ATTR_DEVICE_ID = "device_id"
 ATTR_CONNECTED_ACCOUNTS = "connected_accounts"
 

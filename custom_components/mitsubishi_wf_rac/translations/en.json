@@ -36,7 +36,9 @@
       "init": {
         "description": "Below are the options you can change for this airco.",
         "data": {
-          "host": "Host (IP) address"
+          "host": "Host (IP) address",
+          "availability_check": "Check availability",
+          "availability_retry_limit": "Retry limit"
         },
         "title": "WF-RAC AC connection info"
       }

@@ -23,7 +23,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN
+from .const import CONF_AVAILABILITY_CHECK, CONF_AVAILABILITY_RETRY_LIMIT, CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN
 from .wfrac.repository import Repository
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
-    VERSION = 2
+    VERSION = 3
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info = {}
     DOMAIN = DOMAIN
@@ -133,7 +133,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await self._async_register_airco(self.hass, user_input)
 
                 data_input = user_input.copy()
-                options_input = {CONF_HOST: user_input[CONF_HOST]}
+                options_input = {CONF_HOST: user_input[CONF_HOST], CONF_AVAILABILITY_CHECK: True, CONF_AVAILABILITY_RETRY_LIMIT: 3}
                 data_input.pop(CONF_HOST)
 
                 return self.async_create_entry(
@@ -287,7 +287,15 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_HOST,
                         default=self.config_entry.options.get(CONF_HOST),  # type: ignore
                     ): str,
-                }
+                    vol.Required(
+                        CONF_AVAILABILITY_CHECK,
+                        default=self.config_entry.options.get(CONF_AVAILABILITY_CHECK, True ),  # type: ignore
+                    ): bool,
+                    vol.Optional(
+                        CONF_AVAILABILITY_RETRY_LIMIT,
+                        default=self.config_entry.options.get( CONF_AVAILABILITY_RETRY_LIMIT, 3 ),  # type: ignore
+                    ): int,
+                },
             ),
         )
 
