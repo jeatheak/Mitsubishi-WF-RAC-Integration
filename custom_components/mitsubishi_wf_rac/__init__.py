@@ -72,16 +72,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEnt
     availability_retry: bool = entry.options.get("availability_retry", False)
     availability_retry_limit: int = entry.options.get("availability_retry_limit", 3)
 
+    _device = Device(hass, name, device, port, device_id, operator_id, airco_id, availability_retry, availability_retry_limit)
+
     try:
-        api = Device(hass, name, device, port, device_id, operator_id, airco_id, availability_retry, availability_retry_limit)
-        await api.update()  # initial update to get fresh values
-        entry.runtime_data = MitsubishiWfRacData(api)
+        await _device.update()  # initial update to get fresh values
+        entry.runtime_data = MitsubishiWfRacData(_device)
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        entry.async_on_unload(entry.add_update_listener(async_update_options))
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.warning("Something whent wrong setting up device [%s] %s", device, ex)
-
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    entry.async_on_unload(entry.add_update_listener(async_update_options))
 
     return True
 
