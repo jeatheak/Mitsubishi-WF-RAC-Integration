@@ -142,7 +142,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options=options_input,
                 )
             except KnownError as error:
-                _LOGGER.exception("create failed")
+                _LOGGER.error("create failed")
                 errors, placeholders = error.get_errors_and_placeholders(
                     data_schema.schema
                 )
@@ -153,7 +153,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     else:
                         description_placeholders[key] = value
             except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+                _LOGGER.error("Unexpected exception")
                 errors[CONF_BASE] = "unexpected_error"
 
         # If there is no user input or there were errors, show the form again, including any errors

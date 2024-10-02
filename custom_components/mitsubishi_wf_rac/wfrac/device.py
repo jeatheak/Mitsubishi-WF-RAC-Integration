@@ -62,7 +62,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 return
         except Exception:  # pylint: disable=broad-except
             self._set_availabilty(False)
-            _LOGGER.exception(
+            _LOGGER.warning(
                 "Error: something went wrong updating the airco [%s] values", self.name
             )
             return
@@ -74,7 +74,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
             self._airco = self._parser.translate_bytes(response["airconStat"])
             self._set_availabilty(True)
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not parse airco data")
+            _LOGGER.warning("Could not parse airco data")
             self._set_availabilty(False)
 
     async def delete_account(self):
@@ -82,7 +82,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         try:
             return await self._api.del_account_info(self._airco_id)
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not delete account from airco %s", self._airco_id)
+            _LOGGER.warning("Could not delete account from airco %s", self._airco_id)
 
     async def add_account(self):
         """Add account (operator id) from the airco"""
@@ -91,7 +91,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 self._airco_id, self._hass.config.time_zone
             )
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not add account from airco %s", self._airco_id)
+            _LOGGER.warning("Could not add account from airco %s", self._airco_id)
 
     async def set_airco(self, params: dict[str, Any]) -> None:
         """Private method to send airco command"""
@@ -111,10 +111,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
         try:
             response = await self._api.send_airco_command(self._airco_id, command)
         except ValueError:  # pylint: disable=broad-except
-            _LOGGER.exception("Airco object is empty!")
+            _LOGGER.warning("Airco object is empty!")
             return
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not send airco data")
+            _LOGGER.warning("Could not send airco data")
             return
 
         self._airco = self._parser.translate_bytes(response)
