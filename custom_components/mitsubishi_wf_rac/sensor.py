@@ -2,9 +2,9 @@
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations
-from datetime import timedelta
 import logging
 
+from . import MitsubishiWfRacConfigEntry
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
@@ -18,6 +18,7 @@ from homeassistant.util import Throttle
 
 from .wfrac.device import Device
 from .const import (
+    ATTR_TARGET_TEMPERATURE,
     DOMAIN,
     ATTR_INSIDE_TEMPERATURE,
     ATTR_OUTSIDE_TEMPERATURE,
@@ -25,33 +26,33 @@ from .const import (
     CONF_AIRCO_ID,
     ATTR_DEVICE_ID,
     ATTR_CONNECTED_ACCOUNTS,
+    MIN_TIME_BETWEEN_UPDATES
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 
-
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
     """Setup sensor entries"""
 
-    for device in hass.data[DOMAIN]:
-        if device.host == entry.options[CONF_HOST]:
-            _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
-            entities = [
-                TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
-                TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
-                DiagnosticsSensor(device, "Airco ID", CONF_AIRCO_ID),
-                DiagnosticsSensor(device, "Operator ID", CONF_OPERATOR_ID, True),
-                DiagnosticsSensor(device, "Device ID", ATTR_DEVICE_ID, True),
-                DiagnosticsSensor(device, "IP", CONF_HOST, True),
-                DiagnosticsSensor(device, "Accounts", ATTR_CONNECTED_ACCOUNTS, True),
-                DiagnosticsSensor(device, "Error", CONF_ERROR),
-            ]
-            if device.airco.Electric is not None:
-                entities.append(EnergySensor(device))
+    device: Device = entry.runtime_data.device
 
-            async_add_entities(entities)
+    _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
+    entities = [
+        TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
+        TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
+        TemperatureSensor(device, "Target", ATTR_TARGET_TEMPERATURE, False),
+        DiagnosticsSensor(device, "Airco ID", CONF_AIRCO_ID),
+        DiagnosticsSensor(device, "Operator ID", CONF_OPERATOR_ID, True),
+        DiagnosticsSensor(device, "Device ID", ATTR_DEVICE_ID, True),
+        DiagnosticsSensor(device, "IP", CONF_HOST, True),
+        DiagnosticsSensor(device, "Accounts", ATTR_CONNECTED_ACCOUNTS, True),
+        DiagnosticsSensor(device, "Error", CONF_ERROR),
+    ]
+    if device.airco.Electric is not None:
+        entities.append(EnergySensor(device))
+
+    async_add_entities(entities)
 
 
 class DiagnosticsSensor(SensorEntity):
@@ -107,10 +108,11 @@ class TemperatureSensor(SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, device: Device, name: str, custom_type: str) -> None:
+    def __init__(self, device: Device, name: str, custom_type: str, enable=True) -> None:
         """Initialize the sensor."""
         self._device = device
         self._custom_type = custom_type
+        self._attr_entity_registry_enabled_default = enable
         self._attr_name = f"{device.name} {name}"
         self._attr_device_info = device.device_info
         self._attr_unique_id = (
@@ -123,6 +125,8 @@ class TemperatureSensor(SensorEntity):
             self._attr_native_value = self._device.airco.IndoorTemp
         elif self._custom_type == ATTR_OUTSIDE_TEMPERATURE:
             self._attr_native_value = self._device.airco.OutdoorTemp
+        elif self._custom_type == ATTR_TARGET_TEMPERATURE:
+            self._attr_native_value = self._device.airco.PresetTemp
         self._attr_available = self._device.available
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)

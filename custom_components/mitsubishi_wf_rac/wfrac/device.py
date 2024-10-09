@@ -1,6 +1,5 @@
 """Device module"""
 
-from datetime import timedelta
 from typing import Any
 import logging
 
@@ -12,10 +11,9 @@ from .rac_parser import RacParser
 from .repository import Repository
 from .models.aircon import Aircon, AirconStat
 
-from ..const import DOMAIN
+from ..const import DOMAIN, MIN_TIME_BETWEEN_UPDATES
 
 _LOGGER = logging.getLogger(__name__)
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
 
 
 class Device:  # pylint: disable=too-many-instance-attributes
@@ -30,6 +28,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
         device_id: str,
         operator_id: str,
         airco_id: str,
+        availability_retry: bool,
+        availability_retry_limit: int,
     ) -> None:
         self._api = Repository(hass, hostname, port, operator_id, device_id)
         self._parser = RacParser()
@@ -46,6 +46,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self._name = name
         self._firmware = ""
         self._connected_accounts = -1
+        self._availability_retry = availability_retry
+        self._availability_retry_limit = availability_retry_limit
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def update(self):
@@ -55,12 +57,12 @@ class Device:  # pylint: disable=too-many-instance-attributes
             response = await self._api.get_aircon_stats()
 
             if response is None:
-                self._available = False
+                self._set_availabilty(False)
                 _LOGGER.warning("Received no data for device %s", self._airco_id)
                 return
         except Exception:  # pylint: disable=broad-except
-            self._available = False
-            _LOGGER.exception(
+            self._set_availabilty(False)
+            _LOGGER.warning(
                 "Error: something went wrong updating the airco [%s] values", self.name
             )
             return
@@ -70,17 +72,17 @@ class Device:  # pylint: disable=too-many-instance-attributes
             # pylint: disable = line-too-long
             self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
             self._airco = self._parser.translate_bytes(response["airconStat"])
-            self._available = True
+            self._set_availabilty(True)
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not parse airco data")
-            self._available = False
+            _LOGGER.warning("Could not parse airco data")
+            self._set_availabilty(False)
 
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
         try:
             return await self._api.del_account_info(self._airco_id)
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not delete account from airco %s", self._airco_id)
+            _LOGGER.warning("Could not delete account from airco %s", self._airco_id)
 
     async def add_account(self):
         """Add account (operator id) from the airco"""
@@ -89,7 +91,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 self._airco_id, self._hass.config.time_zone
             )
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not add account from airco %s", self._airco_id)
+            _LOGGER.warning("Could not add account from airco %s", self._airco_id)
 
     async def set_airco(self, params: dict[str, Any]) -> None:
         """Private method to send airco command"""
@@ -109,17 +111,29 @@ class Device:  # pylint: disable=too-many-instance-attributes
         try:
             response = await self._api.send_airco_command(self._airco_id, command)
         except ValueError:  # pylint: disable=broad-except
-            _LOGGER.exception("Airco object is empty!")
+            _LOGGER.warning("Airco object is empty!")
             return
         except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Could not send airco data")
+            _LOGGER.warning("Could not send airco data")
             return
 
         self._airco = self._parser.translate_bytes(response)
 
+    def _set_availabilty(self, available: bool):
+        """Set availability after retry count"""
+        self._availability_retry += 1
+        if self._availability_retry >= self._availability_retry_limit:
+            self._available = available
+            self._available = False
+
+        # reset retry count if available
+        if available:
+            self._availability_retry = 0
+            self._available = True
+
     def set_available(self, available: bool):
         """Set available status"""
-        self._available = available
+        self._set_availabilty(available)
 
     @property
     def device_info(self) -> DeviceInfo:

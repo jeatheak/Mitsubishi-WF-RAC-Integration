@@ -36,7 +36,9 @@
       "init": {
         "description": "Žemiau pateikiamos parinktys, kurias galite keisti šiam oro kondicionieriui.",
         "data": {
-          "host": "Host (IP) adresas"
+          "host": "Host (IP) adresas",
+          "availability_check": "Patikrinti prieinamumą",
+          "availability_retry_limit": "Pakartotinio bandymo limitas"
         },
         "title": "WF-RAC oro kondicionieriaus prisijungimo informacija"
       }

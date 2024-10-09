@@ -36,7 +36,9 @@
       "init": {
         "description": "Below are the options you can change for this airco.",
         "data": {
-          "host": "[%key:common::config_flow::data::host%]"
+          "host": "[%key:common::config_flow::data::host%]",
+          "availability_check": "[%key:common::config_flow::data::avaiability%]",
+          "availability_retry_limit": "[%key:common::config_flow::data::avaiability_retry_limit%]"
         },
         "title": "WF-RAC AC connection info"
       }
