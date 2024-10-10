@@ -36,7 +36,9 @@
       "init": {
         "description": "Nachfolgend finden Sie die Optionen, die Sie für diese Klimaanlage ändern können.",
         "data": {
-          "host": "Host (IP) Adresse"
+          "host": "Host (IP) Adresse",
+          "availability_check": "Verfügbarkeit prüfen",
+          "availability_retry_limit": "max. Anzahl Wiederholungen"
         },
         "title": "WF-RAC AC Verbindungs-Info"
       }
