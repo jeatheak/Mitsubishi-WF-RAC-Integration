@@ -1,0 +1,47 @@
+{
+  "config": {
+    "error": {
+      "unexpected_error": "Es ist ein unerwarteter Fehler aufgetreten. Weitere Informationen finden Sie im Protokoll.",
+      "cannot_connect": "Konnte keine Verbindung zur Klimaanlage herstellen: {reason}",
+      "name_invalid": "Der Name ist bereits vergeben oder kürzer als 3 Zeichen",
+      "host_already_configured": "Klima IP bereits konfiguriert als [{error_name}]",
+      "too_many_devices_registered": "Für diese Klimaanlage sind zu viele Geräte registriert. Bitte löschen Sie ein Gerät (in der App) oder führen Sie einen Werksreset des Moduls durch."
+    },
+    "abort": {
+      "existing_instance_updated": "Vorhandene Konfiguration aktualisiert.",
+      "already_configured": "Klima ist bereits konfiguriert"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "name": "Klima Name",
+          "host": "Host (IP) Adresse",
+          "port": "Port",
+          "force_update": "Doppelte IP ignorieren (kann/wird Fehler verursachen, überprüfen Sie daher das Fehlerprotokoll)"
+        },
+        "description": "Bitte geben Sie die korrekten Informationen ein, um die Klimaanlage manuell hinzuzufügen",
+        "title": "WF-RAC AC Verbindungs-Info"
+      },
+      "discovery_confirm": {
+        "description": "Die Klima mit der ID: {id}, IP: {host} und Port: {port} wurde gefunden. Bitte vergeben Sie einen Namen.",
+        "title": "WF-RAC Klima gefunden",
+        "data": {
+          "name": "Klima Name"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Nachfolgend finden Sie die Optionen, die Sie für diese Klimaanlage ändern können.",
+        "data": {
+          "host": "Host (IP) Adresse",
+          "availability_check": "Verfügbarkeit prüfen",
+          "availability_retry_limit": "max. Anzahl Wiederholungen"
+        },
+        "title": "WF-RAC AC Verbindungs-Info"
+      }
+    }
+  }
+}
