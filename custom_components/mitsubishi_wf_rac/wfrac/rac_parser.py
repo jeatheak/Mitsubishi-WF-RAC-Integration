@@ -107,7 +107,8 @@ class RacParser:
             stat_byte[11] |= 22
 
         # preset temp
-        preset_temp = 25.0 if aircon_stat.OperationMode == 3 else aircon_stat.PresetTemp
+        # preset_temp = 25.0 if aircon_stat.OperationMode == 3 else aircon_stat.PresetTemp
+        preset_temp = aircon_stat.PresetTemp
         stat_byte[4] |= int(preset_temp / 0.5) + 128
 
         # entrust
@@ -191,7 +192,8 @@ class RacParser:
             stat_byte[11] |= 6
 
         # preset temp
-        preset_temp = 25.0 if aircon_stat.OperationMode == 3 else aircon_stat.PresetTemp
+        # preset_temp = 25.0 if aircon_stat.OperationMode == 3 else aircon_stat.PresetTemp
+        preset_temp = aircon_stat.PresetTemp
         stat_byte[4] |= int(preset_temp / 0.5)
 
         # entrust

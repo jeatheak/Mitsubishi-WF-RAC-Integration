@@ -36,7 +36,9 @@
       "init": {
         "description": "Hieronder zijn instellingen die je kan aanpassen voor deze airco.",
         "data": {
-          "host": "Host (IP) address"
+          "host": "Host (IP) address",
+          "availability_check": "Controleer beschikbaarheid",
+          "availability_retry_limit": "Herhaal limiet"
         },
         "title": "WF-RAC AC connectie info"
       }

@@ -1,23 +1,28 @@
 """Constants used by the mitsubishi-wf-rac component."""
 
+from datetime import timedelta
 from homeassistant.const import CONF_ICON, CONF_NAME, CONF_TYPE
 from homeassistant.components.climate.const import (
     HVACMode,
     ClimateEntityFeature,
-    HVACMode,
     FAN_AUTO,
 )
 
 DOMAIN = "mitsubishi_wf_rac"
 DEVICES = "wf-rac-devices"
 
+MIN_TIME_BETWEEN_UPDATES=timedelta(seconds=60)
+
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"
+CONF_AVAILABILITY_CHECK = "availability_check"
+CONF_AVAILABILITY_RETRY_LIMIT = "availability_retry_limit"
 ATTR_DEVICE_ID = "device_id"
 ATTR_CONNECTED_ACCOUNTS = "connected_accounts"
 
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"
 ATTR_OUTSIDE_TEMPERATURE = "outside_temperature"
+ATTR_TARGET_TEMPERATURE = "target_temperature"
 
 SENSOR_TYPE_TEMPERATURE = "temperature"
 

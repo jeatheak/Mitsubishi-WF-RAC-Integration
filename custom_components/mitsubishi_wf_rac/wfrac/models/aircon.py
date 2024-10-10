@@ -24,25 +24,25 @@ class AirconCommands(StrEnum):
 class AirconBase:
     """Base class of the aircon class"""
 
-    Operation: bool
-    OperationMode: int
-    AirFlow: int
-    WindDirectionUD: int
-    WindDirectionLR: int
-    PresetTemp: float
-    Entrust: bool
-    ModelNr: int
-    Vacant: bool
-    CoolHotJudge: bool
+    Operation: bool = False
+    OperationMode: int = 0
+    AirFlow: int = 0
+    WindDirectionUD: int = 0
+    WindDirectionLR: int = 0
+    PresetTemp: float = 18.0
+    Entrust: bool = False
+    ModelNr: int = 0
+    Vacant: bool = False
+    CoolHotJudge: bool = False
 
 
 class Aircon(AirconBase):
     """Aircon (recieve) class extends AirconBase class"""
 
-    IndoorTemp: float
-    OutdoorTemp: float
-    Electric: float | None
-    ErrorCode: str
+    IndoorTemp: float = 0.0
+    OutdoorTemp: float = 0.0
+    Electric: float | None = None
+    ErrorCode: str = ""
 
 
 class AirconStat(AirconBase):
@@ -62,5 +62,5 @@ class AirconStat(AirconBase):
         self.IsSelfCleanOperation = False
         self.IsSelfCleanReset = False
 
-    IsSelfCleanOperation: bool
-    IsSelfCleanReset: bool
+    IsSelfCleanOperation: bool = False
+    IsSelfCleanReset: bool = False
