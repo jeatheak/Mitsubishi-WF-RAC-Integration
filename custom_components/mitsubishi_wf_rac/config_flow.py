@@ -23,7 +23,8 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONF_AVAILABILITY_CHECK, CONF_AVAILABILITY_RETRY_LIMIT, CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN
+from .const import CONF_AVAILABILITY_CHECK, CONF_AVAILABILITY_RETRY_LIMIT, CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN, \
+    CONF_CREATE_SWING_MODE_SELECT
 from .wfrac.repository import Repository
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return None
 
     async def _async_register_airco(
-        self, hass: HomeAssistant, data: dict
+            self, hass: HomeAssistant, data: dict
     ) -> dict[str, Any]:
         """Validate the user input allows us to connect, and register with the airco device"""
         if len(data[CONF_HOST]) < 3:
@@ -114,11 +115,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return f"homeassistant-device-{uuid4().hex[21:]}"
 
     async def _async_create_common(
-        self,
-        step_id: str,
-        data_schema: vol.Schema,
-        user_input: dict[str, Any] | None = None,
-        description_placeholders: dict[str, str] | None = None,
+            self,
+            step_id: str,
+            data_schema: vol.Schema,
+            user_input: dict[str, Any] | None = None,
+            description_placeholders: dict[str, str] | None = None,
     ):
         """Create a new entry"""
         errors = {}
@@ -206,7 +207,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
+            config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
         return WfRacOptionsFlowHandler(config_entry)
@@ -221,6 +222,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 field(CONF_HOST, vol.Required): cv.string,
                 field(CONF_PORT, vol.Optional, 51443): cv.port,
                 field(CONF_FORCE_UPDATE, vol.Optional, False): cv.boolean,
+                field(CONF_CREATE_SWING_MODE_SELECT, vol.Optional, True): cv.boolean,
             }
         )
 
@@ -229,7 +231,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_zeroconf(
-        self, discovery_info: zeroconf.ZeroconfServiceInfo
+            self, discovery_info: zeroconf.ZeroconfServiceInfo
     ) -> FlowResult:
         """Handle zeroconf discovery."""
 
@@ -273,8 +275,8 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
         self.config_entry = config_entry
 
     async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+            self, user_input: dict[str, Any] | None = None
+    ):
         """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
@@ -289,11 +291,11 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
                     ): str,
                     vol.Required(
                         CONF_AVAILABILITY_CHECK,
-                        default=self.config_entry.options.get(CONF_AVAILABILITY_CHECK, True ),  # type: ignore
+                        default=self.config_entry.options.get(CONF_AVAILABILITY_CHECK, True),  # type: ignore
                     ): bool,
                     vol.Optional(
                         CONF_AVAILABILITY_RETRY_LIMIT,
-                        default=self.config_entry.options.get( CONF_AVAILABILITY_RETRY_LIMIT, 3 ),  # type: ignore
+                        default=self.config_entry.options.get(CONF_AVAILABILITY_RETRY_LIMIT, 3),  # type: ignore
                     ): int,
                 },
             ),

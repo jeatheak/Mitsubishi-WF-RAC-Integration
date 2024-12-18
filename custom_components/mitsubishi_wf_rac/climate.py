@@ -33,8 +33,9 @@ from .const import (
     SUPPORTED_HVAC_MODES,
     SWING_3D_AUTO,
     SWING_MODE_TRANSLATION,
-    HORIZONTAL_SWING_MODE_TRANSLATION,
-    MIN_TIME_BETWEEN_UPDATES
+    SWING_HORIZONTAL_MODE_TRANSLATION,
+    MIN_TIME_BETWEEN_UPDATES,
+    SUPPORT_SWING_HORIZONTAL_MODES
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ UPDATE_CONSOLIDATION_PERIOD = timedelta(milliseconds=500)
 async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
     """Setup climate entities"""
     device: Device = entry.runtime_data.device
-    _LOGGER.info("Setup climate for: %s, %s", device.name, device.airco_id)
+    _LOGGER.info("Setup climate for: %s, %s", device.device_name, device.airco_id)
     async_add_entities([AircoClimate(device, hass)])
 
     platform = entity_platform.async_get_current_platform()
@@ -54,7 +55,7 @@ async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_e
         {
             vol.Required("swing_mode"): cv.string,
         },
-        "async_set_horizontal_swing_mode",
+        "async_set_swing_horizontal_mode",
     )
 
     platform.async_register_entity_service(
@@ -79,25 +80,19 @@ class AircoClimate(ClimateEntity):
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
     _attr_min_temp: float = 16
     _attr_max_temp: float = 30
-    _attr_horizontal_swing_mode: str | None = SWING_HORIZONTAL_AUTO
+    _attr_swing_horizontal_mode: str | None = SWING_HORIZONTAL_AUTO
+    _attr_swing_horizontal_modes: list[str] | None = SUPPORT_SWING_HORIZONTAL_MODES
     _enable_turn_on_off_backwards_compatibility = False  # Remove after HA 2025.1
 
     def __init__(self, device: Device, hass: HomeAssistant) -> None:
         self._device = device
         self._hass = hass
 
-        self._attr_name = device.name
+        self._attr_name = device.device_name
         self._attr_device_info = device.device_info
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-climate"
         self._consolidated_params = {}
         self._update_state()
-
-    @property
-    def extra_state_attributes(self):
-        return {
-                "hvac_mode_state": self._attr_hvac_mode,
-                "horizontal_swing_mode": self._attr_horizontal_swing_mode
-               }
 
     async def async_set_temperature(self, **kwargs) -> None:
         """Set new target temperature."""
@@ -148,46 +143,37 @@ class AircoClimate(ClimateEntity):
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
         """Set new target swing operation."""
-        _airco = self._device.airco
         _swing_auto = swing_mode == SWING_3D_AUTO
-        _swing_lr = (
-            HORIZONTAL_SWING_MODE_TRANSLATION[SWING_HORIZONTAL_AUTO]
-            if self._device.airco.Entrust
-            else self._device.airco.WindDirectionLR
-        )
-        _swing_ud = _airco.WindDirectionUD
+        if _swing_auto:
+            await self._set_airco(
+                {
+                    AirconCommands.Entrust: _swing_auto,
+                }
+            )
+        else:
+            await self._set_airco(
+                {
+                    AirconCommands.WindDirectionUD: SWING_MODE_TRANSLATION[swing_mode],
+                    AirconCommands.Entrust: False,
+                }
+            )
 
-        if swing_mode != SWING_3D_AUTO:
-            _swing_ud = SWING_MODE_TRANSLATION[swing_mode]
-
-        await self._set_airco(
-            {
-                AirconCommands.WindDirectionUD: _swing_ud,
-                AirconCommands.WindDirectionLR: _swing_lr,
-                AirconCommands.Entrust: _swing_auto,
-            }
-        )
-
-    async def async_set_horizontal_swing_mode(self, swing_mode: str) -> None:
+    async def async_set_swing_horizontal_mode(self, swing_mode: str) -> None:
         """Set new target horizontal swing operation."""
-        _airco = self._device.airco
-        _swing_lr = HORIZONTAL_SWING_MODE_TRANSLATION[swing_mode]
-        _swing_ud = (
-            HORIZONTAL_SWING_MODE_TRANSLATION[SWING_VERTICAL_AUTO]
-            if self._device.airco.Entrust
-            else self._device.airco.WindDirectionUD
-        )
-
-        _LOGGER.debug("airco: %s", _airco)
-
-        await self._set_airco(
-            {
-                AirconCommands.WindDirectionUD: _swing_ud,
-                AirconCommands.WindDirectionLR: _swing_lr,
-                # always set to false otherwise service won't have effect
-                AirconCommands.Entrust: False,
-            }
-        )
+        _swing_auto = swing_mode == SWING_3D_AUTO
+        if _swing_auto:
+            await self._set_airco(
+                {
+                    AirconCommands.Entrust: _swing_auto,
+                }
+            )
+        else:
+            await self._set_airco(
+                {
+                    AirconCommands.WindDirectionLR: SWING_HORIZONTAL_MODE_TRANSLATION[swing_mode],
+                    AirconCommands.Entrust: False,
+                }
+            )
 
     async def async_turn_off(self) -> None:
         """Turn the entity off."""
@@ -220,9 +206,13 @@ class AircoClimate(ClimateEntity):
             if airco.Entrust
             else list(SWING_MODE_TRANSLATION.keys())[airco.WindDirectionUD]
         )
-        self._attr_horizontal_swing_mode = list(
-            HORIZONTAL_SWING_MODE_TRANSLATION.keys()
-        )[airco.WindDirectionLR]
+        self._attr_swing_horizontal_mode = (
+            SWING_3D_AUTO
+            if airco.Entrust
+            else list(
+                SWING_HORIZONTAL_MODE_TRANSLATION.keys()
+            )[airco.WindDirectionLR]
+        )
         self._attr_available = self._device.available
         self._attr_hvac_mode = list(HVAC_TRANSLATION.keys())[airco.OperationMode]
 
@@ -249,7 +239,7 @@ class AircoClimate(ClimateEntity):
         try:
             await self._device.update()
             self._update_state()
-        except Exception: # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             _LOGGER.warning("Could not update the airco values")
             self._attr_available = False
             self._device.set_available(False)
