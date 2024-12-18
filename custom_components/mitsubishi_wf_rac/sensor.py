@@ -37,7 +37,7 @@ async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_e
 
     device: Device = entry.runtime_data.device
 
-    _LOGGER.info("Setup: %s, %s", device.name, device.airco_id)
+    _LOGGER.info("Setup: %s, %s", device.device_name, device.airco_id)
     entities = [
         TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
         TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
@@ -66,7 +66,7 @@ class DiagnosticsSensor(SensorEntity):
     ) -> None:
         """Initialize the sensor."""
         self._device = device
-        self._attr_name = f"{device.name} {name}"
+        self._attr_name = f"{device.device_name} {name}"
         self._attr_entity_registry_enabled_default = enable
         self._custom_type = custom_type
         self._attr_device_info = device.device_info
@@ -113,7 +113,7 @@ class TemperatureSensor(SensorEntity):
         self._device = device
         self._custom_type = custom_type
         self._attr_entity_registry_enabled_default = enable
-        self._attr_name = f"{device.name} {name}"
+        self._attr_name = f"{device.device_name} {name}"
         self._attr_device_info = device.device_info
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-{self._custom_type}-sensor"
@@ -145,7 +145,7 @@ class EnergySensor(SensorEntity):
     def __init__(self, device: Device) -> None:
         """Initialize the sensor."""
         self._device = device
-        self._attr_name = f"{device.name} energy usage cycle"
+        self._attr_name = f"{device.device_name} energy usage cycle"
         self._attr_device_info = device.device_info
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-energy-sensor"
         self._update_state()

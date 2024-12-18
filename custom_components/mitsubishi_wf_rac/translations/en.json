@@ -17,7 +17,8 @@
           "name": "Airco Name",
           "host": "Host (IP) address",
           "port": "Port",
-          "force_update": "Ignore Duplicate IP (can/will cause Errors so check error log)"
+          "force_update": "Ignore Duplicate IP (can/will cause Errors so check error log)",
+          "create_swing_mode_select": "Whether to create an additional swing mode selectors."
         },
         "description": "Please fill in the correct information to add the Airco Manually",
         "title": "WF-RAC AC connection info"
@@ -38,7 +39,8 @@
         "data": {
           "host": "Host (IP) address",
           "availability_check": "Check availability",
-          "availability_retry_limit": "Retry limit"
+          "availability_retry_limit": "Retry limit",
+          "create_swing_mode_select": "Whether to create an additional swing mode selectors."
         },
         "title": "WF-RAC AC connection info"
       }

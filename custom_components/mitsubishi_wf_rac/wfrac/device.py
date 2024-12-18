@@ -1,10 +1,14 @@
 """Device module"""
-
+import asyncio
+from datetime import timedelta
 from typing import Any
 import logging
+import multiprocessing
 
+from async_timeout import timeout
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import Throttle
 
 from .rac_parser import RacParser
@@ -15,21 +19,22 @@ from ..const import DOMAIN, MIN_TIME_BETWEEN_UPDATES
 
 _LOGGER = logging.getLogger(__name__)
 
-
-class Device:  # pylint: disable=too-many-instance-attributes
+lock = multiprocessing.Lock()
+class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attributes
     """Device Class"""
 
     def __init__(  # pylint: disable=too-many-arguments
-        self,
-        hass: HomeAssistant,
-        name: str,
-        hostname: str,
-        port: int,
-        device_id: str,
-        operator_id: str,
-        airco_id: str,
-        availability_retry: bool,
-        availability_retry_limit: int,
+            self,
+            hass: HomeAssistant,
+            name: str,
+            hostname: str,
+            port: int,
+            device_id: str,
+            operator_id: str,
+            airco_id: str,
+            availability_retry: bool,
+            availability_retry_limit: int,
+            create_swing_mode_select: bool,
     ) -> None:
         self._api = Repository(hass, hostname, port, operator_id, device_id)
         self._parser = RacParser()
@@ -47,7 +52,15 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self._firmware = ""
         self._connected_accounts = -1
         self._availability_retry = availability_retry
+        self._availability_retry_count = 0
         self._availability_retry_limit = availability_retry_limit
+        self._create_swing_mode_select = create_swing_mode_select
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=name,
+            update_interval=timedelta(seconds=60),
+        )
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def update(self):
@@ -57,13 +70,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
             response = await self._api.get_aircon_stats()
 
             if response is None:
-                self._set_availabilty(False)
+                self._set_availability(False)
                 _LOGGER.warning("Received no data for device %s", self._airco_id)
                 return
         except Exception:  # pylint: disable=broad-except
-            self._set_availabilty(False)
+            self._set_availability(False)
             _LOGGER.warning(
-                "Error: something went wrong updating the airco [%s] values", self.name
+                "Error: something went wrong updating the airco [%s] values", self.device_name
             )
             return
 
@@ -71,11 +84,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
             self._connected_accounts = int(response["numOfAccount"])
             # pylint: disable = line-too-long
             self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
-            self._airco = self._parser.translate_bytes(response["airconStat"])
-            self._set_availabilty(True)
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.warning("Could not parse airco data")
-            self._set_availabilty(False)
+            with lock:
+                self._airco = self._parser.translate_bytes(response["airconStat"])
+            await self.async_refresh()
+            self._set_availability(True)
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.warning("Could not parse airco data", exc_info=e)
+            self._set_availability(False)
 
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
@@ -102,38 +117,46 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if self._airco is None:
             raise ValueError()
 
-        airco_stat = AirconStat(self._airco)
+        with lock:
+            airco_stat = AirconStat(self._airco)
 
-        for key, value in params.items():
-            setattr(airco_stat, key, value)
+            for key, value in params.items():
+                setattr(airco_stat, key, value)
 
-        command = self._parser.to_base64(airco_stat)
-        try:
-            response = await self._api.send_airco_command(self._airco_id, command)
-        except ValueError:  # pylint: disable=broad-except
-            _LOGGER.warning("Airco object is empty!")
-            return
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.warning("Could not send airco data")
-            return
+            command = self._parser.to_base64(airco_stat)
+            try:
+                response = await self._api.send_airco_command(self._airco_id, command)
+            except ValueError:  # pylint: disable=broad-except
+                _LOGGER.warning("Airco object is empty!")
+                return
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.warning("Could not send airco data")
+                return
 
-        self._airco = self._parser.translate_bytes(response)
+            self._airco = self._parser.translate_bytes(response)
+        await self.async_refresh()
 
-    def _set_availabilty(self, available: bool):
+    def _set_availability(self, available: bool):
         """Set availability after retry count"""
-        self._availability_retry += 1
-        if self._availability_retry >= self._availability_retry_limit:
-            self._available = available
-            self._available = False
 
         # reset retry count if available
         if available:
-            self._availability_retry = 0
+            self._availability_retry_count = 0
             self._available = True
+            return
+
+        # not retry
+        if not self._availability_retry:
+            self._available = False
+
+        self._availability_retry_count += 1
+        if self._availability_retry_count >= self._availability_retry_limit:
+            self._availability_retry_count = 0
+            self._available = False
 
     def set_available(self, available: bool):
         """Set available status"""
-        self._set_availabilty(available)
+        self._set_availability(available)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -143,7 +166,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
             "identifiers": {(DOMAIN, self.airco_id)},
             "manufacturer": "Mitsubishi (WF-RAC)",
             # "model": self.airco.ModelNr,
-            "name": self.name,
+            "name": self.device_name,
         }
 
     @property
@@ -172,7 +195,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         return self._port
 
     @property
-    def name(self) -> str:
+    def device_name(self) -> str:
         """Get given Airco name"""
         return self._name
 
@@ -190,3 +213,16 @@ class Device:  # pylint: disable=too-many-instance-attributes
     def available(self) -> bool:
         """Return True if device is available"""
         return self._available
+
+    @property
+    def create_swing_mode_select(self) -> bool:
+        """Create swing mode select"""
+        return self._create_swing_mode_select
+
+    async def _async_update_data(self):
+        """Update data via library."""
+        try:
+            async with timeout(10):
+                await asyncio.gather(*[self.update()])
+        except Exception as error:
+            raise UpdateFailed(error) from error

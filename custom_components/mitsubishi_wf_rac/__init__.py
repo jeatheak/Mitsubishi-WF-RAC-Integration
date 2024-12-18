@@ -18,7 +18,7 @@ from .const import (
     CONF_AIRCO_ID,
     CONF_AVAILABILITY_CHECK,
     CONF_AVAILABILITY_RETRY_LIMIT,
-    CONF_OPERATOR_ID
+    CONF_OPERATOR_ID, CONF_CREATE_SWING_MODE_SELECT, DOMAIN
 )
 from .wfrac.device import Device
 
@@ -26,12 +26,15 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.CLIMATE, Platform.SELECT, Platform.SENSOR]
 
+
 @dataclass
 class MitsubishiWfRacData:
     """Class for storing runtime data."""
     device: Device
 
+
 type MitsubishiWfRacConfigEntry = ConfigEntry[MitsubishiWfRacData]
+
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old config entry."""
@@ -62,18 +65,14 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEntry):
     """Establish connection with mitsubishi-wf-rac."""
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = {}
+    hass.data[DOMAIN][entry.entry_id]["devices"] = coordinators = []
 
     device: str = entry.options[CONF_HOST]
-    name: str = entry.data[CONF_NAME]
-    device_id: str = entry.data[CONF_DEVICE_ID]
-    operator_id: str = entry.data[CONF_OPERATOR_ID]
-    port: int = entry.data[CONF_PORT]
-    airco_id: str = entry.data[CONF_AIRCO_ID]
-    availability_retry: bool = entry.options.get("availability_retry", False)
-    availability_retry_limit: int = entry.options.get("availability_retry_limit", 3)
+    _device = await create_device_from_entry(entry, hass)
 
-    _device = Device(hass, name, device, port, device_id, operator_id, airco_id, availability_retry, availability_retry_limit)
-
+    coordinators.append(_device)
     try:
         await _device.update()  # initial update to get fresh values
         entry.runtime_data = MitsubishiWfRacData(_device)
@@ -83,6 +82,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEnt
         _LOGGER.warning("Something whent wrong setting up device [%s] %s", device, ex)
 
     return True
+
+
+async def create_device_from_entry(entry, hass):
+    device: str = entry.options[CONF_HOST]
+    name: str = entry.data[CONF_NAME]
+    device_id: str = entry.data[CONF_DEVICE_ID]
+    operator_id: str = entry.data[CONF_OPERATOR_ID]
+    port: int = entry.data[CONF_PORT]
+    airco_id: str = entry.data[CONF_AIRCO_ID]
+    availability_retry: bool = entry.options.get("availability_retry", False)
+    availability_retry_limit: int = entry.options.get(CONF_AVAILABILITY_RETRY_LIMIT, 3)
+    create_swing_mode_select: bool = entry.data.get(CONF_CREATE_SWING_MODE_SELECT, True)
+    _device = Device(hass, name, device, port, device_id, operator_id, airco_id, availability_retry,
+                     availability_retry_limit, create_swing_mode_select)
+    return _device
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEntry) -> bool:
     """Handle unload of entry."""
@@ -97,6 +112,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEn
 
     return unload_ok
 
+
 async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update options."""
     reloaded = await hass.config_entries.async_reload(entry.entry_id)
@@ -106,10 +122,11 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     else:
         _LOGGER.warning("Failed to update options to [%s]", entry.options)
 
+
 async def async_remove_entry(hass, entry: MitsubishiWfRacConfigEntry) -> None:
     """Handle removal of an entry."""
 
-    temp_device: Device = entry.runtime_data.device
+    temp_device = await create_device_from_entry(entry, hass)
     try:
         await temp_device.delete_account()
         _LOGGER.info(
@@ -120,6 +137,6 @@ async def async_remove_entry(hass, entry: MitsubishiWfRacConfigEntry) -> None:
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.warning(
             "Something whent wrong deleting account from airco [%s] %s",
-            temp_device.name,
+            temp_device.device_name,
             ex,
         )

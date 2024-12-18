@@ -87,6 +87,7 @@ class Repository:
         # raise an exception if the airco returned an error, let the caller figure it out
         response.raise_for_status()
 
+        _LOGGER.debug("Got response: %r", response.text)
         return response.json()
 
     async def get_info(self) -> dict:
