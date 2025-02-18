@@ -72,3 +72,28 @@ set_vertical_swing_mode:
             - "Normal"
             - "Lowest"
             - "3D Auto"
+# Service ID
+set_fan_speed:
+  # Service name as shown in UI
+  name: Set fan speed
+  # Description of the service
+  description: Sets the fan speed of the air conditioner
+  target:
+    device:
+      integration: mitsubishi_wf_rac
+  fields:
+    speed:
+      name: Fan speed
+      description: Which fan speed to set
+      required: true
+      advanced: false
+      example: "Auto"
+      default: "Auto"
+      selector:
+        select:
+          options:
+            - "Auto"
+            - "1 Lowest"
+            - "2 Low"
+            - "3 High"
+            - "4 Highest"
