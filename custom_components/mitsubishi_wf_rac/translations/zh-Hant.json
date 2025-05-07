@@ -1,0 +1,49 @@
+{
+    "config": {
+      "error": {
+        "unexpected_error": "發生了意外錯誤。請查看日誌以獲取詳細信息。",
+        "cannot_connect": "無法連接到空調：{reason}",
+        "name_invalid": "名稱已被佔用或少於 3 個字元",
+        "host_already_configured": "空調 IP 已被配置為 [{error_name}]",
+        "too_many_devices_registered": "此空調已註冊了太多設備。請在應用中刪除一個設備或對模組進行出廠重置。"
+      },
+      "abort": {
+        "existing_instance_updated": "已更新現有配置。",
+        "already_configured": "空調已配置"
+      },
+      "step": {
+        "user": {
+          "data": {
+            "name": "空調名稱",
+            "host": "主機（IP）地址",
+            "port": "埠號",
+            "force_update": "忽略重複 IP（可能/將會引發錯誤，請檢查錯誤日誌）",
+            "create_swing_mode_select": "是否建立額外的擺風模式選擇器。"
+          },
+          "description": "請填寫正確的信息以手動新增空調",
+          "title": "WF-RAC 空調連接資訊"
+        },
+        "discovery_confirm": {
+          "description": "發現了空調，ID: {id}，IP: {host}，埠號: {port}。請為其命名。",
+          "title": "發現的 WF-RAC 空調",
+          "data": {
+            "name": "空調名稱"
+          }
+        }
+      }
+    },
+    "options": {
+      "step": {
+        "init": {
+          "description": "以下是你可以為此空調更改的選項。",
+          "data": {
+            "host": "主機（IP）地址",
+            "availability_check": "檢查可用性",
+            "availability_retry_limit": "重試次數上限",
+            "create_swing_mode_select": "是否建立額外的擺風模式選擇器。"
+          },
+          "title": "WF-RAC 空調連接資訊"
+        }
+      }
+    }
+  }
