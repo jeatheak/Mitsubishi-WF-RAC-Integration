@@ -3,7 +3,6 @@ import asyncio
 from datetime import timedelta
 from typing import Any
 import logging
-import threading
 
 from async_timeout import timeout
 from homeassistant.core import HomeAssistant
@@ -38,9 +37,6 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._api = Repository(hass, hostname, port, operator_id, device_id)
         self._parser = RacParser()
         self._hass = hass
-
-        # Using RLock instead of Lock to allow reentrant locking
-        self._lock = threading.RLock()
 
         # Protected state
         self._airco = Aircon()
@@ -84,12 +80,11 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             return
 
         try:
-            with self._lock:
-                self._connected_accounts = int(response["numOfAccount"])
-                self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
-                self._airco = self._parser.translate_bytes(response["airconStat"])
-                await self.async_refresh()
-                self._set_availability(True)
+            self._connected_accounts = int(response["numOfAccount"])
+            self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
+            self._airco = self._parser.translate_bytes(response["airconStat"])
+            await self.async_refresh()
+            self._set_availability(True)
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.warning("Could not parse airco data", exc_info=e)
             self._set_availability(False)
@@ -113,43 +108,41 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
     async def set_airco(self, params: dict[str, Any]) -> None:
         """Method to send airco command"""
         _LOGGER.debug("Setting airco: %s", params)
-        with self._lock:
-            if self.airco is None:
-                await self._hass.async_add_executor_job(self.update)
+        if self.airco is None:
+            await self._hass.async_add_executor_job(self.update)
 
-            if self._airco is None:
-                raise ValueError("Airco object is empty")
+        if self._airco is None:
+            raise ValueError("Airco object is empty")
 
-            airco_stat = AirconStat(self._airco)
+        airco_stat = AirconStat(self._airco)
 
-            for key, value in params.items():
-                setattr(airco_stat, key, value)
+        for key, value in params.items():
+            setattr(airco_stat, key, value)
 
-            try:
-                command = self._parser.to_base64(airco_stat)
-                response = await self._api.send_airco_command(self._airco_id, command)
-                self._airco = self._parser.translate_bytes(response)
-                await self.async_refresh()
-            except Exception as e:  # pylint: disable=broad-except
-                _LOGGER.warning("Could not send airco data: %s", str(e))
-                raise
+        try:
+            command = self._parser.to_base64(airco_stat)
+            response = await self._api.send_airco_command(self._airco_id, command)
+            self._airco = self._parser.translate_bytes(response)
+            await self.async_refresh()
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.warning("Could not send airco data: %s", str(e))
+            raise
 
     def _set_availability(self, available: bool):
         """Set availability after retry count"""
-        with self._lock:
-            if available:
-                self._availability_retry_count = 0
-                self._available = True
-                return
+        if available:
+            self._availability_retry_count = 0
+            self._available = True
+            return
 
-            if not self._availability_retry:
-                self._available = False
-                return
+        if not self._availability_retry:
+            self._available = False
+            return
 
-            self._availability_retry_count += 1
-            if self._availability_retry_count >= self._availability_retry_limit:
-                self._availability_retry_count = 0
-                self._available = False
+        self._availability_retry_count += 1
+        if self._availability_retry_count >= self._availability_retry_limit:
+            self._availability_retry_count = 0
+            self._available = False
 
     def set_available(self, available: bool):
         """Set available status"""

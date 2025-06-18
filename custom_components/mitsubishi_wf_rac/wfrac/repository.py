@@ -5,16 +5,13 @@ from __future__ import annotations
 import time
 import logging
 import asyncio
-import functools
-from threading import RLock
 
 from typing import Any
 from datetime import datetime, timedelta
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-
-import requests
-from requests.exceptions import RequestException
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from aiohttp import ClientConnectionError
 
 _LOGGER = logging.getLogger(__name__)
 # log http requests/responses to separate logger, to allow easily turning on/off from
@@ -47,11 +44,8 @@ class Repository:
         self._port = port
         self._operator_id = operator_id
         self._device_id = device_id
-        # Use both asyncio.Lock for async operations and RLock for sync operations
-        self._mutex = asyncio.Lock()
-        self._sync_lock = RLock()
+        self._session = async_get_clientsession(hass)
         self._next_request_after = datetime.now()
-        self._session = requests.Session()
 
     async def _post(
         self, command: str, contents: dict[str, Any] | None = None
@@ -68,46 +62,27 @@ class Repository:
             data["contents"] = contents
 
         # ensure only one thread is talking to the device at a time
-        async with self._mutex:
-            wait_for = (self._next_request_after - datetime.now()).total_seconds()
-            if wait_for > 0:
-                _LOGGER.debug("Waiting for %rs until we can send a request", wait_for)
-                await asyncio.sleep(wait_for)
-
-            # _HTTP_LOG.debug("POSTing to %s: %r", url, data)
-            try:
-                with self._sync_lock:
-                    response = await self._hass.async_add_executor_job(
-                        functools.partial(
-                            self._session.post,
-                            url,
-                            json=data,
-                            timeout=30
-                        )
-                    )
-            except RequestException as ex:
-                _HTTP_LOG.warning("Error POSTing to %s: %s", url, ex)
-                raise AirconApiError(f"Failed to communicate with aircon: {ex}") from ex
-
-            # _HTTP_LOG.debug(
-            #     "Got response (%r) from %r: %r",
-            #     response.status_code,
-            #     self._hostname,
-            #     response.text,
-            # )
-
-            # Update next request time under lock protection
-            self._next_request_after = datetime.now() + _MIN_TIME_BETWEEN_REQUESTS
+        wait_for = (self._next_request_after - datetime.now()).total_seconds()
+        if wait_for > 0:
+            _LOGGER.debug("Waiting for %rs until we can send a request", wait_for)
+            await asyncio.sleep(wait_for)
 
         try:
-            response.raise_for_status()
-        except RequestException as ex:
+            async with self._session.post(url, json=data, timeout=30) as resp:
+                status = resp.status
+                json = await resp.json()
+        except ClientConnectionError as ex:
             raise AirconApiError(f"Aircon returned error: {ex}") from ex
 
-        try:
-            return response.json()
-        except ValueError as ex:
-            raise AirconApiError(f"Invalid JSON response from aircon: {ex}") from ex
+        self._next_request_after = datetime.now() + _MIN_TIME_BETWEEN_REQUESTS
+
+        _HTTP_LOG.debug(
+            "Got response (%r) from %r: %r",
+            status,
+            self._hostname,
+            json,
+        )
+        return json
 
     async def get_info(self) -> dict:
         """Simple command to get aircon details"""
@@ -144,9 +119,3 @@ class Repository:
         contents = {"airconId": airco_id, "airconStat": command}
         result = await self._post("setAirconStat", contents)
         return result["contents"]["airconStat"]
-
-    def __del__(self):
-        """Cleanup resources"""
-        if hasattr(self, '_session'):
-            with self._sync_lock:
-                self._session.close()
