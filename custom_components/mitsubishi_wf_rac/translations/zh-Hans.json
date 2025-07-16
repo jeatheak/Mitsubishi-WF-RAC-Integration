@@ -1,0 +1,49 @@
+{
+  "config": {
+    "error": {
+      "unexpected_error": "发生了意外错误。请查看日志以获取详细信息。",
+      "cannot_connect": "无法连接到空调：{reason}",
+      "name_invalid": "名称已被占用或少于 3 个字符",
+      "host_already_configured": "空调 IP 已被配置为 [{error_name}]",
+      "too_many_devices_registered": "此空调已注册了太多设备。请在应用中删除一个设备或对模块进行出厂重置。"
+    },
+    "abort": {
+      "existing_instance_updated": "已更新现有配置。",
+      "already_configured": "空调已配置"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "name": "空调名称",
+          "host": "主机（IP）地址",
+          "port": "端口",
+          "force_update": "忽略重复 IP（可能/将会引发错误，请检查错误日志）",
+          "create_swing_mode_select": "是否创建额外的摆风模式选择器。"
+        },
+        "description": "请填写正确的信息以手动添加空调",
+        "title": "WF-RAC 空调连接信息"
+      },
+      "discovery_confirm": {
+        "description": "发现了空调，ID: {id}，IP: {host}，端口: {port}。请为其命名。",
+        "title": "发现的 WF-RAC 空调",
+        "data": {
+          "name": "空调名称"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "以下是你可以为此空调更改的选项。",
+        "data": {
+          "host": "主机（IP）地址",
+          "availability_check": "检查可用性",
+          "availability_retry_limit": "重试次数上限",
+          "create_swing_mode_select": "是否创建额外的摆风模式选择器。"
+        },
+        "title": "WF-RAC 空调连接信息"
+      }
+    }
+  }
+}
