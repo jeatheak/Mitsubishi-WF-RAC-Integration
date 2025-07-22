@@ -47,7 +47,7 @@ class Repository:
     async def _post(
         self, command: str, contents: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        url = f"http://{self._hostname}:{self._port}/beaver/command/{command}"
+        url = f"https://{self._hostname}:{self._port}/beaver/command/{command}"
         data = {
             "apiVer": self.api_version,
             "command": command,
@@ -68,7 +68,7 @@ class Repository:
             _HTTP_LOG.debug("POSTing to %s: %r", url, data)
             try:
                 response = await self._hass.async_add_executor_job(
-                    functools.partial(requests.post, url, json=data, timeout=30)
+                    functools.partial(requests.post, url, json=data, timeout=30, verify=False)
                 )
             except requests.exceptions.RequestException as ex:
                 _HTTP_LOG.warning("Error POSTing to %s: %s", url, ex)
