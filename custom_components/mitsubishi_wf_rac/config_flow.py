@@ -21,7 +21,7 @@ from homeassistant.const import (
     CONF_FORCE_UPDATE,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlowResult
 
 from .const import CONF_AVAILABILITY_CHECK, CONF_AVAILABILITY_RETRY_LIMIT, CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN, \
     CONF_CREATE_SWING_MODE_SELECT
@@ -232,7 +232,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_zeroconf(
             self, discovery_info: zeroconf.ZeroconfServiceInfo
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle zeroconf discovery."""
 
         local_name = discovery_info.hostname.rstrip(".")
