@@ -67,7 +67,7 @@ class Repository:
                         url, json=data, timeout=aiohttp.ClientTimeout(total=30)
                     ) as resp:
                         resp.raise_for_status()
-                    return await resp.json()
+                        return await resp.json()
                 elif protocol == "https":
                     # TODO: add this logic to the config flow and try to fetch HTTPS cert automaticly
                     # If a certificate file is present, use it for SSL, otherwise bypass
