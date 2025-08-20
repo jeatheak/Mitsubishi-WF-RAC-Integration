@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import time
-import logging
 import asyncio
-import ssl
-import aiohttp
-import json
-import os
 import functools
-
-from typing import Any
+import logging
+import os
+import ssl
+import time
 from datetime import datetime, timedelta
+from typing import Any
+
+import aiohttp
+from aiohttp import ClientConnectionError
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from aiohttp import ClientConnectionError
 
 _LOGGER = logging.getLogger(__name__)
 # log http requests/responses to separate logger, to allow easily turning on/off from
@@ -62,13 +61,14 @@ class Repository:
             try:
                 if protocol == "http":
                         session = async_get_clientsession(self._hass)
-                        async with session.post(url, json=data, timeout=30) as resp:
+                        async with session.post(url, json=data, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                             resp.raise_for_status()
                             return await resp.json()
                 elif protocol == "https":
-                    #If a certificate file is present, use it for SSL, otherwise bypass
-                    #A certificate file can be stored in the HA configuration directory by running this command while in that directory:
-                    #openssl s_client -connect <<AC_IP_ADDRESS>>:51443 -showcerts </dev/null 2>/dev/null | openssl x509 -outform PEM > ac_cert.pem
+                    # TODO: add this logic to the config flow and try to fetch HTTPS cert automaticly
+                    # If a certificate file is present, use it for SSL, otherwise bypass
+                    # A certificate file can be stored in the HA configuration directory by running this command while in that directory:
+                    # openssl s_client -connect <<AC_IP_ADDRESS>>:51443 -showcerts </dev/null 2>/dev/null | openssl x509 -outform PEM > ac_cert.pem
                     cert_path = '/config/ac_cert.pem'
                     cert_exists = await self._hass.async_add_executor_job(os.path.isfile, cert_path)
 
@@ -83,7 +83,7 @@ class Repository:
                         connector = aiohttp.TCPConnector(ssl=False)
 
                     async with aiohttp.ClientSession(connector=connector) as https_session:
-                        async with https_session.post(url, json=data, timeout=30) as resp:
+                        async with https_session.post(url, json=data, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                             resp.raise_for_status()
                             return await resp.json()
             except (ClientConnectionError, asyncio.TimeoutError) as ex:
