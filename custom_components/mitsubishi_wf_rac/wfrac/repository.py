@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-import time
-import logging
 import asyncio
 import functools
-
-from typing import Any
+import logging
+import os
+import ssl
+import time
 from datetime import datetime, timedelta
-from homeassistant.core import HomeAssistant
+from typing import Any
 
-import requests
+import aiohttp
+from aiohttp import ClientConnectionError
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 _LOGGER = logging.getLogger(__name__)
 # log http requests/responses to separate logger, to allow easily turning on/off from
@@ -21,6 +25,12 @@ _HTTP_LOG = _LOGGER.getChild("http")
 # ensure that we don't overwhelm the aircon unit by waiting at least
 # this long between successive requests
 _MIN_TIME_BETWEEN_REQUESTS = timedelta(seconds=1)
+
+
+class AirconApiError(HomeAssistantError):
+    """Raised when the aircon API returns an error"""
+
+    pass
 
 
 class Repository:
@@ -41,13 +51,64 @@ class Repository:
         self._port = port
         self._operator_id = operator_id
         self._device_id = device_id
-        self._mutex = asyncio.Lock()
+        self._session = async_get_clientsession(hass)
         self._next_request_after = datetime.now()
+        self._method: str | None = None
 
     async def _post(
         self, command: str, contents: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        url = f"http://{self._hostname}:{self._port}/beaver/command/{command}"
+        async def _execute_request(protocol: str) -> dict[str, Any]:
+            """Executes a single POST request and returns the JSON response."""
+            url = f"{protocol}://{self._hostname}:{self._port}/beaver/command/{command}"
+            try:
+                if protocol == "http":
+                    async with self._session.post(
+                        url, json=data, timeout=aiohttp.ClientTimeout(total=30)
+                    ) as resp:
+                        resp.raise_for_status()
+                        return await resp.json()
+                elif protocol == "https":
+                    # TODO: add this logic to the config flow and try to fetch HTTPS cert automaticly
+                    # If a certificate file is present, use it for SSL, otherwise bypass
+                    # A certificate file can be stored in the HA configuration directory by running this command while in that directory:
+                    # openssl s_client -connect <<AC_IP_ADDRESS>>:51443 -showcerts </dev/null 2>/dev/null | openssl x509 -outform PEM > ac_cert.pem
+                    cert_path = "/config/ac_cert.pem"
+                    cert_exists = await self._hass.async_add_executor_job(
+                        os.path.isfile, cert_path
+                    )
+
+                    if cert_exists:
+                        _LOGGER.debug(
+                            "Certificate file found, creating secure SSL context"
+                        )
+                        partial_func = functools.partial(
+                            ssl.create_default_context, cafile=cert_path
+                        )
+                        ssl_context = await self._hass.async_add_executor_job(
+                            partial_func
+                        )
+                        ssl_context.check_hostname = False
+                        connector = aiohttp.TCPConnector(ssl=ssl_context)
+                    else:
+                        _LOGGER.debug(
+                            "Certificate file not found, falling back to insecure SSL"
+                        )
+                        connector = aiohttp.TCPConnector(ssl=False)
+
+                    async with aiohttp.ClientSession(
+                        connector=connector
+                    ) as https_session:
+                        async with https_session.post(
+                            url, json=data, timeout=aiohttp.ClientTimeout(total=30)
+                        ) as resp:
+                            resp.raise_for_status()
+                            return await resp.json()
+            except (ClientConnectionError, asyncio.TimeoutError) as ex:
+                raise AirconApiError(f"Aircon returned error: {ex}") from ex
+
+            raise AirconApiError(f"Invalid protocol specified: {protocol}")
+
         data = {
             "apiVer": self.api_version,
             "command": command,
@@ -59,36 +120,40 @@ class Repository:
             data["contents"] = contents
 
         # ensure only one thread is talking to the device at a time
-        async with self._mutex:
-            wait_for = (self._next_request_after - datetime.now()).total_seconds()
-            if wait_for > 0:
-                _LOGGER.debug("Waiting for %rs until we can send a request", wait_for)
-                await asyncio.sleep(wait_for)
+        wait_for = (self._next_request_after - datetime.now()).total_seconds()
+        if wait_for > 0:
+            _LOGGER.debug("Waiting for %rs until we can send a request", wait_for)
+            await asyncio.sleep(wait_for)
 
-            _HTTP_LOG.debug("POSTing to %s: %r", url, data)
+        json_response = None
+
+        # If we already know how to communicate with the unit, proceed
+        if self._method in ("http", "https"):
+            json_response = await _execute_request(self._method)
+
+        # If we haven't yet determined if https is required, find out
+        else:
+            _LOGGER.debug("No stored method; attempting discovery...")
             try:
-                response = await self._hass.async_add_executor_job(
-                    functools.partial(requests.post, url, json=data, timeout=30)
-                )
-            except requests.exceptions.RequestException as ex:
-                _HTTP_LOG.warning("Error POSTing to %s: %s", url, ex)
-                raise
+                json_response = await _execute_request("http")
+                _LOGGER.info("Discovered working communication method: HTTP")
+                # Store the required communication method
+                self._method = "http"
+            except AirconApiError:
+                _LOGGER.debug("HTTP failed, trying HTTPS")
+                json_response = await _execute_request("https")
+                _LOGGER.info("Discovered working communication method: HTTPS")
+                # Store the required communication method
+                self._method = "https"
 
-            _HTTP_LOG.debug(
-                "Got response (%r) from %r: %r",
-                response.status_code,
-                self._hostname,
-                response.text,
-            )
+        self._next_request_after = datetime.now() + _MIN_TIME_BETWEEN_REQUESTS
 
-            # remember to set the next request time before we release the lock!
-            self._next_request_after = datetime.now() + _MIN_TIME_BETWEEN_REQUESTS
-
-        # raise an exception if the airco returned an error, let the caller figure it out
-        response.raise_for_status()
-
-        _LOGGER.debug("Got response: %r", response.text)
-        return response.json()
+        _HTTP_LOG.debug(
+            "Got response from %r: %r",
+            self._hostname,
+            json_response,
+        )
+        return json_response
 
     async def get_info(self) -> dict:
         """Simple command to get aircon details"""

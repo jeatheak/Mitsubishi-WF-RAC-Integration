@@ -14,19 +14,20 @@ from .const import (
     SUPPORT_SWING_HORIZONTAL_MODES,
     SUPPORT_SWING_MODES,
     SWING_MODE_TRANSLATION, SWING_3D_AUTO,
+    FAN_MODE_TRANSLATION,
+    SUPPORTED_FAN_MODES,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
+async def async_setup_entry(_hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
     """Setup select entries"""
 
     device: Device = entry.runtime_data.device
-    _LOGGER.info("Setup Horizontal and Vertical Select: %s, %s", device.device_name, device.airco_id)
+    _LOGGER.info("Setup Fan, Horizontal and Vertical Select: %s, %s", device.device_name, device.airco_id)
     if device.create_swing_mode_select:
-        entities = [HorizontalSwingSelect(device), VerticalSwingSelect(device)]
-
+        entities = [HorizontalSwingSelect(device), VerticalSwingSelect(device), FanSpeedSelect(device)]
         async_add_entities(entities)
     else:
         _LOGGER.info("No Setup Horizontal Select: %s, %s", device.device_name, device.airco_id)
@@ -142,6 +143,40 @@ class VerticalSwingSelect(SelectEntity):
                     AirconCommands.Entrust: False,
                 }
             )
+        self.select_option(option)
+
+    async def async_update(self):
+        """Retrieve latest state."""
+        self._update_state()
+
+class FanSpeedSelect(SelectEntity):
+    """Select component to set the fan speed of the airco"""
+
+    def __init__(self, device: Device) -> None:
+        super().__init__()
+        self._attr_options = SUPPORTED_FAN_MODES
+        self._device = device
+        self._attr_name = f"{device.device_name} fan speed"
+        self._attr_device_info = device.device_info
+        self._attr_icon = "mdi:fan"
+        self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-fan-speed"
+        self._update_state()
+
+    def _update_state(self) -> None:
+        self.select_option(list(FAN_MODE_TRANSLATION.keys())[self._device.airco.AirFlow])
+        self._attr_available = self._device.available
+
+    def select_option(self, option: str) -> None:
+        """Change the selected option."""
+        self._attr_current_option = option
+
+    async def async_select_option(self, option: str) -> None:
+        """Change the selected option."""
+        await self._device.set_airco(
+            {
+                AirconCommands.AirFlow: FAN_MODE_TRANSLATION[option]
+            }
+        )
         self.select_option(option)
 
     async def async_update(self):

@@ -3,7 +3,6 @@ import asyncio
 from datetime import timedelta
 from typing import Any
 import logging
-import multiprocessing
 
 from async_timeout import timeout
 from homeassistant.core import HomeAssistant
@@ -19,7 +18,6 @@ from ..const import DOMAIN, MIN_TIME_BETWEEN_UPDATES
 
 _LOGGER = logging.getLogger(__name__)
 
-lock = multiprocessing.Lock()
 class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attributes
     """Device Class"""
 
@@ -40,7 +38,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._parser = RacParser()
         self._hass = hass
 
-        # self._airco = None
+        # Protected state
         self._airco = Aircon()
         self._operator_id = operator_id
         self._device_id = device_id
@@ -55,6 +53,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._availability_retry_count = 0
         self._availability_retry_limit = availability_retry_limit
         self._create_swing_mode_select = create_swing_mode_select
+
         super().__init__(
             hass,
             _LOGGER,
@@ -82,10 +81,8 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
 
         try:
             self._connected_accounts = int(response["numOfAccount"])
-            # pylint: disable = line-too-long
             self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
-            with lock:
-                self._airco = self._parser.translate_bytes(response["airconStat"])
+            self._airco = self._parser.translate_bytes(response["airconStat"])
             await self.async_refresh()
             self._set_availability(True)
         except Exception as e:  # pylint: disable=broad-except
@@ -109,45 +106,38 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             _LOGGER.warning("Could not add account from airco %s", self._airco_id)
 
     async def set_airco(self, params: dict[str, Any]) -> None:
-        """Private method to send airco command"""
-
+        """Method to send airco command"""
+        _LOGGER.debug("Setting airco: %s", params)
         if self.airco is None:
             await self._hass.async_add_executor_job(self.update)
 
         if self._airco is None:
-            raise ValueError()
+            raise ValueError("Airco object is empty")
 
-        with lock:
-            airco_stat = AirconStat(self._airco)
+        airco_stat = AirconStat(self._airco)
 
-            for key, value in params.items():
-                setattr(airco_stat, key, value)
+        for key, value in params.items():
+            setattr(airco_stat, key, value)
 
+        try:
             command = self._parser.to_base64(airco_stat)
-            try:
-                response = await self._api.send_airco_command(self._airco_id, command)
-            except ValueError:  # pylint: disable=broad-except
-                _LOGGER.warning("Airco object is empty!")
-                return
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.warning("Could not send airco data")
-                return
-
+            response = await self._api.send_airco_command(self._airco_id, command)
             self._airco = self._parser.translate_bytes(response)
-        await self.async_refresh()
+            await self.async_refresh()
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.warning("Could not send airco data: %s", str(e))
+            raise
 
     def _set_availability(self, available: bool):
         """Set availability after retry count"""
-
-        # reset retry count if available
         if available:
             self._availability_retry_count = 0
             self._available = True
             return
 
-        # not retry
         if not self._availability_retry:
             self._available = False
+            return
 
         self._availability_retry_count += 1
         if self._availability_retry_count >= self._availability_retry_limit:
