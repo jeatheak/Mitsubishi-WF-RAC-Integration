@@ -6,6 +6,9 @@ from homeassistant.components.climate.const import (
     HVACMode,
     ClimateEntityFeature,
     FAN_AUTO,
+    FAN_LOW,
+    FAN_MEDIUM,
+    FAN_HIGH,
 )
 
 DOMAIN = "mitsubishi_wf_rac"
@@ -127,25 +130,22 @@ SUPPORT_SWING_HORIZONTAL_MODES = [
 ]
 
 
-FAN_MODE_1 = "1 Lowest"
-FAN_MODE_2 = "2 Low"
-FAN_MODE_3 = "3 High"
-FAN_MODE_4 = "4 Highest"
+FAN_QUIET = "Quiet"
 
 FAN_MODE_TRANSLATION = {
     FAN_AUTO: 0,
-    FAN_MODE_1: 1,
-    FAN_MODE_2: 2,
-    FAN_MODE_3: 3,
-    FAN_MODE_4: 4,
+    FAN_QUIET: 1,
+    FAN_LOW: 2,
+    FAN_MEDIUM: 3,
+    FAN_HIGH: 4,
 }
 
 SUPPORTED_FAN_MODES = [
     FAN_AUTO,
-    FAN_MODE_1,
-    FAN_MODE_2,
-    FAN_MODE_3,
-    FAN_MODE_4,
+    FAN_QUIET,
+    FAN_LOW,
+    FAN_MEDIUM,
+    FAN_HIGH,
 ]
 
 
