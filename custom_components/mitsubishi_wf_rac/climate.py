@@ -11,7 +11,7 @@ import voluptuous as vol
 
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.components.climate.const import HVACMode, FAN_AUTO
+from homeassistant.components.climate.const import HVACMode, HVACAction, FAN_AUTO
 from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.core import HomeAssistant
 from homeassistant.util import Throttle
@@ -75,6 +75,7 @@ class AircoClimate(ClimateEntity):
     _attr_hvac_modes: list[HVACMode] = SUPPORTED_HVAC_MODES
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
     _attr_hvac_mode: HVACMode = HVACMode.OFF
+    _attr_hvac_action: HVACAction | None = None
     _attr_fan_mode: str = FAN_AUTO
     _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
@@ -218,6 +219,7 @@ class AircoClimate(ClimateEntity):
 
         if airco.Operation is False:
             self._attr_hvac_mode = HVACMode.OFF
+            self._attr_hvac_action = HVACAction.OFF
         else:
             _new_mode: HVACMode = HVACMode.OFF
             _mode = airco.OperationMode
@@ -232,6 +234,56 @@ class AircoClimate(ClimateEntity):
             elif _mode == 4:
                 _new_mode = HVACMode.DRY
             self._attr_hvac_mode = _new_mode
+
+            # Determine hvac_action based on operation mode and state
+            self._attr_hvac_action = self._determine_hvac_action(airco)
+
+    def _determine_hvac_action(self, airco) -> HVACAction:
+        """Determine the current HVAC action based on operation mode and state.
+
+        CoolHotJudge logic (from rac_parser.py line 267):
+        - CoolHotJudge = (content[8] & 8) <= 0
+        - When bit is SET (1): CoolHotJudge = False → COOLING
+        - When bit is NOT SET (0): CoolHotJudge = True → HEATING
+
+        The CoolHotJudge flag is set by the AC unit itself and indicates what
+        action the unit is currently performing in AUTO mode.
+        """
+        if not airco.Operation:
+            return HVACAction.OFF
+
+        _mode = airco.OperationMode
+
+        # FAN_ONLY mode
+        if _mode == 3:
+            return HVACAction.FAN
+
+        # DRY mode
+        if _mode == 4:
+            return HVACAction.DRYING
+
+        # AUTO mode - use CoolHotJudge directly (unit tells us what it's doing)
+        # CoolHotJudge is set by the AC unit based on its internal logic
+        if _mode == 0:
+            # CoolHotJudge = True means HEATING (bit NOT set in byte 8)
+            # CoolHotJudge = False means COOLING (bit IS set in byte 8)
+            if airco.CoolHotJudge:
+                return HVACAction.HEATING
+            else:
+                return HVACAction.COOLING
+
+        # COOL mode - unit is actively cooling when on
+        # The AC unit manages its own cycles, so we report COOLING when on
+        if _mode == 1:
+            return HVACAction.COOLING
+
+        # HEAT mode - unit is actively heating when on
+        # The AC unit manages its own cycles, so we report HEATING when on
+        if _mode == 2:
+            return HVACAction.HEATING
+
+        # Default to idle if mode is unknown
+        return HVACAction.IDLE
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
