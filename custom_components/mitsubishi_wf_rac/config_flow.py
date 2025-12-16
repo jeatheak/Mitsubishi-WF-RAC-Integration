@@ -223,7 +223,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
-        return WfRacOptionsFlowHandler(config_entry)
+        return WfRacOptionsFlowHandler()
 
     async def async_step_user(self, user_input=None):
         """Handle adding device manually."""
@@ -282,10 +282,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
     """Base class for options handling."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
             self, user_input: dict[str, Any] | None = None
