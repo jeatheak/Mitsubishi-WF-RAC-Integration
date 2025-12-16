@@ -3,28 +3,33 @@
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import Any
 from uuid import uuid4
-from functools import partial
-
-import voluptuous as vol
 
 import homeassistant.helpers.config_validation as cv
-from homeassistant.components import zeroconf
+import voluptuous as vol
 from homeassistant import config_entries, exceptions
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import (
-    CONF_HOST,
-    CONF_PORT,
-    CONF_NAME,
     CONF_BASE,
     CONF_DEVICE_ID,
     CONF_FORCE_UPDATE,
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PORT,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
-from .const import CONF_AVAILABILITY_CHECK, CONF_AVAILABILITY_RETRY_LIMIT, CONF_OPERATOR_ID, CONF_AIRCO_ID, DOMAIN, \
-    CONF_CREATE_SWING_MODE_SELECT
+from .const import (
+    CONF_AIRCO_ID,
+    CONF_AVAILABILITY_CHECK,
+    CONF_AVAILABILITY_RETRY_LIMIT,
+    CONF_CREATE_SWING_MODE_SELECT,
+    CONF_OPERATOR_ID,
+    DOMAIN,
+)
 from .wfrac.repository import Repository
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +42,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info = {}
     DOMAIN = DOMAIN
+
+    def is_matching(self, other_flow: "WfRacConfigFlow") -> bool:
+        """Return True if two flows are attempting to configure the same device."""
+        # Compare based on unique IDs if available, otherwise compare context data
+        if self.unique_id and other_flow.unique_id:
+            return self.unique_id == other_flow.unique_id
+        # For flows without unique IDs, consider them non-matching
+        return False
 
     def _find_entry_matching(self, key, matches):
         """Returns the first entry where matches(entry.data[key]) returns True"""
@@ -231,7 +244,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_zeroconf(
-            self, discovery_info: zeroconf.ZeroconfServiceInfo
+            self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
         """Handle zeroconf discovery."""
 
