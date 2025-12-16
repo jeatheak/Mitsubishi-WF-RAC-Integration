@@ -93,7 +93,7 @@ set_fan_speed:
         select:
           options:
             - "Auto"
-            - "1 Lowest"
-            - "2 Low"
-            - "3 High"
-            - "4 Highest"
+            - "Quiet"
+            - "Low"
+            - "Medium"
+            - "High"

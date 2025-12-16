@@ -10,7 +10,6 @@ from . import MitsubishiWfRacConfigEntry
 import voluptuous as vol
 
 from homeassistant.components.climate import ClimateEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.climate.const import HVACMode, HVACAction, FAN_AUTO
 from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.core import HomeAssistant
