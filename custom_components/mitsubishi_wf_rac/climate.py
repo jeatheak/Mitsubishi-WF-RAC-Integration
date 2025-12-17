@@ -83,6 +83,7 @@ class AircoClimate(ClimateEntity):
     _attr_swing_horizontal_mode: str | None = SWING_HORIZONTAL_AUTO
     _attr_swing_horizontal_modes: list[str] | None = SUPPORT_SWING_HORIZONTAL_MODES
     _enable_turn_on_off_backwards_compatibility = False  # Remove after HA 2025.1
+    _attr_translation_key = "mitsubishi_wf_rac"
 
     def __init__(self, device: Device, hass: HomeAssistant) -> None:
         self._device = device
