@@ -32,7 +32,7 @@ _DATA = {
     "port": 51443,
 }
 
-_CURRENT_VERSION = 5
+_CURRENT_VERSION = 6
 
 
 def _entry(hass: HomeAssistant, version: int, data: dict, options: dict) -> MockConfigEntry:
@@ -41,15 +41,20 @@ def _entry(hass: HomeAssistant, version: int, data: dict, options: dict) -> Mock
     return entry
 
 
-async def test_migrate_v1_moves_host_into_options(hass: HomeAssistant):
-    """A v1 entry runs through every step in one go."""
+async def test_migrate_v1_leaves_the_host_in_data(hass: HomeAssistant):
+    """A v1 entry runs through every step in one go.
+
+    v2 moved the host into options and v6 moved it back, so an entry that
+    starts before both ends up where it began - which is the point: setup and
+    the discovery address refresh both read entry.data.
+    """
     entry = _entry(hass, 1, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
 
     assert await async_migrate_entry(hass, entry)
 
     assert entry.version == _CURRENT_VERSION
-    assert CONF_HOST not in entry.data
-    assert entry.options[CONF_HOST] == "192.168.1.50"
+    assert CONF_HOST not in entry.options
+    assert entry.data[CONF_HOST] == "192.168.1.50"
 
 
 async def test_migrate_drops_the_check_and_floors_the_retry_limit(hass: HomeAssistant):
@@ -70,7 +75,7 @@ async def test_migrate_drops_the_check_and_floors_the_retry_limit(hass: HomeAssi
         assert entry.version == _CURRENT_VERSION
         assert CONF_AVAILABILITY_CHECK not in entry.options
         assert entry.options[CONF_AVAILABILITY_RETRY_LIMIT] == expected_limit
-        assert entry.options[CONF_HOST] == "192.168.1.50"
+        assert entry.data[CONF_HOST] == "192.168.1.50"
 
 
 async def test_migrate_v3_drops_dead_availability_retry_key(hass: HomeAssistant):
@@ -101,20 +106,21 @@ async def test_migrate_keeps_unrelated_options(hass: HomeAssistant):
 
 
 async def test_migrate_is_idempotent_at_current_version(hass: HomeAssistant):
-    options = {CONF_HOST: "192.168.1.50"}
-    entry = _entry(hass, _CURRENT_VERSION, _DATA, options)
+    options = {"indoor_offset": -1.5}
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, options)
 
     assert await async_migrate_entry(hass, entry)
 
     assert entry.version == _CURRENT_VERSION
     assert entry.options == options
+    assert entry.data[CONF_HOST] == "192.168.1.50"
 
 
 async def test_device_is_built_without_availability_options(hass: HomeAssistant):
     """Tolerance is a property of the module's behaviour, not a setting - an
     entry carrying nothing but the host must still get it.
     """
-    entry = _entry(hass, _CURRENT_VERSION, _DATA, {CONF_HOST: "192.168.1.50"})
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
 
     device = await create_device_from_entry(entry, hass)
 
@@ -126,7 +132,7 @@ async def test_remove_entry_clears_the_registration_full_repair_issue(hass: Home
     must not survive the entry it was raised against, or it stays in the
     Repairs list forever pointing at nothing.
     """
-    entry = _entry(hass, _CURRENT_VERSION, _DATA, {CONF_HOST: "192.168.1.50"})
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
     ir.async_create_issue(
         hass,
         DOMAIN,

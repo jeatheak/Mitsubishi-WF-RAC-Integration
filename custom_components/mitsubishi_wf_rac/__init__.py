@@ -119,13 +119,30 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
         hass.config_entries.async_update_entry(entry, options=new_options, version=5)
+    if entry.version == 5:
+        # Move the host back into entry.data, where connection-critical data
+        # belongs. It has lived in options since v2 so the options dialog
+        # could edit it, which the reconfigure flow does now - and options
+        # was the wrong home for a second reason: the discovery helper that
+        # refreshes a changed address (_abort_if_unique_id_configured with
+        # updates=) only ever merges into entry.data, so a unit that moved to
+        # a new IP had the refresh written to a key setup never reads, and
+        # kept being polled at the old address.
+        new_data = dict(entry.data)
+        new_options = dict(entry.options)
+        if CONF_HOST in new_options:
+            new_data[CONF_HOST] = new_options.pop(CONF_HOST)
+
+        hass.config_entries.async_update_entry(
+            entry, data=new_data, options=new_options, version=6
+        )
 
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEntry) -> bool:
     """Establish connection with mitsubishi-wf-rac."""
-    device: str = entry.options[CONF_HOST]
+    device: str = entry.data[CONF_HOST]
     _device = await create_device_from_entry(entry, hass)
 
     await _device.update()  # initial update to get fresh values
@@ -161,7 +178,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEnt
 
 
 async def create_device_from_entry(entry: ConfigEntry, hass: HomeAssistant) -> Device:
-    device: str = entry.options[CONF_HOST]
+    device: str = entry.data[CONF_HOST]
     name: str = entry.data[CONF_NAME]
     device_id: str = entry.data[CONF_DEVICE_ID]
     operator_id: str = entry.data[CONF_OPERATOR_ID]
@@ -194,8 +211,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEn
 
     # The coordinator can hold a listener of its own (the carrier for an armed
     # external temperature override), which would outlive the entry and keep
-    # its refresh timer running.
-    await entry.runtime_data.device.async_shutdown()
+    # its refresh timer running. Only tear it down once the entities are
+    # really gone: if unloading the platforms failed they stay loaded, and a
+    # stopped coordinator would leave them on an entry that never updates
+    # again. An entry whose setup never stored its runtime data has no
+    # coordinator to shut down at all.
+    if unload_ok and (data := getattr(entry, "runtime_data", None)) is not None:
+        await data.device.async_shutdown()
 
     if unload_ok:
         _LOGGER.info("Unloaded entry for device [%s]", entry.data[CONF_NAME])
