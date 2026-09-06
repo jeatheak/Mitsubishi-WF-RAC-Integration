@@ -469,20 +469,35 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
         The operation-data task needs the same, and more urgently: it spends
         most of its life asleep waiting out its offset (up to
-        SERVICE_DATA_OFFSET_MAX), so an unload almost always catches one
+        SERVICE_DATA_REQUEST_OFFSET), so an unload almost always catches one
         mid-sleep. hass cancels background tasks when *hass* stops, which a
         config-entry unload is not - and on a reload the request would go out
         from the old entry while the new one is already polling, through a
         second Repository whose request spacing knows nothing about the
         first. Two connections at once is what the module will not take.
+
+        Whatever either task was doing, its outcome stops mattering here, and
+        an unload that raises leaves entities loaded on an entry that no
+        longer updates. So a failure is logged and swallowed rather than
+        allowed out: a flush reports its own errors to the caller that queued
+        it (see _async_flush_queued_command), and the operation-data request
+        is optional by construction.
         """
         self._release_external_temperature_carrier()
         for task in (self._consolidation_task, self._service_data_task):
             if task is None:
                 continue
             task.cancel()
-            with suppress(asyncio.CancelledError):
+            try:
                 await task
+            except asyncio.CancelledError:
+                pass
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.debug(
+                    "Task cancelled at shutdown for [%s] had already failed",
+                    self.device_name,
+                    exc_info=True,
+                )
         self._consolidation_task = None
         self._service_data_task = None
         await super().async_shutdown()

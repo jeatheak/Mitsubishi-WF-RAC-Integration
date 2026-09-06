@@ -1475,6 +1475,23 @@ async def test_shutdown_cancels_a_request_still_waiting_out_its_offset(
     assert device._service_data_task is None
 
 
+async def test_shutdown_does_not_fail_on_a_task_that_had_already_raised(device):
+    """An unload that raises leaves the entities loaded on an entry that will
+    never update again, so a leftover failure is logged here, not propagated.
+    """
+
+    async def _boom() -> None:
+        raise RuntimeError("nothing retrieved this")
+
+    task = asyncio.create_task(_boom())
+    await asyncio.sleep(0)
+    device._service_data_task = task
+
+    await device.async_shutdown()
+
+    assert device._service_data_task is None
+
+
 async def test_add_account_returns_none_on_api_error(device):
     device._api.update_account_info.side_effect = WfRacError("failed")
 
