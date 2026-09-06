@@ -42,11 +42,6 @@ CONF_CONNECTION_METHOD = "connection_method"
 ATTR_DEVICE_ID = "device_id"
 ATTR_CONNECTED_ACCOUNTS = "connected_accounts"
 ATTR_UPDATED_BY = "updated_by"
-# What the module reports in updatedBy when the change was made at the unit
-# itself rather than over the network - the IR remote, in practice. The other
-# values seen are "local" (any locally paired client, us included) and "aws"
-# (the manufacturer's cloud).
-UPDATED_BY_UNIT = "aircon"
 ATTR_ACCOUNT_EXPIRES = "account_expires"
 ATTR_LED_STATUS = "led_status"
 ATTR_AUTO_HEATING = "auto_heating"
