@@ -65,6 +65,9 @@
     "update_failed": {
       "message": "Het opvragen van de airco op {device} is mislukt: {error}"
     },
+    "command_failed": {
+      "message": "Het verzenden van de opdracht naar de airco op {device} is mislukt: {error}"
+    },
     "temperature_required": {
       "message": "Een doeltemperatuur is verplicht."
     },

@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -612,18 +613,72 @@ async def test_set_airco_lock_prevents_stale_snapshot_race(device):
 
 
 async def test_async_queue_command_coalesces_into_one_send(device, monkeypatch):
+    """Commands issued together still leave as a single frame.
+
+    Together, not one after the other: each caller now awaits the flush its
+    parameters landed in, so a second command awaited after the first has
+    missed the window by definition. What consolidation is for is the case
+    that arrives concurrently - a scene, an automation step that fans out -
+    which is why the platforms run with PARALLEL_UPDATES = 0.
+    """
     monkeypatch.setattr(coordinator_module, "UPDATE_CONSOLIDATION_PERIOD", timedelta(milliseconds=5))
     device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
     await device.update()
     device._api.send_airco_command = AsyncMock(side_effect=_echo_send_airco_command)
 
-    await device.async_queue_command({AirconCommands.AirFlow: 2})
-    await device.async_queue_command({AirconCommands.PresetTemp: 25.0})
-
-    await asyncio.sleep(0.05)
+    await asyncio.gather(
+        device.async_queue_command({AirconCommands.AirFlow: 2}),
+        device.async_queue_command({AirconCommands.PresetTemp: 25.0}),
+    )
 
     device._api.send_airco_command.assert_awaited_once()
     assert device.airco.AirFlow == 2
+    assert device.airco.PresetTemp == 25.0
+
+
+async def test_async_queue_command_reports_a_refusal_to_its_caller(device, monkeypatch):
+    """A command the unit refused has to reach the action that issued it.
+
+    It used to be sent by a detached task that logged the failure and dropped
+    it, so a service call reported success for a command that never arrived.
+    """
+    monkeypatch.setattr(coordinator_module, "UPDATE_CONSOLIDATION_PERIOD", timedelta(milliseconds=5))
+    device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
+    await device.update()
+    device._api.send_airco_command = AsyncMock(
+        side_effect=WfRacConnectionError("offline")
+    )
+
+    with pytest.raises(HomeAssistantError) as raised:
+        await device.async_queue_command({AirconCommands.Operation: True})
+
+    assert raised.value.translation_key == "command_failed"
+
+
+async def test_a_caller_giving_up_does_not_cancel_the_shared_command(
+    device, monkeypatch
+):
+    """The flush is one task shared by everyone in the window.
+
+    A caller that goes away - a cancelled service call - must not take the
+    other callers' command down with it, which is what the shield is for.
+    """
+    monkeypatch.setattr(coordinator_module, "UPDATE_CONSOLIDATION_PERIOD", timedelta(milliseconds=20))
+    device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
+    await device.update()
+    device._api.send_airco_command = AsyncMock(side_effect=_echo_send_airco_command)
+
+    leaving = asyncio.ensure_future(
+        device.async_queue_command({AirconCommands.AirFlow: 2})
+    )
+    staying = asyncio.ensure_future(
+        device.async_queue_command({AirconCommands.PresetTemp: 25.0})
+    )
+    await asyncio.sleep(0)
+    leaving.cancel()
+    await staying
+
+    device._api.send_airco_command.assert_awaited_once()
     assert device.airco.PresetTemp == 25.0
 
 
@@ -660,8 +715,8 @@ async def test_async_queue_command_notifies_listeners_even_on_failure(device, mo
     listener = MagicMock()
     unsubscribe = device.async_add_listener(listener)
     try:
-        await device.async_queue_command({AirconCommands.Operation: True})
-        await asyncio.sleep(0.05)
+        with pytest.raises(HomeAssistantError):
+            await device.async_queue_command({AirconCommands.Operation: True})
         listener.assert_called()
     finally:
         unsubscribe()

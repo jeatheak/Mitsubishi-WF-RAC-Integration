@@ -129,6 +129,9 @@
     "update_failed": {
       "message": "Polling the Airco at {device} failed: {error}"
     },
+    "command_failed": {
+      "message": "Sending the command to the Airco at {device} failed: {error}"
+    },
     "temperature_required": {
       "message": "A target temperature is required."
     },

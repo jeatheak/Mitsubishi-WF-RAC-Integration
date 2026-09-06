@@ -5,12 +5,14 @@ import logging
 import re
 from collections import deque
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import datetime, timedelta
 from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import (
@@ -378,8 +380,18 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         """Release the override's own operation-data subscription along with
         the coordinator. A listener outstanding after unload would keep the
         refresh timer alive for an entry that no longer exists.
+
+        The consolidation task is created on hass rather than owned by
+        DataUpdateCoordinator, so it has to be cancelled here too: a command
+        queued moments before the entry unloads would otherwise still be sent
+        afterwards and publish data to entities that are already gone.
         """
         self._release_external_temperature_carrier()
+        if self._consolidation_task is not None:
+            self._consolidation_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._consolidation_task
+            self._consolidation_task = None
         await super().async_shutdown()
 
     def _release_external_temperature_carrier(self) -> None:
@@ -1159,6 +1171,12 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             self._consolidation_task = self.hass.async_create_task(
                 self._async_flush_queued_command()
             )
+        # Every caller awaits the one flush its parameters ended up in, so a
+        # refusal by the unit reaches the action that caused it instead of
+        # being logged into the void. Shielded because the task is shared: a
+        # caller giving up (a cancelled service call) must not take the other
+        # callers' command down with it.
+        await asyncio.shield(self._consolidation_task)
 
     def _carry_forward_home_leave_mode(self, new_airco: Aircon) -> None:
         """The unit reports the Tag-248 HomeLeaveMode extension segment exactly
@@ -1231,14 +1249,23 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         self._last_command_at = datetime.now()
         try:
             await self.set_airco(params)
-        except (WfRacError, KeyError, TypeError, ValueError):
-            # Already logged in set_airco(). This runs as a detached task
-            # (nothing awaits it), so without this the re-raised error becomes
-            # an orphaned "Task exception was never retrieved" with zero
-            # HA-visible feedback that the command never reached the unit.
-            # Still notify below so entities pick up self.available if the
-            # same failure already flipped it.
-            pass
+        except (WfRacError, KeyError, TypeError, ValueError) as ex:
+            # Already logged in set_airco(). Push the current state out first
+            # so entities pick up self.available if the same failure flipped
+            # it, then report: async_queue_command() awaits this task, so the
+            # error lands on the action that issued the command instead of
+            # becoming an orphaned "Task exception was never retrieved".
+            # Wrapped rather than re-raised - a library exception in a service
+            # call is a traceback, not something the user can read.
+            self.async_set_updated_data(self._airco)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+                translation_placeholders={
+                    "device": self.device_name,
+                    "error": str(ex),
+                },
+            ) from ex
         # Immediately push the (possibly unchanged, on failure) state to all
         # entities instead of leaving them to wait for the next poll (up to
         # MIN_TIME_BETWEEN_UPDATES later).

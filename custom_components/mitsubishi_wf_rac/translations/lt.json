@@ -65,6 +65,9 @@
     "update_failed": {
       "message": "Nepavyko apklausti kondicionieriaus adresu {device}: {error}"
     },
+    "command_failed": {
+      "message": "Nepavyko nusiųsti komandos kondicionieriui adresu {device}: {error}"
+    },
     "temperature_required": {
       "message": "Būtina nurodyti norimą temperatūrą."
     },

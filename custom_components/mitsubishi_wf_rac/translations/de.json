@@ -65,6 +65,9 @@
     "update_failed": {
       "message": "Die Abfrage des Klimageräts unter {device} ist fehlgeschlagen: {error}"
     },
+    "command_failed": {
+      "message": "Das Senden des Befehls an das Klimagerät unter {device} ist fehlgeschlagen: {error}"
+    },
     "temperature_required": {
       "message": "Eine Zieltemperatur ist erforderlich."
     },

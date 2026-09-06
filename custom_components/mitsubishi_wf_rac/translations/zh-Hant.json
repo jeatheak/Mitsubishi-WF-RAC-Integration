@@ -65,6 +65,9 @@
     "update_failed": {
       "message": "輪詢 {device} 上的空調失敗：{error}"
     },
+    "command_failed": {
+      "message": "向 {device} 上的空調傳送命令失敗：{error}"
+    },
     "temperature_required": {
       "message": "需要指定目標溫度。"
     },
