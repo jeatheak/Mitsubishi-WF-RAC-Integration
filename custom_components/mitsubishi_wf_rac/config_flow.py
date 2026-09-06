@@ -81,15 +81,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return entry
         return None
 
-    def _find_entry_matching_option(
-        self, key: str, matches: Callable[[Any], bool]
-    ) -> config_entries.ConfigEntry | None:
-        """Returns the first entry where matches(entry.options[key]) returns True"""
-        for entry in self._async_current_entries():
-            if key in entry.options and matches(entry.options[key]):
-                return entry
-        return None
-
     async def _async_register_airco(
             self,
             hass: HomeAssistant,
@@ -112,7 +103,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Is this hostname or IP address already configured on a *different*
             # entry? During reconfigure, the entry being edited already owns
             # this host among its own options, so it must not flag itself.
-            existing_entry = self._find_entry_matching_option(
+            existing_entry = self._find_entry_matching(
                 CONF_HOST, lambda h: h == data[CONF_HOST]
             )
             if existing_entry and existing_entry.entry_id != exclude_entry_id:
@@ -213,13 +204,20 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass, user_input, allow_port_fallback=allow_port_fallback
                 )
 
+                # A unit reached at a second address would otherwise become a
+                # second entry, whose entities collide with the first one's -
+                # the manual step has no unique id to abort on. The airco id
+                # the registration just returned is the unit's own identity.
+                if self._find_entry_matching(
+                    CONF_AIRCO_ID, lambda a: a == info[CONF_AIRCO_ID]
+                ):
+                    return self.async_abort(reason="already_configured")
+
                 data_input = user_input.copy()
                 options_input = {
-                    CONF_HOST: user_input[CONF_HOST],
                     CONF_AVAILABILITY_RETRY_LIMIT: AVAILABILITY_FAILURE_LIMIT_MIN,
                     CONF_FIRMWARE_UPDATE_CHECK: False,
                 }
-                data_input.pop(CONF_HOST)
 
                 return self.async_create_entry(
                     title=info[CONF_NAME],
@@ -336,7 +334,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         reconfigure_entry = self._get_reconfigure_entry()
         current = {
             CONF_NAME: reconfigure_entry.data[CONF_NAME],
-            CONF_HOST: reconfigure_entry.options[CONF_HOST],
+            CONF_HOST: reconfigure_entry.data[CONF_HOST],
             CONF_PORT: reconfigure_entry.data[CONF_PORT],
         }
 
@@ -363,13 +361,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
                 new_data = {**reconfigure_entry.data, **data}
-                new_options = {**reconfigure_entry.options, CONF_HOST: new_data.pop(CONF_HOST)}
 
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
                     title=info[CONF_NAME],
                     data=new_data,
-                    options=new_options,
                 )
             except KnownError as error:
                 errors, placeholders = error.get_errors_and_placeholders(
@@ -413,7 +409,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(node_name)
         self._abort_if_unique_id_configured(updates=info)
 
-        existing_entry = self._find_entry_matching_option(CONF_HOST, lambda h: h == host)
+        existing_entry = self._find_entry_matching(CONF_HOST, lambda h: h == host)
         if existing_entry:
             _LOGGER.debug("already configured!")
             return self.async_abort(reason="already_configured")
@@ -503,10 +499,6 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
             for key, value in self.config_entry.options.items():
                 if key not in self._rendered_option_keys():
                     data.setdefault(key, value)
-            # Host moved to the reconfigure flow (validated against the
-            # device) - keep the entry's existing value, since this form no
-            # longer collects it.
-            data[CONF_HOST] = self.config_entry.options[CONF_HOST]
             return self.async_create_entry(title="", data=data)
 
         options = self.config_entry.options

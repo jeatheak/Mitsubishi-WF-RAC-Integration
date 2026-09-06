@@ -59,9 +59,16 @@ async def test_options_flow_reloads_itself(hass: HomeAssistant):
 
     entry = MockConfigEntry(
         domain=DOMAIN,
-        version=5,
-        data={"name": "AC", "device_id": "d", "operator_id": "o", "airco_id": "a", "port": 51443},
-        options={CONF_HOST: "127.0.0.1"},
+        version=6,
+        data={
+            "name": "AC",
+            CONF_HOST: "127.0.0.1",
+            "device_id": "d",
+            "operator_id": "o",
+            "airco_id": "a",
+            "port": 51443,
+        },
+        options={},
     )
     entry.add_to_hass(hass)
     device = MagicMock(available=True, connection_method=None, update=AsyncMock())
