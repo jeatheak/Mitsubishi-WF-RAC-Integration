@@ -97,6 +97,10 @@
     "too_many_devices": {
       "title": "Zu viele Konten an {device_name} registriert",
       "description": "Diese Klimaanlage hat Platz für vier registrierte Konten, und alle vier sind belegt - Home Assistant kann sich deshalb nicht registrieren. Das Modul gibt von sich aus keinen Platz frei: Registrierungen laufen nicht ab, und eine neue wird abgewiesen, statt eine ältere zu ersetzen. Entfernen Sie das Gerät in der Smart-M-Air-App auf einem Telefon, das es nicht mehr braucht - jedes Konto kann nur sich selbst entfernen, und mehrere Telefone mit demselben Smart-M-Air-Konto belegen zusammen nur einen Platz. Laden Sie danach diese Integration neu. Wenn niemand einen Platz freigeben kann - etwa weil ein längst abgegebenes Telefon einen belegt -, muss das Modul neu eingerichtet werden."
+    },
+    "request_stops_unit": {
+      "title": "{device_name} schaltet sich ab, wenn Betriebsdaten abgefragt werden",
+      "description": "Die Diagnosesensoren für Verdichter, Strom und Temperaturen werden einmal pro Minute mit einer zusätzlichen Anfrage geholt. Diese Anfrage enthält keine Einstellungen — sie fragt nur — aber dieses Modul wendet einen Teil davon trotzdem an und liest ihn als „ausschalten“, sodass das Gerät jedes Mal stehen bleibt.\n\nHome Assistant hat die Anfrage jetzt auf eine Form umgestellt, die den Ein-/Aus-Zustand des Geräts an dieses zurückgibt. Damit sollte das Abschalten aufhören, ohne dass die Sensoren ausfallen. Bitte einige Minuten beobachten.\n\nSchaltet es sich weiterhin ab, deaktivieren Sie an diesem Gerät die Betriebsdaten-Sensoren (Verdichterfrequenz, Betriebsstrom, Heißgastemperatur, EEV-Position und die Wärmetauschertemperaturen) und entfernen Sie eine in den Optionen eingetragene Raumtemperaturquelle — beides hängt an dieser Anfrage. Melden Sie es anschließend bitte, mit der Firmwareversion Ihres Moduls: Dieses Verhalten unterscheidet sich je Gerät, und nur eine Meldung von einem betroffenen kann es klären."
     }
   },
   "options": {

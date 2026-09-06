@@ -26,7 +26,12 @@ from .const import (
     CONF_OPERATOR_ID, CONF_CREATE_SWING_MODE_SELECT,
     DOMAIN,
 )
-from .coordinator import AVAILABILITY_FAILURE_LIMIT_MIN, Device, registration_full_issue_id
+from .coordinator import (
+    AVAILABILITY_FAILURE_LIMIT_MIN,
+    Device,
+    registration_full_issue_id,
+    request_stops_unit_issue_id,
+)
 from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
@@ -252,3 +257,4 @@ async def async_remove_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEn
     # Entry-scoped, so it would otherwise dangle in the repair list forever
     # pointing at an entry_id that no longer resolves to anything.
     ir.async_delete_issue(hass, DOMAIN, registration_full_issue_id(entry.entry_id))
+    ir.async_delete_issue(hass, DOMAIN, request_stops_unit_issue_id(entry.entry_id))
