@@ -18,9 +18,14 @@ from pywfrac import HomeLeaveModeSetting
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-# The module accepts one connection at a time and wants a second between
-# requests, so entity actions that reach the device run one after another.
-PARALLEL_UPDATES = 1
+# Zero, not one, although this platform writes: the serialisation the module
+# needs already lives in the coordinator, which holds a send lock around the
+# request and spaces requests by MIN_TIME_BETWEEN_REQUESTS. A platform
+# semaphore on top of that only stops actions issued together - a scene, an
+# automation step that fans out - from reaching the coordinator's
+# consolidation window together, and those are exactly the ones worth
+# merging into a single frame.
+PARALLEL_UPDATES = 0
 
 # Same bounds as the temp_rule_*/temp_setting_* fields in services.yaml's
 # set_home_leave_mode action.

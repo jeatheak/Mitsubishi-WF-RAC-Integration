@@ -72,19 +72,17 @@ def _attached(hass, entity, entity_id):
     return entity
 
 
-@pytest.mark.parametrize("module", [climate, number, select, switch])
-def test_platforms_that_write_serialize_updates(module):
-    """The module takes one connection at a time, so anything that reaches it
-    from an entity action has to queue rather than fan out."""
-    assert module.PARALLEL_UPDATES == 1
+@pytest.mark.parametrize(
+    "module", [binary_sensor, button, climate, number, select, sensor, switch, update]
+)
+def test_no_platform_serializes_on_top_of_the_coordinator(module):
+    """Zero everywhere, including the platforms that write.
 
-
-@pytest.mark.parametrize("module", [binary_sensor, button, sensor, update])
-def test_platforms_that_only_read_do_not_serialize(module):
-    """The coordinator already centralizes the polling, and none of these send
-    a request of their own - button and sensor both act on the integration's
-    own energy total, not on the device. The quality scale asks for 0 there
-    rather than a limit that throttles nothing.
+    The serialisation the module needs (one connection, a second between
+    requests) lives in the coordinator's send lock, not in a platform
+    semaphore. A semaphore on top only keeps actions issued together out of
+    the same consolidation window - and those are the ones worth merging into
+    a single frame.
     """
     assert module.PARALLEL_UPDATES == 0
 

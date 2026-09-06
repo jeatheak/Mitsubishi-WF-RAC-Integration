@@ -65,6 +65,9 @@
     "update_failed": {
       "message": "{device} のエアコンへの問い合わせに失敗しました: {error}"
     },
+    "command_failed": {
+      "message": "{device} のエアコンへのコマンド送信に失敗しました: {error}"
+    },
     "temperature_required": {
       "message": "目標温度を指定してください。"
     },
