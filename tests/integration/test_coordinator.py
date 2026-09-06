@@ -114,10 +114,15 @@ def _shorten_service_data_timing(monkeypatch, offset_ms: int = 5) -> None:
         coordinator_module, "UPDATE_CONSOLIDATION_PERIOD", timedelta(milliseconds=5)
     )
     monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_RETRY_DELAY", timedelta(milliseconds=5)
+    )
+    # The ceiling doubles as the starting value, so shrinking it is what makes
+    # the request fire inside a test.
+    monkeypatch.setattr(
         coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=offset_ms)
     )
     monkeypatch.setattr(
-        coordinator_module, "SERVICE_DATA_RETRY_DELAY", timedelta(milliseconds=5)
+        coordinator_module, "SERVICE_DATA_OFFSET_MIN", timedelta(milliseconds=1)
     )
 
 
@@ -1892,9 +1897,12 @@ async def test_service_data_that_never_arrived_stays_quiet_until_it_is_due(
 # --- a unit that stops when asked for readings (#329) ----------------------
 
 
-async def _run_service_data_request(device, monkeypatch):
+async def _run_service_data_request(device, monkeypatch, ceiling_ms: int = 1):
+    # The ceiling doubles as the starting value, so it has to stay small
+    # enough for the request to fire inside a test - and, where the
+    # adaptation itself is under test, large enough to leave room above.
     monkeypatch.setattr(
-        coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=1)
+        coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=ceiling_ms)
     )
     # Cycles run back to back here; the real spacing would swallow every
     # request after the first.
@@ -2018,47 +2026,99 @@ async def test_carrying_the_power_state_sets_the_set_bit_with_the_value(device):
     assert device._parser.status_request_to_byte(stat)[2] == 2
 
 
-async def test_a_carried_request_is_skipped_right_after_the_remote_was_used(
+async def test_the_request_moves_back_towards_the_poll_while_it_keeps_landing(
     device, monkeypatch
 ):
-    """Carrying the power state means asserting it, and the state is up to a
-    poll old. Switching a unit back on that its owner just switched off is a
-    worse failure than a missing reading.
+    """Half a cycle was a guess. Closer is better for everything except
+    crowding: what the request carries, and any judgement about who changed
+    the unit, is as old as the last poll.
     """
-    response = _stats_response(ON_COOL_PAYLOAD)
-    response["updatedBy"] = "aircon"
-    device._api.get_aircon_stats.return_value = response
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
-    device._parser.carry_power_state = True
-    set_airco = AsyncMock()
-    device.set_airco = set_airco
+    device._api.send_airco_command = AsyncMock(return_value=ON_COOL_PAYLOAD)
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_OFFSET_STEP", timedelta(milliseconds=1)
+    )
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_OFFSET_MIN", timedelta(milliseconds=1)
+    )
+    device._service_data_offset = timedelta(milliseconds=5)
 
-    await _run_service_data_request(device, monkeypatch)
+    for _ in range(coordinator_module.SERVICE_DATA_OFFSET_GOOD_CYCLES):
+        await _run_service_data_request(device, monkeypatch, ceiling_ms=20)
 
-    set_airco.assert_not_awaited()
+    assert device.service_data_offset == timedelta(milliseconds=4)
 
 
-async def test_the_skip_lets_go_once_the_remote_is_done(device, monkeypatch):
-    """updatedBy keeps naming the last writer, and after somebody uses the IR
-    remote nothing writes again - we stopped, and a poll does not count.
-
-    Testing the value rather than its recency therefore skipped every cycle
-    from the first press onwards, which reads as "the unit stays on now" while
-    the readings it was all about had quietly stopped arriving.
+async def test_a_refused_request_pushes_it_away_from_the_poll_again(
+    device, monkeypatch
+):
+    """A refusal is the module saying the request came too close to something
+    else, which is what the offset exists to prevent.
     """
-    response = _stats_response(ON_COOL_PAYLOAD)
-    response["updatedBy"] = "aircon"
-    device._api.get_aircon_stats.return_value = response
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
-    device._parser.carry_power_state = True
-    set_airco = AsyncMock()
-    device.set_airco = set_airco
+    device._service_data_offset = timedelta(milliseconds=1)
+    device._api.send_airco_command = AsyncMock(side_effect=WfRacCommandError("501"))
 
-    # A cycle later, with nobody having touched the unit since. Aged by hand
-    # rather than with a frozen clock: the request path sleeps, and a frozen
-    # clock never lets that sleep finish.
-    device._unit_change_seen_at -= coordinator_module.MIN_TIME_BETWEEN_UPDATES
+    await _run_service_data_request(device, monkeypatch, ceiling_ms=20)
+
+    assert device.service_data_offset == timedelta(milliseconds=2)
+
+
+async def test_the_offset_never_goes_below_the_floor_or_above_the_ceiling(
+    device, monkeypatch
+):
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
-    await _run_service_data_request(device, monkeypatch)
 
-    set_airco.assert_awaited()
+    device._api.send_airco_command = AsyncMock(return_value=ON_COOL_PAYLOAD)
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_OFFSET_MIN", timedelta(milliseconds=2)
+    )
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_OFFSET_STEP", timedelta(milliseconds=1)
+    )
+    device._service_data_offset = timedelta(milliseconds=2)
+    for _ in range(coordinator_module.SERVICE_DATA_OFFSET_GOOD_CYCLES * 2):
+        await _run_service_data_request(device, monkeypatch, ceiling_ms=20)
+    assert device.service_data_offset == timedelta(milliseconds=2)
+
+    device._service_data_offset = timedelta(milliseconds=20)
+    device._api.send_airco_command = AsyncMock(side_effect=WfRacCommandError("501"))
+    await _run_service_data_request(device, monkeypatch, ceiling_ms=20)
+    assert device.service_data_offset == timedelta(milliseconds=20)
+
+
+async def test_a_setting_that_changed_with_no_write_is_read_as_the_unit_itself(
+    device, caplog
+):
+    """Only a setAirconStat moves the write lock, so a setting that changed
+    while expires stood still was not changed over the network.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
+
+    with caplog.at_level(logging.DEBUG):
+        await device.update()
+
+    assert "changed at the unit itself" in caplog.text
+    assert device.foreign_activity is False
+
+
+async def test_our_own_command_is_not_read_as_somebody_elses(device, caplog):
+    """The expectation moves with what the unit reports back to our own write,
+    or every command we send would come back as a foreign one.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
+    await device.set_airco({AirconCommands.Operation: False})
+
+    device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
+    with caplog.at_level(logging.DEBUG):
+        await device.update()
+
+    assert "changed at the unit" not in caplog.text
+    assert device.foreign_activity is False
