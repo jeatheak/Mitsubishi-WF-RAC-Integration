@@ -23,6 +23,7 @@ silently upgrade them.
 | `[FW]` | Read out of a firmware image (module or bridge MCU), static analysis |
 | `[APP]` | Read out of the official Smart M-Air app (version 1.4.009) |
 | `[EXT]` | External project documentation, chiefly [MHI-AC-Trace](https://github.com/absalom-muc/MHI-AC-Trace) / [MHI-AC-Ctrl](https://github.com/absalom-muc/MHI-AC-Ctrl) |
+| `[UR]` | Reported by a user on hardware I do not have. One report unless it says otherwise |
 | `[INF]` | Inference from the above. Plausible, **not** tested |
 
 ---
@@ -607,6 +608,22 @@ block with none of them set changes nothing while still carrying the trailer.
 Measured on two indoor units `[HW]`: `result: 0`, the complete operation-data
 trailer in the response, and power, mode, fan speed, setpoint and both vane
 axes unchanged — with the unit running and with it switched off.
+
+> **Not on every firmware.** On a module reporting `firmType` `WCBN4612L` this
+> block is **not** inert: the unit switches off the moment it arrives, and
+> again on every repetition. `[UR]` The set-bit convention of §4.3 appears not
+> to hold there for `command[2]`, whose bit `0x01` carries the power value and
+> bit `0x02` the set-bit — an all-zero byte then reads as "power off" rather
+> than "leave power alone". Whether the other fields are applied from their
+> zeros as well is untested; the unit being off hides most of them.
+>
+> Two consequences for anyone implementing this. Operation data cannot be
+> polled that way on that branch at all, and neither can anything else that
+> rides on the same frame — on this integration that includes writing a room
+> temperature into `command[5]`, which has no frame of its own. And a
+> single-branch measurement is not a general one: this recipe was verified on
+> `WF-RAC-HTTPS 025/200` and reported broken on `WCBN4612L 029/999`, so treat
+> `firmType` as part of the test matrix rather than as a label.
 
 Carry `command[8]` as you would in a real command, though. It is the one field
 with no set-bit of its own, and dropping it clears the unit's echo of it in
