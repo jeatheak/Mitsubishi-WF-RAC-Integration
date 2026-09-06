@@ -360,6 +360,12 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # set by our own successful writes and consumed by the next poll, so a
         # rise in `expires` can be attributed to us or to someone else.
         self._wrote_since_last_poll = False
+        # Narrower than the flag above and consumed by the same poll: only a
+        # frame that could actually move a setting sets this one. Our own
+        # operation-data request moves `expires` every cycle without carrying
+        # a single set-bit, and reading that as "a write happened" is what
+        # would leave every change made at the unit unattributable.
+        self._wrote_settings_since_last_poll = False
         # None until the adaptation has moved it, so the ceiling stays a
         # single source of truth.
         self._service_data_offset: timedelta | None = None
@@ -460,13 +466,40 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         DataUpdateCoordinator, so it has to be cancelled here too: a command
         queued moments before the entry unloads would otherwise still be sent
         afterwards and publish data to entities that are already gone.
+
+        The operation-data task needs the same, and more urgently: it spends
+        most of its life asleep waiting out its offset (up to
+        SERVICE_DATA_REQUEST_OFFSET), so an unload almost always catches one
+        mid-sleep. hass cancels background tasks when *hass* stops, which a
+        config-entry unload is not - and on a reload the request would go out
+        from the old entry while the new one is already polling, through a
+        second Repository whose request spacing knows nothing about the
+        first. Two connections at once is what the module will not take.
+
+        Whatever either task was doing, its outcome stops mattering here, and
+        an unload that raises leaves entities loaded on an entry that no
+        longer updates. So a failure is logged and swallowed rather than
+        allowed out: a flush reports its own errors to the caller that queued
+        it (see _async_flush_queued_command), and the operation-data request
+        is optional by construction.
         """
         self._release_external_temperature_carrier()
-        if self._consolidation_task is not None:
-            self._consolidation_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await self._consolidation_task
-            self._consolidation_task = None
+        for task in (self._consolidation_task, self._service_data_task):
+            if task is None:
+                continue
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.debug(
+                    "Task cancelled at shutdown for [%s] had already failed",
+                    self.device_name,
+                    exc_info=True,
+                )
+        self._consolidation_task = None
+        self._service_data_task = None
         await super().async_shutdown()
 
     def _release_external_temperature_carrier(self) -> None:
@@ -776,6 +809,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         """
         wrote = self._wrote_since_last_poll
         self._wrote_since_last_poll = False
+        wrote_settings = self._wrote_settings_since_last_poll
+        self._wrote_settings_since_last_poll = False
 
         expires_moved = (
             isinstance(expires, int)
@@ -784,7 +819,14 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         )
         if expires_moved and not wrote:
             self._note_foreign_write(f"expires moved {self._account_expires} -> {expires}")
-        self._note_unexpected_settings(expires_moved or wrote)
+        # Not `expires_moved or wrote`: our own operation-data request moves
+        # `expires` in most cycles and carries no set-bits, so that reading
+        # would call every change unattributable and never name the one thing
+        # this detector exists for. What is asked here is narrower - could a
+        # write, ours or anyone's, have moved a setting in this gap?
+        self._note_unexpected_settings(
+            wrote_settings or (expires_moved and not wrote)
+        )
         self._report_foreign_activity()
 
     def _note_foreign_write(self, evidence: str) -> None:
@@ -838,6 +880,14 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         operation-data request carries the power state back to a unit that
         needs it, a change we undo inside that same gap leaves the value
         exactly where we expect it.
+
+        The someone_wrote argument asks whether a set-bit could have been sent
+        in this gap, not whether any frame was: our own operation-data request
+        moves `expires` every cycle while changing nothing, and counting it
+        would leave nothing to attribute. The price is one wrong label rather
+        than one missing message - a foreign client writing in the same gap as
+        one of our requests reads as the unit itself here, because the module
+        gives us no second record of the write to tell them apart.
 
         Not every one of these is somebody's doing: the unit resets its own
         setpoint after a power cycle, and Vacant and self-clean move settings
@@ -1034,7 +1084,11 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         for attempt in (1, 2):
             try:
                 await self.set_airco(
-                    params, log_failure=False, timestamp_offset=timestamp_offset
+                    params,
+                    log_failure=False,
+                    timestamp_offset=timestamp_offset,
+                    is_status_request=True,
+                    retry_when_locked=False,
                 )
                 if attempt > 1:
                     _LOGGER.debug("Service data request succeeded on retry")
@@ -1053,7 +1107,9 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                 # Someone else may hold the write lock. Unlike a user command
                 # this is not worth contesting: give the cycle up immediately
                 # rather than retrying into a lock we would only be renewing
-                # for ourselves if we won it.
+                # for ourselves if we won it. set_airco()'s own wait-and-retry
+                # is off for this call (retry_when_locked=False), or the
+                # refusal would arrive here already contested.
                 _LOGGER.debug(
                     "Service data request declined for [%s], skipping this "
                     "cycle: %s",
@@ -1345,12 +1401,26 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         *,
         log_failure: bool = True,
         timestamp_offset: int = 0,
+        is_status_request: bool = False,
+        retry_when_locked: bool = True,
     ) -> None:
         """Method to send airco command.
 
         log_failure=False leaves the reporting to the caller, for requests that
         have their own retry and a quieter failure story than a user command
         that never reached the unit - see _async_request_service_data().
+
+        is_status_request marks a frame that asks for readings instead of
+        changing anything: its block carries no set-bits (see
+        RacParser.status_request_to_byte), so the settings it echoes back are
+        the unit's own and claiming them as our expectation would hide
+        whatever the IR remote did while the request was in flight.
+
+        retry_when_locked=False hands the refusal straight back to the caller
+        instead of waiting the foreign write lock out below. For an optional
+        read that is the whole answer - the caller skips the cycle - and the
+        wait itself is the harm: it runs inside _send_lock, where a real user
+        command would be stuck behind it for up to WRITE_LOCK_MAX_WAIT.
 
         timestamp_offset shifts the `timestamp` this request stamps, and so the
         write lock it takes (deadline is timestamp + 60, the module has no RTC).
@@ -1408,6 +1478,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                     # retry, placed where the lock lapses rather than at a
                     # guessed interval - a retry that lands inside the same
                     # lock is a request spent on a refusal that was certain.
+                    if not retry_when_locked:
+                        raise
                     await asyncio.sleep(await self._async_write_lock_delay())
                     response = await self._api.send_airco_command(
                         self._airco_id, command, timestamp_offset=timestamp_offset
@@ -1422,8 +1494,17 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                         self._airco_id, command, timestamp_offset=timestamp_offset
                     )
                 # Only a successful write moves the module's `expires`, so
-                # only a successful write may claim the next rise in it.
+                # only a successful write may claim the next rise in it. A
+                # status request moves it too - it is a setAirconStat like any
+                # other - which is why the narrower flag below is a separate
+                # one and not this same value read twice.
                 self._wrote_since_last_poll = True
+                if not is_status_request or self._parser.carry_power_state:
+                    # A status request's block carries no set-bits, so nothing
+                    # in it can explain a setting that moved - unless this is
+                    # one of the units we carry the power state for (#329),
+                    # where the frame really does write Operation.
+                    self._wrote_settings_since_last_poll = True
                 new_airco = self._parser.translate_bytes(response)
                 self._carry_forward_home_leave_mode(new_airco)
                 self._carry_forward_service_data(new_airco)
@@ -1431,7 +1512,12 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                 # Our own write is not a foreign one: move the expectation to
                 # what the unit reports back, or the next poll would read this
                 # command as somebody else's (see _note_unexpected_settings).
-                self._expected_settings = self._settings_snapshot()
+                # Not for a status request: it changes nothing, so its response
+                # is a reading of whatever the unit is doing now - including a
+                # change made at the unit since the poll, which taking it as
+                # our expectation would swallow whole.
+                if not is_status_request:
+                    self._expected_settings = self._settings_snapshot()
                 # After the write, and only for what the frame really carried:
                 # a command sent while the unit is off writes the sentinel, not
                 # the override.
@@ -1509,7 +1595,10 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         setpoint change - would go out in that same block without its
         set-bit and be silently ignored by the unit.
         """
-        await self.set_airco({AirconCommands.HomeLeaveModeStatusRequest: True})
+        await self.set_airco(
+            {AirconCommands.HomeLeaveModeStatusRequest: True},
+            is_status_request=True,
+        )
 
     async def async_set_home_leave_mode(
         self, cooling: HomeLeaveModeSetting, heating: HomeLeaveModeSetting
