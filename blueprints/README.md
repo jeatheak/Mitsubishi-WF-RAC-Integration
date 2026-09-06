@@ -3,8 +3,17 @@
 Automation blueprints for units running this integration, contributed by people
 who use them on their own systems.
 
-There are none in here yet. This directory exists so there is somewhere to put
-them.
+## What is in here
+
+- **[MHI multi-split mode lockout resolver](automation/smdev0925/mhi-multi-split-mode-lockout.yaml)**
+  by [smdev0925](https://github.com/smdev0925) — one outdoor unit serves one
+  mode at a time, and MHI's AUTO latches its heat/cool choice, so a head that
+  went quiet hours ago can still be locking everyone else out. This stands the
+  side that just had its turn down to fan-only for a few minutes, which drops
+  the latch and lets the waiting side take the system. It decides nothing about
+  what a room needs: the vote is the unit's own Cool/Heat Status, and priority
+  is its Compressor Demand. Running on a four-head SCM80.
+  ([discussion](https://github.com/blues-sechseck/Mitsubishi-WF-RAC-Integration/discussions/328))
 
 ## Why they live here and not in the integration
 
