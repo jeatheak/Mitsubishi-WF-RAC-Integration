@@ -72,6 +72,7 @@ from ..unit.live_captures import LIVE_CAPTURES
 
 OFF_PAYLOAD, _ = LIVE_CAPTURES["off"]
 ON_COOL_PAYLOAD, _ = LIVE_CAPTURES["on_cool"]
+ON_HEAT_PAYLOAD, _ = LIVE_CAPTURES["on_heat"]
 
 
 def _stats_response(payload: str) -> dict:
@@ -1049,6 +1050,8 @@ async def test_service_data_request_uses_active_segment_codes(device, monkeypatc
         timestamp_offset=-round(
             coordinator_module.SERVICE_DATA_STAMP_BACKDATE.total_seconds()
         ),
+        is_status_request=True,
+        retry_when_locked=False,
     )
 
 
@@ -1080,6 +1083,8 @@ async def test_raw_service_data_sensor_requests_its_segment_code(device, monkeyp
         timestamp_offset=-round(
             coordinator_module.SERVICE_DATA_STAMP_BACKDATE.total_seconds()
         ),
+        is_status_request=True,
+        retry_when_locked=False,
     )
 
 
@@ -1369,6 +1374,34 @@ async def test_service_data_request_gives_up_immediately_when_refused_as_a_write
     set_airco.assert_awaited_once()
 
 
+async def test_a_refused_service_data_request_is_not_retried_inside_set_airco(
+    device, monkeypatch
+):
+    """The test above mocks set_airco() away, so it cannot see that set_airco()
+    answers a refusal with a wait-and-retry of its own - which for this request
+    is the very contest it is trying to avoid, and blocks _send_lock (and with
+    it any user command) for as long as the foreign lock runs.
+    """
+    _shorten_service_data_timing(monkeypatch)
+    _activate_service_data_contexts(device, monkeypatch)
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._api.send_airco_command = AsyncMock(
+        side_effect=WfRacWriteRefusedError("result 1")
+    )
+
+    device._maybe_request_service_data()
+    await asyncio.sleep(0)
+    task = device._service_data_task
+    assert task is not None
+    # The wait matters as much as the second send: it happens inside
+    # _send_lock, so a request that sits it out holds every user command up
+    # behind it. A task still running here is a task in that wait.
+    await asyncio.wait_for(task, 1)
+
+    assert device._api.send_airco_command.await_count == 1
+
+
 async def test_set_airco_waits_and_retries_once_when_the_write_lock_is_held(
     device, monkeypatch
 ):
@@ -1401,12 +1434,45 @@ async def test_set_airco_waits_and_retries_once_when_the_write_lock_is_held(
 
 async def test_service_data_request_does_not_overlap_an_active_request(device, monkeypatch):
     _activate_service_data_contexts(device, monkeypatch)
-    device._service_data_task = MagicMock()
-    device._service_data_task.done.return_value = False
+
+    async def _still_asleep() -> None:
+        await asyncio.sleep(10)
+
+    # A real task rather than a stand-in: the fixture's teardown shuts the
+    # coordinator down, and async_shutdown() now cancels and awaits this
+    # attribute, which a MagicMock cannot answer.
+    device._service_data_task = asyncio.create_task(_still_asleep())
 
     device._maybe_request_service_data()
 
     assert device._last_service_data_request is None
+
+
+async def test_shutdown_cancels_a_request_still_waiting_out_its_offset(
+    device, monkeypatch
+):
+    """The request sleeps out its offset for most of its life, so an unload
+    lands in that sleep more often than not. hass only cancels background
+    tasks when hass itself stops - on a config-entry reload the request would
+    go out afterwards, from a Repository whose spacing knows nothing about the
+    one the new entry is already polling through.
+    """
+    _activate_service_data_contexts(device, monkeypatch)
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(seconds=30)
+    )
+    device.set_airco = set_airco = AsyncMock()
+
+    device._maybe_request_service_data()
+    await asyncio.sleep(0)
+    task = device._service_data_task
+    assert task is not None and not task.done()
+
+    await device.async_shutdown()
+
+    assert task.cancelled()
+    set_airco.assert_not_awaited()
+    assert device._service_data_task is None
 
 
 async def test_add_account_returns_none_on_api_error(device):
@@ -2100,6 +2166,31 @@ async def test_a_setting_that_changed_with_no_write_is_read_as_the_unit_itself(
     await device.update()
     device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
 
+    with caplog.at_level(logging.DEBUG):
+        await device.update()
+
+    assert "changed at the unit itself" in caplog.text
+    assert device.foreign_activity is False
+
+
+async def test_a_change_at_the_unit_survives_the_operation_data_request(
+    device, monkeypatch, caplog
+):
+    """The request changes nothing, so what comes back is a reading - and in
+    the 5-30s it sits behind the poll, that reading can already carry an IR
+    command. Claiming it as our expectation would leave the next poll with
+    nothing to compare and the change unreported.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+
+    # Someone picks up the remote between the poll and the request: mode and
+    # setpoint are already the new ones when the request's response arrives.
+    device._api.send_airco_command = AsyncMock(return_value=ON_HEAT_PAYLOAD)
+    await _run_service_data_request(device, monkeypatch)
+    device._api.send_airco_command.assert_awaited_once()
+
+    device._api.get_aircon_stats.return_value = _stats_response(ON_HEAT_PAYLOAD)
     with caplog.at_level(logging.DEBUG):
         await device.update()
 
