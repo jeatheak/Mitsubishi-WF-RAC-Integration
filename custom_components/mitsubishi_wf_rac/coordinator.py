@@ -31,6 +31,7 @@ from .const import (
     MIN_TIME_BETWEEN_UPDATES,
     OPERATION_MODE_COOL,
     OPERATION_MODE_HEAT,
+    UPDATED_BY_HOST,
     UPDATED_BY_UNIT,
 )
 from pywfrac import (
@@ -152,6 +153,12 @@ FOREIGN_ACTIVITY_BACKOFF = timedelta(minutes=3)
 # than repeated - two clients are genuinely fighting over the unit at that
 # point.
 WRITE_LOCK_RETRY_DELAY = timedelta(seconds=10)
+
+# How often a unit has to stop inside our own operation-data request before we
+# accept that the request is what stops it. See _check_request_stopped_unit():
+# the signal we have cannot separate us from another local client, so one
+# occurrence is a coincidence and two in a row is not.
+STOPPED_ON_REQUEST_BEFORE_CARRYING = 2
 
 # The lock runs 60 seconds, so a longer wait than that means the deadline was
 # stamped by a client whose clock is off rather than that the lock is really
@@ -324,6 +331,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         self._firmware = ""
         self._connected_accounts = -1
         self._updated_by: str | None = None
+        self._unit_change_seen_at: datetime | None = None
+        self._stopped_on_request = 0
         self._account_expires: int | None = None
         self._led_status: int | None = None
         self._auto_heating: int | None = None
@@ -632,7 +641,14 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             # Not part of the airconStat blob, present alongside it in the same
             # response. Tolerate absence (.get()) since it's undocumented and
             # could be missing on older firmware.
-            self._updated_by = response.get("updatedBy")
+            updated_by = response.get("updatedBy")
+            if updated_by == UPDATED_BY_UNIT and self._updated_by != UPDATED_BY_UNIT:
+                # The transition, not the value: updatedBy names the last
+                # writer and keeps naming it until somebody else writes, so a
+                # unit left alone after its owner used the remote reports
+                # "aircon" indefinitely.
+                self._unit_change_seen_at = datetime.now()
+            self._updated_by = updated_by
             self._detect_foreign_activity(response.get("expires"))
             self._account_expires = response.get("expires")
             self._led_status = response.get("ledStat")
@@ -929,15 +945,20 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # timestamp below trades away part of the lock for. The offset stays
         # because it is about spacing requests, not about what they contain -
         # a second request too soon after the poll is what the module refuses.
-        if self._parser.carry_power_state and self._updated_by == UPDATED_BY_UNIT:
-            # Carrying the power state means asserting it, and the state we
-            # hold is up to a poll old. Someone just used the remote, so skip
-            # the cycle rather than assert a value that may already be stale -
-            # switching a unit back on that its owner just switched off is a
-            # worse failure than a missing reading.
+        if self._parser.carry_power_state and self._unit_changed_recently():
+            # Carrying the power state means asserting it, and what we hold is
+            # up to a poll old. Somebody is reaching for the remote right now,
+            # so give up the cycle rather than assert a value that may already
+            # be stale - switching a unit back on that its owner just switched
+            # off is a worse failure than a missing reading.
+            #
+            # Recency, not the bare value: updatedBy keeps naming the last
+            # writer, so testing it directly would skip every cycle from the
+            # first use of the remote onwards and quietly turn the sensors off
+            # for good.
             _LOGGER.debug(
                 "Skipping the operation-data request for [%s]: the unit was "
-                "last changed at the unit itself and this device needs the "
+                "just changed at the unit itself and this device needs the "
                 "power state carried",
                 self.device_name,
             )
@@ -1112,6 +1133,17 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             self._clear_registration_full_issue()
         return result
 
+    def _unit_changed_recently(self) -> bool:
+        """Whether the unit reported a change of its own within the last cycle.
+
+        updatedBy names the last successful writer and goes on naming it until
+        somebody else writes, so its value alone says nothing about when. What
+        matters here is that somebody is at the unit *now*.
+        """
+        return self._unit_change_seen_at is not None and (
+            datetime.now() - self._unit_change_seen_at < MIN_TIME_BETWEEN_UPDATES
+        )
+
     def _check_request_stopped_unit(self, was_running: bool) -> None:
         """Notice a unit that switches off because we asked it for readings.
 
@@ -1135,12 +1167,32 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         if not was_running or self._parser.carry_power_state:
             return
         if self._airco is None or self._airco.Operation:
+            self._stopped_on_request = 0
             return
-        if self._updated_by == UPDATED_BY_UNIT:
+        if self._updated_by != UPDATED_BY_HOST:
+            # Someone else stopped it: the unit itself ("aircon", which is what
+            # the IR remote looks like from here) or the manufacturer's cloud
+            # ("aws"). Only a locally paired writer can have been us.
             _LOGGER.debug(
-                "[%s] stopped during our operation-data request, but the unit "
-                "reports the change as its own - not treating it as ours",
+                "[%s] stopped during our operation-data request, but the last "
+                "writer reports as %s - not treating it as ours",
                 self.device_name,
+                self._updated_by,
+            )
+            self._stopped_on_request = 0
+            return
+        self._stopped_on_request += 1
+        if self._stopped_on_request < STOPPED_ON_REQUEST_BEFORE_CARRYING:
+            # Once is a coincidence worth surviving: "local" covers us and any
+            # app on the same network, so an app switching the unit off in the
+            # second our request lands looks exactly like this. The real fault
+            # repeats every cycle; a coincidence does not repeat twice running.
+            _LOGGER.debug(
+                "[%s] stopped during our operation-data request (%s of %s "
+                "before the request starts carrying the power state)",
+                self.device_name,
+                self._stopped_on_request,
+                STOPPED_ON_REQUEST_BEFORE_CARRYING,
             )
             return
         self._parser.carry_power_state = True

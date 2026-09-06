@@ -1896,6 +1896,11 @@ async def _run_service_data_request(device, monkeypatch):
     monkeypatch.setattr(
         coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=1)
     )
+    # Cycles run back to back here; the real spacing would swallow every
+    # request after the first.
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_MIN_SPACING", timedelta(0)
+    )
     monkeypatch.setattr(
         device, "async_contexts", lambda: {SERVICE_DATA_EEV_PULSES}
     )
@@ -1903,7 +1908,7 @@ async def _run_service_data_request(device, monkeypatch):
     await asyncio.sleep(0.05)
 
 
-async def test_a_unit_that_stops_on_our_request_gets_its_power_state_carried(
+async def test_a_unit_that_stops_on_our_request_twice_gets_its_power_state_carried(
     device, monkeypatch
 ):
     """The request carries no set-bits, so nothing should change - but one
@@ -1911,7 +1916,8 @@ async def test_a_unit_that_stops_on_our_request_gets_its_power_state_carried(
 
     Detected from the symptom rather than from firmType: the bridge MCU
     handles this frame identically across firmware branches, so the branch
-    would be the wrong thing to gate on.
+    would be the wrong thing to gate on. Twice, because the signal cannot
+    separate us from another client on the same network.
     """
     device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
@@ -1921,8 +1927,53 @@ async def test_a_unit_that_stops_on_our_request_gets_its_power_state_carried(
     # The unit answers our own request having switched itself off.
     device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
     await _run_service_data_request(device, monkeypatch)
+    assert device._parser.carry_power_state is False
 
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    await _run_service_data_request(device, monkeypatch)
     assert device._parser.carry_power_state is True
+
+
+async def test_a_single_stop_during_our_request_is_not_enough(device, monkeypatch):
+    """"local" is what the module reports for us and for any app on the same
+    network alike, so one occurrence can just as well be somebody switching
+    the unit off in the second our request lands. The real fault repeats.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
+    await _run_service_data_request(device, monkeypatch)
+
+    # A cycle in which the unit keeps running clears the count again.
+    device._api.send_airco_command = AsyncMock(return_value=ON_COOL_PAYLOAD)
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    await _run_service_data_request(device, monkeypatch)
+
+    device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
+    await device.update()
+    await _run_service_data_request(device, monkeypatch)
+
+    assert device._parser.carry_power_state is False
+
+
+async def test_a_stop_reported_as_the_clouds_is_not_blamed_on_us(device, monkeypatch):
+    """Only a locally paired writer can have been us; "aws" is the
+    manufacturer's cloud acting on the unit.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+
+    response = _stats_response(OFF_PAYLOAD)
+    response["updatedBy"] = "aws"
+    device._api.get_aircon_stats.return_value = response
+    device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
+    for _ in range(3):
+        await device.update()
+        await _run_service_data_request(device, monkeypatch)
+
+    assert device._parser.carry_power_state is False
 
 
 async def test_a_unit_switched_off_at_the_unit_is_not_blamed_on_us(
@@ -1982,3 +2033,29 @@ async def test_a_carried_request_is_skipped_right_after_the_remote_was_used(
     await _run_service_data_request(device, monkeypatch)
 
     set_airco.assert_not_awaited()
+
+
+async def test_the_skip_lets_go_once_the_remote_is_done(device, monkeypatch):
+    """updatedBy keeps naming the last writer, and after somebody uses the IR
+    remote nothing writes again - we stopped, and a poll does not count.
+
+    Testing the value rather than its recency therefore skipped every cycle
+    from the first press onwards, which reads as "the unit stays on now" while
+    the readings it was all about had quietly stopped arriving.
+    """
+    response = _stats_response(ON_COOL_PAYLOAD)
+    response["updatedBy"] = "aircon"
+    device._api.get_aircon_stats.return_value = response
+    await device.update()
+    device._parser.carry_power_state = True
+    set_airco = AsyncMock()
+    device.set_airco = set_airco
+
+    # A cycle later, with nobody having touched the unit since. Aged by hand
+    # rather than with a frozen clock: the request path sleeps, and a frozen
+    # clock never lets that sleep finish.
+    device._unit_change_seen_at -= coordinator_module.MIN_TIME_BETWEEN_UPDATES
+    await device.update()
+    await _run_service_data_request(device, monkeypatch)
+
+    set_airco.assert_awaited()
