@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from contextlib import suppress
 from datetime import datetime, timedelta
 from collections.abc import Callable
-from typing import Any
+from typing import Any, override
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -31,6 +31,7 @@ from .const import (
     MIN_TIME_BETWEEN_UPDATES,
     OPERATION_MODE_COOL,
     OPERATION_MODE_HEAT,
+    UPDATED_BY_UNIT,
 )
 from pywfrac import (
     Aircon,
@@ -222,6 +223,11 @@ POLL_TIMEOUT = 2 * REQUEST_TIMEOUT + MIN_TIME_BETWEEN_REQUESTS + timedelta(secon
 AVAILABILITY_FAILURE_LIMIT_MIN = 3
 
 
+def request_stops_unit_issue_id(entry_id: str) -> str:
+    """Repair-issue id for a unit that stops when asked for operation data."""
+    return f"request_stops_unit_{entry_id}"
+
+
 def registration_full_issue_id(entry_id: str) -> str:
     """Repair-issue id for a full account table on this entry's airco.
 
@@ -230,6 +236,50 @@ def registration_full_issue_id(entry_id: str) -> str:
     issue behind) - one format, so the two can never drift apart.
     """
     return f"too_many_devices_{entry_id}"
+
+
+class _ServiceDataParser(RacParser):
+    """RacParser whose operation-data request can carry the unit's own power
+    state back to it.
+
+    The request is built with no set-bits, which on the hardware this was
+    developed against changes nothing (see RacParser.status_request_to_byte).
+    On at least one module - firmType WCBN4612L, issue #329 - the zero in
+    command[2] is applied anyway and reads as "power off", so the unit stops
+    the second the request arrives and again every 60s after that.
+
+    Carrying the current power value together with its set-bit makes the frame
+    confirm the state instead of changing it. Measured against the two indoor
+    units here: result 0, full operation-data trailer, nothing altered, with
+    the unit running and with it switched off.
+
+    Off by default and switched on per device by _note_unit_stopped_on_request(),
+    because it costs something the empty frame does not: the state it carries
+    is up to a poll old, so on a unit that honours set-bits properly this turns
+    a read into a real power write.
+    """
+
+    carry_power_state = False
+
+    @override
+    def status_request_to_byte(self, aircon_stat: AirconStat) -> bytearray:
+        stat_byte = super().status_request_to_byte(aircon_stat)
+        if self.carry_power_state:
+            # Same encoding as command_to_byte(): bit 0 the value, bit 1 the
+            # set-bit that makes the value count.
+            stat_byte[2] |= 3 if aircon_stat.Operation else 2
+        # BETA DEBUG (#329) - remove before the final release. The whole
+        # question in that issue is what this frame contains, and reconstructing
+        # it from the base64 in the request log is a step nobody should have to
+        # take twice.
+        _LOGGER.debug(
+            "Operation-data request block: %s (carrying power state: %s, "
+            "unit is %s)",
+            bytes(stat_byte).hex(" "),
+            self.carry_power_state,
+            "on" if aircon_stat.Operation else "off",
+        )
+        return stat_byte
 
 
 class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instance-attributes
@@ -259,7 +309,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             method=connection_method,
             cert_path=hass.config.path(AC_CERT_FILENAME),
         )
-        self._parser = RacParser()
+        self._parser = _ServiceDataParser()
         self._hass = hass
 
         # Protected state
@@ -601,7 +651,13 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         firm_type = response.get("firmType", "unknown")
         mcu_ver = (response.get("mcu") or {}).get("firmVer", "unknown")
         wireless_ver = (response.get("wireless") or {}).get("firmVer", "unknown")
-        self._firmware = f"{firm_type}, mcu: {mcu_ver}, wireless: {wireless_ver}"
+        firmware = f"{firm_type}, mcu: {mcu_ver}, wireless: {wireless_ver}"
+        if firmware != self._firmware:
+            # BETA DEBUG (#329) - remove before the final release. Which
+            # firmware branch a report comes from decided the whole diagnosis
+            # there, and it was two rounds of asking to find out.
+            _LOGGER.debug("[%s] reports firmware %s", self.device_name, firmware)
+        self._firmware = firmware
 
         self._firm_type = response.get("firmType")
         self._wireless_firmware_ver = (response.get("wireless") or {}).get("firmVer")
@@ -873,8 +929,22 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # timestamp below trades away part of the lock for. The offset stays
         # because it is about spacing requests, not about what they contain -
         # a second request too soon after the poll is what the module refuses.
+        if self._parser.carry_power_state and self._updated_by == UPDATED_BY_UNIT:
+            # Carrying the power state means asserting it, and the state we
+            # hold is up to a poll old. Someone just used the remote, so skip
+            # the cycle rather than assert a value that may already be stale -
+            # switching a unit back on that its owner just switched off is a
+            # worse failure than a missing reading.
+            _LOGGER.debug(
+                "Skipping the operation-data request for [%s]: the unit was "
+                "last changed at the unit itself and this device needs the "
+                "power state carried",
+                self.device_name,
+            )
+            return
         params = {AirconCommands.ServiceDataStatusRequest: service_data_codes}
         timestamp_offset = -round(self._service_data_stamp_backdate().total_seconds())
+        was_running = self._airco is not None and self._airco.Operation
         for attempt in (1, 2):
             try:
                 await self.set_airco(
@@ -882,6 +952,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                 )
                 if attempt > 1:
                     _LOGGER.debug("Service data request succeeded on retry")
+                self._check_request_stopped_unit(was_running)
                 # Notify, but deliberately not through async_set_updated_data():
                 # that resets the refresh timer, and this runs half a cycle
                 # after the poll - every cycle - so it would push the next poll
@@ -1040,6 +1111,57 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         else:
             self._clear_registration_full_issue()
         return result
+
+    def _check_request_stopped_unit(self, was_running: bool) -> None:
+        """Notice a unit that switches off because we asked it for readings.
+
+        The operation-data request carries no set-bits, so on the hardware this
+        was developed against it changes nothing. On at least one module
+        (firmType WCBN4612L, issue #329) the zero in command[2] is applied as
+        "power off" instead, and since the request repeats every 60s the unit
+        cannot be kept running at all while any operation-data sensor is
+        enabled.
+
+        Rather than guess from firmType - the bridge MCU handles this frame
+        identically across firmware branches, so the branch is the wrong thing
+        to gate on - this watches for the symptom and reacts once. From then on
+        the request carries the unit's own power state back to it, which
+        confirms the state instead of changing it.
+
+        updatedBy is what keeps this honest: "aircon" means the change was made
+        at the unit, so somebody reached for the remote in the same second and
+        this is not our doing.
+        """
+        if not was_running or self._parser.carry_power_state:
+            return
+        if self._airco is None or self._airco.Operation:
+            return
+        if self._updated_by == UPDATED_BY_UNIT:
+            _LOGGER.debug(
+                "[%s] stopped during our operation-data request, but the unit "
+                "reports the change as its own - not treating it as ours",
+                self.device_name,
+            )
+            return
+        self._parser.carry_power_state = True
+        _LOGGER.warning(
+            "[%s] switched off in the same request in which we asked it for "
+            "operation data. That request carries no settings, so this module "
+            "applies a field it should ignore. From now on the request carries "
+            "the unit's own power state back to it, which should stop this. "
+            "If the unit keeps switching off, disable its operation-data "
+            "sensors (compressor, current, temperatures) and please report it",
+            self.device_name,
+        )
+        ir.async_create_issue(
+            self._hass,
+            DOMAIN,
+            request_stops_unit_issue_id(self.entry_id),
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="request_stops_unit",
+            translation_placeholders={"device_name": self.device_name},
+        )
 
     def _report_registration_full(self) -> None:
         ir.async_create_issue(

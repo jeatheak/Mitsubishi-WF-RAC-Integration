@@ -62,6 +62,10 @@
     "too_many_devices": {
       "title": "Too many accounts registered on {device_name}",
       "description": "This unit has room for four registered accounts and all four are taken, so Home Assistant cannot register itself. The module never frees a slot by itself: registrations do not expire, and a new one is refused rather than replacing an older one. In the Smart M-Air app, remove this unit from a phone that no longer needs it - each account can only remove itself, and several phones sharing one Smart M-Air account take up a single slot between them. Then reload this integration. If nobody can free a slot - a phone that is long gone still holds one - the module has to be set up again from scratch."
+    },
+    "request_stops_unit": {
+      "title": "{device_name} switches off when asked for operation data",
+      "description": "The diagnostic sensors for compressor, current and temperatures are read with an extra request once a minute. That request carries no settings - it only asks - but this module applies part of it anyway and reads it as \"switch off\", so the unit stops every time it arrives.\n\nHome Assistant has switched that request to a form that carries the unit's own power state back to it, which should stop the unit switching off while keeping the sensors working. Watch it for a few minutes.\n\nIf it still switches off, turn off the operation-data sensors on this device (compressor frequency, operating current, hot gas temperature, EEV position and the coil temperatures) and remove any indoor temperature source configured in the integration's options - both rely on that request. Then please report it, including your module's firmware version: this behaviour differs between units and only a report from an affected one can settle it."
     }
   },
   "options": {

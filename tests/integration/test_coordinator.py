@@ -44,6 +44,7 @@ from custom_components.mitsubishi_wf_rac.coordinator import (
 from pywfrac import (
     Aircon,
     AirconCommands,
+    AirconStat,
 )
 from pywfrac.parser import (
     RacParser,
@@ -1886,3 +1887,98 @@ async def test_service_data_that_never_arrived_stays_quiet_until_it_is_due(
     device._carry_forward_service_data(Aircon())
 
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+
+# --- a unit that stops when asked for readings (#329) ----------------------
+
+
+async def _run_service_data_request(device, monkeypatch):
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=1)
+    )
+    monkeypatch.setattr(
+        device, "async_contexts", lambda: {SERVICE_DATA_EEV_PULSES}
+    )
+    device._maybe_request_service_data()
+    await asyncio.sleep(0.05)
+
+
+async def test_a_unit_that_stops_on_our_request_gets_its_power_state_carried(
+    device, monkeypatch
+):
+    """The request carries no set-bits, so nothing should change - but one
+    module applies command[2] anyway and reads the zero as "off" (#329).
+
+    Detected from the symptom rather than from firmType: the bridge MCU
+    handles this frame identically across firmware branches, so the branch
+    would be the wrong thing to gate on.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    assert device.airco.Operation is True
+    assert device._parser.carry_power_state is False
+
+    # The unit answers our own request having switched itself off.
+    device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
+    await _run_service_data_request(device, monkeypatch)
+
+    assert device._parser.carry_power_state is True
+
+
+async def test_a_unit_switched_off_at_the_unit_is_not_blamed_on_us(
+    device, monkeypatch
+):
+    """updatedBy "aircon" means somebody reached for the remote in the same
+    second. Reacting to that would switch the request over on a device that
+    was never affected - and carrying the power state has a cost of its own.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+
+    response = _stats_response(OFF_PAYLOAD)
+    response["updatedBy"] = "aircon"
+    device._api.get_aircon_stats.return_value = response
+    device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
+    await device.update()
+    await _run_service_data_request(device, monkeypatch)
+
+    assert device._parser.carry_power_state is False
+
+
+async def test_carrying_the_power_state_sets_the_set_bit_with_the_value(device):
+    """Bit 0 is the value, bit 1 the set-bit that makes it count. Without the
+    set-bit the value is what a well-behaved unit ignores - and what the
+    affected one applies.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    stat = AirconStat.from_aircon(device.airco)
+    stat.ServiceDataStatusRequest = (SERVICE_DATA_EEV_PULSES,)
+
+    assert device._parser.status_request_to_byte(stat)[2] == 0
+
+    device._parser.carry_power_state = True
+    assert device._parser.status_request_to_byte(stat)[2] == 3
+
+    stat.Operation = False
+    assert device._parser.status_request_to_byte(stat)[2] == 2
+
+
+async def test_a_carried_request_is_skipped_right_after_the_remote_was_used(
+    device, monkeypatch
+):
+    """Carrying the power state means asserting it, and the state is up to a
+    poll old. Switching a unit back on that its owner just switched off is a
+    worse failure than a missing reading.
+    """
+    response = _stats_response(ON_COOL_PAYLOAD)
+    response["updatedBy"] = "aircon"
+    device._api.get_aircon_stats.return_value = response
+    await device.update()
+    device._parser.carry_power_state = True
+    set_airco = AsyncMock()
+    device.set_airco = set_airco
+
+    await _run_service_data_request(device, monkeypatch)
+
+    set_airco.assert_not_awaited()
