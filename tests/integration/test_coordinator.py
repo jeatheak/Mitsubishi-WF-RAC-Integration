@@ -1958,22 +1958,25 @@ async def test_a_single_stop_during_our_request_is_not_enough(device, monkeypatc
     assert device._parser.carry_power_state is False
 
 
-async def test_a_stop_reported_as_the_clouds_is_not_blamed_on_us(device, monkeypatch):
-    """Only a locally paired writer can have been us; "aws" is the
-    manufacturer's cloud acting on the unit.
-    """
-    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
-    await device.update()
+async def test_a_unit_started_by_remote_is_still_detected(device, monkeypatch):
+    """The likeliest way to meet this fault is to switch the unit on at the
+    unit and watch it stop.
 
-    response = _stats_response(OFF_PAYLOAD)
-    response["updatedBy"] = "aws"
-    device._api.get_aircon_stats.return_value = response
+    updatedBy is only refreshed by a poll, so at the moment of the check it
+    names whoever wrote last *before* us - on a unit started by remote, the
+    remote. Filtering the check by it would have meant never detecting the
+    fault on exactly the units whose owners run into it.
+    """
+    running_by_remote = _stats_response(ON_COOL_PAYLOAD)
+    running_by_remote["updatedBy"] = "aircon"
+    device._api.get_aircon_stats.return_value = running_by_remote
     device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
-    for _ in range(3):
+
+    for _ in range(2):
         await device.update()
         await _run_service_data_request(device, monkeypatch)
 
-    assert device._parser.carry_power_state is False
+    assert device._parser.carry_power_state is True
 
 
 async def test_a_unit_switched_off_at_the_unit_is_not_blamed_on_us(

@@ -31,7 +31,6 @@ from .const import (
     MIN_TIME_BETWEEN_UPDATES,
     OPERATION_MODE_COOL,
     OPERATION_MODE_HEAT,
-    UPDATED_BY_HOST,
     UPDATED_BY_UNIT,
 )
 from pywfrac import (
@@ -1169,18 +1168,13 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         if self._airco is None or self._airco.Operation:
             self._stopped_on_request = 0
             return
-        if self._updated_by != UPDATED_BY_HOST:
-            # Someone else stopped it: the unit itself ("aircon", which is what
-            # the IR remote looks like from here) or the manufacturer's cloud
-            # ("aws"). Only a locally paired writer can have been us.
-            _LOGGER.debug(
-                "[%s] stopped during our operation-data request, but the last "
-                "writer reports as %s - not treating it as ours",
-                self.device_name,
-                self._updated_by,
-            )
-            self._stopped_on_request = 0
-            return
+        # Deliberately not filtered by updatedBy. It is only ever refreshed by
+        # a poll, so at this point it names whoever wrote last *before* us -
+        # and on a unit started with the IR remote that is the remote, every
+        # time. Requiring it to name a local writer would have meant never
+        # detecting the fault on a unit its owner switches on by remote, which
+        # is the likeliest way to meet it at all. The repetition below carries
+        # the weight instead.
         self._stopped_on_request += 1
         if self._stopped_on_request < STOPPED_ON_REQUEST_BEFORE_CARRYING:
             # Once is a coincidence worth surviving: "local" covers us and any

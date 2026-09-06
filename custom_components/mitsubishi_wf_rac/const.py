@@ -47,10 +47,6 @@ ATTR_UPDATED_BY = "updated_by"
 # values seen are "local" (any locally paired client, us included) and "aws"
 # (the manufacturer's cloud).
 UPDATED_BY_UNIT = "aircon"
-# ...and what it reports for any locally paired client, which is every client
-# registered over the local API - this integration and any app on the same
-# network alike. The manufacturer's cloud reports "aws" instead.
-UPDATED_BY_HOST = "local"
 ATTR_ACCOUNT_EXPIRES = "account_expires"
 ATTR_LED_STATUS = "led_status"
 ATTR_AUTO_HEATING = "auto_heating"
