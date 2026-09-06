@@ -609,21 +609,39 @@ Measured on two indoor units `[HW]`: `result: 0`, the complete operation-data
 trailer in the response, and power, mode, fan speed, setpoint and both vane
 axes unchanged — with the unit running and with it switched off.
 
-> **Not on every firmware.** On a module reporting `firmType` `WCBN4612L` this
-> block is **not** inert: the unit switches off the moment it arrives, and
-> again on every repetition. `[UR]` The set-bit convention of §4.3 appears not
-> to hold there for `command[2]`, whose bit `0x01` carries the power value and
-> bit `0x02` the set-bit — an all-zero byte then reads as "power off" rather
-> than "leave power alone". Whether the other fields are applied from their
-> zeros as well is untested; the unit being off hides most of them.
+> **Not on every unit.** One module reporting `firmType` `WCBN4612L` behaves
+> the opposite way: the indoor unit switches off the moment the block arrives,
+> and again on every repetition, until the operation-data sensor asking for it
+> is turned off. `[UR]` The reading that fits is that `command[2]` bit `0x01`
+> (the power *value*, whose set-bit is `0x02`) is applied without its set-bit,
+> so an all-zero byte means "off" rather than "leave alone". Whether the other
+> fields are applied from their zeros too is untested — a unit that is off
+> hides most of them.
 >
-> Two consequences for anyone implementing this. Operation data cannot be
-> polled that way on that branch at all, and neither can anything else that
-> rides on the same frame — on this integration that includes writing a room
-> temperature into `command[5]`, which has no frame of its own. And a
-> single-branch measurement is not a general one: this recipe was verified on
-> `WF-RAC-HTTPS 025/200` and reported broken on `WCBN4612L 029/999`, so treat
-> `firmType` as part of the test matrix rather than as a label.
+> **The module is not what differs.** `[FW]` It is tempting to write this off
+> as a firmware branch, and that is wrong. The bridge-MCU images for `WF-RAC`
+> and `WCBN4612L` are byte-identical, and against the third image
+> (`WF-RAC-HTTPS`) the command path is identical too: frame builder and the
+> pending-command comparison match instruction for instruction apart from one
+> relocated RAM variable, and the ROM mask that clears bits before sending is
+> the same 18 bytes. The MCU does not interpret the set-bits at all on the way
+> out — it copies `command[2..]` into its staging area and lets the unit decide.
+>
+> So the divergence is in the **indoor unit**, and `firmType` names the module,
+> not the unit. Do not gate behaviour on it; it is a label that happens to
+> correlate with one report.
+>
+> What the MCU does do is compare `command[2] & 3` against the unit's `DB0 & 3`
+> to decide whether its command has been taken, and it keeps re-sending while
+> they differ `[FW]`. A block with no set-bits therefore never confirms on a
+> unit that ignores it — harmless, but it stays pending and is re-sent. On a
+> unit that applies it, the unit goes off and the block then "confirms",
+> which is exactly the reported behaviour.
+>
+> One consequence either way: where this happens, operation data cannot be
+> polled at all, and neither can anything else riding on the same frame — for
+> this integration that includes writing a room temperature into `command[5]`,
+> which has no frame of its own.
 
 Carry `command[8]` as you would in a real command, though. It is the one field
 with no set-bit of its own, and dropping it clears the unit's echo of it in
