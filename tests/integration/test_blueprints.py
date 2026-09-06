@@ -123,3 +123,71 @@ async def test_the_lockout_blueprint_pairs_each_head_by_device(
     # reads as calling until the grace has passed, so nothing rotates on a
     # half-populated state machine.
     assert all(row["calling"] for row in fleet)
+
+
+def _render_variables(hass: HomeAssistant, seed: dict) -> dict:
+    """Evaluate the blueprint's variables block in order, the way an automation
+    run does, so a template can be exercised with the ones it depends on
+    already filled in.
+    """
+    variables = dict(seed)
+    for name, template in _load(LOCKOUT).data["variables"].items():
+        if name in variables:
+            continue
+        variables[name] = Template(template, hass).async_render(variables)
+    return variables
+
+
+async def test_a_manual_run_with_nothing_to_resolve_says_so(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    entity_registry: er.EntityRegistry,
+) -> None:
+    """Triggering the automation by hand skips its conditions, so the guard
+    branch is the only thing between a manual run and a stand-down with nothing
+    to stand down. Both heads vote the same way here: no lockout exists.
+    """
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+
+    climates, judges, demands = [], [], []
+    for room in HEADS:
+        device = device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id, identifiers={(DOMAIN, room)}
+        )
+        for domain, suffix, state in (
+            ("climate", "thermostat", "auto"),
+            ("sensor", "cool_hot_judge", "cooling"),
+            ("binary_sensor", "compressor_demand", "off"),
+        ):
+            registered = entity_registry.async_get_or_create(
+                domain,
+                DOMAIN,
+                f"{room}-{suffix}",
+                device_id=device.id,
+                suggested_object_id=f"{room}_{suffix}",
+            )
+            hass.states.async_set(registered.entity_id, state)
+            {"climate": climates, "sensor": judges, "binary_sensor": demands}[
+                domain
+            ].append(registered.entity_id)
+
+    variables = _render_variables(
+        hass,
+        {
+            "climate_entities": climates,
+            "judge_sensors": judges,
+            "demand_sensors": demands,
+            "release_grace_minutes": 0,
+            "cooldown_minutes": 30,
+            "relax_delay": "00:04:00",
+        },
+    )
+    assert variables["conflict"] is False
+
+    guard = _load(LOCKOUT).data["actions"][0]["choose"][0]
+    condition = guard["conditions"][0]["value_template"]
+    assert Template(condition, hass).async_render(variables) is True
+
+    message = guard["sequence"][0]["data"]["message"]
+    assert "do not disagree" in Template(message, hass).async_render(variables)
