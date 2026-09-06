@@ -132,8 +132,10 @@ blueprint:
                 - integration: mitsubishi_wf_rac
                   domain: climate
         judge_sensors:
-          name: Cool/Heat Status sensors
-          description: Disabled by default — enable one per unit first.
+          name: Cool Hot Judge sensors
+          description: >-
+            Disabled by default — enable one per unit first. It is the sensor
+            called "Cool Hot Judge" on each indoor unit's device page.
           selector:
             entity:
               multiple: true
@@ -142,7 +144,7 @@ blueprint:
                   domain: sensor
         demand_sensors:
           name: Compressor Demand sensors
-          description: Disabled by default — enable one per unit first.
+          description: Enabled by default — one per unit, nothing to switch on.
           selector:
             entity:
               multiple: true
@@ -327,6 +329,29 @@ actions:
   # cooldown above throttles it: at most one line per cooldown while the lock
   # persists, rather than one every two minutes.
   - choose:
+      # Reachable only when the automation is triggered by hand: a manual run
+      # skips the conditions above, and without this it would fall through to
+      # the stand-down with nothing to stand down.
+      - alias: Nothing to resolve — reached only on a manual run
+        conditions:
+          - condition: template
+            value_template: >-
+              {{ not conflict or in_use | count > 0
+                 or last_served not in ['cooling', 'heating']
+                 or standdown | count == 0 }}
+        sequence:
+          - action: logbook.log
+            data:
+              name: MHI Mode Lockout
+              message: >-
+                Manual run ignored — nothing to resolve.
+                {%- if not conflict %} The heads do not disagree.
+                {%- elif in_use | count > 0 %}
+                {{ in_use | map(attribute='entity') | map('replace', 'climate.', '') | join(', ') }}
+                {{ 'is' if in_use | count == 1 else 'are' }} still running, so
+                the mode is not free.
+                {%- else %} There is nothing to stand down.{% endif %}
+
       - alias: Blocked by a head someone set to an explicit mode
         conditions:
           - condition: template
