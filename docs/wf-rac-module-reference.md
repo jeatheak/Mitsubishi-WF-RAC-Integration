@@ -532,6 +532,20 @@ frame: `[FW]`
 
 `OP2`/`OP3` are the value, or the sub-selector, depending on the code.
 
+**In a request, all three of `OP1`, `OP2` and `OP3` are `0xFF`.** They are the
+answer's fields, not yours: the AC fills them in when it replies. `[EXT]` A
+request on the bus carries two things, `DB6` and the code in `DB9` - the
+bus-level capture in MHI-AC-Trace shows `ff ff ff` behind them, and one ESPHome
+implementation hands its request builder a buffer that ends before `DB10`
+altogether. Putting anything else in those three bytes does not add information
+to the request, it malforms it: asking with `OP1 = 0x10` here returned a body
+that was not even valid UTF-8, and `OP1 = 0x20` got the segment dropped without
+an answer. `[HW]`
+
+Which unit an answer came from is read off `OP1` in the **reply**: `& 0x30` is
+`0x20` for the indoor sensor and `0x10` for the outdoor one, the same convention
+as the air temperatures in §5.2. `[EXT]`
+
 > **Safety note.** `OP1 = 0` writes into the AC main board through a path nobody
 > outside MHI has mapped. If you are exploring, send `0xFF` only.
 
@@ -546,7 +560,13 @@ The bridge keeps a cache of exactly **three** slots, hard-coded in ROM `[FW]`:
 | `0x94` | `0x10` | energy meter | `(OP3<<8 \| OP2) × 0.25` kWh |
 
 These appear in the RECEIVE block's trailer on ordinary polls, without being
-asked for. `[HW]`
+asked for. `[HW]` They are not pushed by the AC of its own accord, though: the
+bridge requests them itself, cycling a three-entry ROM table of `(code, unit)`
+pairs - `80 01`, `80 00`, `94 01` at `0x3025` - and setting the bus-level unit
+selector per entry, `0xc0` for the indoor variant and `0x40` for the outdoor
+one. `[FW]` That is why `0x80` arrives twice with different `OP1` values: it is
+asked twice. It is also the only place in the firmware where that selector is
+set from anything other than a constant - see §5.3.
 
 The energy counter is **per run, not lifetime**: it counts up in 0.25 kWh steps
 while the indoor unit is running, holds its last value while the unit is off,
@@ -578,9 +598,17 @@ seven hours. Do not conclude the opposite from a single side-by-side run —
 two units cooling in parallel accumulate at nearly the same rate and look
 like one shared meter.)
 
-### 5.3 Requesting anything else — the generic path
+### 5.3 Requesting anything else — a parameter channel, used generically
 
-The bridge copies the COMMAND block's variable segments **verbatim and
+This channel was not designed as an operation-data API. It is the parameter pipe
+for Home Leave Mode, and the official app puts exactly one code in it: `248`, in
+segments shaped `(248, mode, sub-code, value)` where `OP1` is `0xFF` to read and
+`0x00` to write. With nothing to send the app still emits one filler segment,
+`(0xFF, 0xFF, 0xFF, 0xFF)` `[APP]`, which the bridge recognises and discards
+without queueing anything `[FW]`.
+
+What makes it generally useful is that the bridge does not interpret what it
+carries. It copies the COMMAND block's variable segments **verbatim and
 unfiltered** into a request queue, emits one per MISO frame with the
 operation-data type bit set in `DB6`, matches incoming MOSI answers by code
 byte, and appends the matches to the RECEIVE block's trailer. `[FW]`
@@ -588,6 +616,13 @@ byte, and appends the matches to the RECEIVE block's trailer. `[FW]`
 There is no whitelist on this path. The only special case is the *matching*
 step: for code `248` the sub-code in `OP2` is compared as well, because that
 code alone would not identify which of six answers came back.
+
+That matching is also why you cannot ask for a unit. The bridge pairs an answer
+with a pending request **by the code byte alone**, so two answers sharing a code
+would be indistinguishable to it — precisely what a unit selector for `0x1E` or
+`0x1F` would produce, and precisely why `248` needed a second discriminator
+bolted on. The channel is code-addressed by construction, not by oversight.
+`[FW]`
 
 **Recipe** — verified end to end on real hardware `[HW]`:
 
@@ -660,10 +695,15 @@ Two things that do **not** work as one might expect `[HW]`:
 - **The command-block echo does not reflect your trailer.** It stays at the
   `0xFF` sentinel, so it cannot be used as an "was my request accepted"
   channel. The answer itself is the only confirmation.
-- **You cannot choose the unit.** The bridge fixes the `DB6` selector, and the
-  reply tells you which sensor you got via its own `sel` byte (`0x10` vs
-  `0x20`, the same convention as air temperature in §5.2). Codes that need a
-  selector the bridge cannot send answer with all-`0xFF` (see `0x1E`/`0x1F`).
+- **The only field that steers a request is one you cannot write.** Of the four
+  segment bytes only the code reaches the AC as an input. The unit is selected
+  in `DB6`, and on the path that carries *your* segments the bridge writes it as
+  `(DB6 & 0x3f) | 0x80` - a constant, regardless of what you sent. `[FW]` The
+  firmware does know how to set that selector properly, and does so with
+  `0xc0`/`0x40` exactly as the CNS implementations do `[EXT]` - but only for the
+  three requests of its own in §5.2, driven by a table in flash. There is no
+  path from the trailer to it. The reply's own `OP1` says which sensor answered
+  (§5.1), but that is the answer's field, not a way to ask.
 
 **Limits.** The bridge does not clamp the segment count and copies `count × 4`
 bytes into a queue with room for 22 entries. `[FW]` Keep the count small (1–3);
@@ -695,7 +735,7 @@ operating points are not a calibration, so the formulas stay `[INF]`.
 | `0x81` | THI-R1 [°C] | thermistor curve, see §5.4 | `20 5a ff` ⇒ raw 90, **`sel` = `0x20`** |
 | `0x87` | THI-R3 [°C] | thermistor curve, see §5.4 | `10 5a ff` ⇒ raw 90 |
 | `0x1E` | Total run hours [h] | `OP2 × 100` | `ff ff ff` ⇒ **no value** |
-| `0x1F` | Fan speed | `OP2` | `ff ff ff` ⇒ **no value** |
+| `0x1F` | Indoor fan speed | `OP1 & 0x0f`, **not `OP2`** `[EXT]` | `ff ff ff` ⇒ **no value** |
 | `0x0D` | *unknown* | — | `00 ff ff`, `sel` = `0x00` |
 | `0x21` | *unknown* | — | `10 ff ff` ⇒ no value |
 | `0x32` | *unknown* | — | `2e 04 ff`, unusual `sel` |
@@ -709,17 +749,30 @@ Notes on the shape of the answers `[HW]`:
 - The second byte is a **selector**, not a fixed status marker. `0x10` and
   `0x20` follow the same indoor/outdoor convention as air temperature; `0x0D`
   and `0x32` answer with values outside that pattern and are not understood.
-- **`0x05` is not in the firmware's whitelist and answers anyway**, over the
-  generic path (§5.3), with the setpoint the unit is *using internally*. It is
+- **`0x05` is absent from the bridge's own code list and answers anyway**, over
+  the channel in §5.3, with the setpoint the unit is *using internally*. It is
   not always the value that was sent: 22.5 °C came back as 23.0, 22.0 °C as
   22.0 (three and ten measurements, SRK20ZS-WF). The unit resolves whole
   degrees and rounds a half one up, so a half-degree step either lands a full
   degree away or nowhere — which is what `ENHANCED_RESOLUTION` in MHI-AC-Ctrl
   works around. `[HW]` A correction finer than a degree has to travel in the
   injected room temperature instead (§5.6); that field has a 0.25 K grid.
-- `0x1E` and `0x1F` answer with all-`0xFF`. Both are codes MHI-AC-Ctrl requests
-  *twice*, once per unit, using the `DB6` selector the bridge does not expose —
-  the likeliest reading is "unit not selectable, so no value". Untested.
+- `0x1E` and `0x1F` answer with all-`0xFF`, and that is as far as this interface
+  goes. Both exist on both units, and every implementation that reads them does
+  so with `DB6 = 0xc0` for the indoor variant `[EXT]` - the one byte the bridge
+  fixes to something else (§5.3). Confirmed by trying: putting `0x10` or `0x20`
+  in the request's `OP1` does not stand in for that, it only malforms the
+  request (§5.1), while a single-unit code such as `0x11` answers normally in
+  the same session. `[HW]` The bridge sends the constant `0x80` there, which
+  those implementations use for "no operating-data request at all" `[EXT]`.
+  Why it never sends anything else is settled in the firmware rather than
+  guessed: the request path cannot express a unit because the answer path could
+  not tell the two apart (§5.3). The bridge is not short of the logic — its own
+  poll disambiguates both codes, `0x1F` by the unit bit in the answer's `DB6`
+  and `0x1E` by the `OP1` nibble — but that classifier sits behind a
+  three-entry ROM table and never sees a code you asked for. `[FW]` Either way,
+  reading indoor fan speed or run hours needs a device on the indoor unit's own
+  connector; it is not available over this interface.
 - `0x34` is the only code that used `OP3`, so at least one value here is wider
   than one byte.
 - On a multi-split installation, `0x11`/`0x90`/`0x85` (compressor frequency,
@@ -809,18 +862,25 @@ Notes on the shape of the answers `[HW]`:
   OP2 = 0`, so a decoded zero cannot be told apart from a genuine one — keep
   the raw bytes if you need to distinguish "no data" from "not running".
 
-Codes that MHI-AC-Ctrl uses but that are **absent** from the bridge's list, and
-therefore doubtful over this path: `0x7C` (protection number), `0x0C` (defrost).
-`[FW]` `0x7C` is now requested alongside the rest, as `Protection Number (raw)`
-— it sits in the same operation-data address space, and a code the module does
-not serve simply leaves its value empty, which costs nothing. It does answer,
+Two codes MHI-AC-Ctrl uses are **absent** from the bridge's list: `0x7C`
+(protection number) and `0x0C` (defrost). That absence says nothing about
+whether they work here. The list is the classifier for the bridge's *own* poll,
+and the channel in §5.3 does not consult it — `0x05` and `0x7C` both answer while
+being absent from it. `[FW]` `[HW]` Judge a code by trying it, not by that list.
+
+`0x7C` is requested alongside the rest, as `Protection Number (raw)` — it sits
+in the same operation-data address space, and a code the module does not serve
+simply leaves its value empty, which costs nothing. It does answer,
 confirmed on three units across single- and multi-split `[HW]`, but it only
 ever reads `0`: a controlled test that reproduced a real overload clamp (see
 §5.7) left it unmoved. Read together with the stop-code table
 (`error_codes.py`), which describes its non-zero values as escalated faults or
 stops rather than the speed-limit clamps in §5.7, the code appears to track
 protective *stops* only — it is not a general-purpose "unit is protecting
-itself" flag. `0x0C` is not requested.
+itself" flag.
+
+`0x0C` has not been tried. On the reasoning above it is worth a request: a
+defrost flag is not otherwise available here, and asking costs one segment.
 
 ### 5.5 Code `248` — the one the app does use
 
@@ -1129,7 +1189,7 @@ segment.
 | --- | --- |
 | `0xE236` | 18-byte COMMAND state, as received from the Wi-Fi side |
 | `0xE248` | COMMAND segment count; segments from `0xE249` |
-| `0xE1DE` | request queue, count in `0xFE3B6`, room for 22 segments |
+| `0xE1DE` | request queue, count in `0xFE3B6`, room for 22 segments — the count from `0xE248` is **not** bounds-checked, so do not exceed it |
 | `0xE186` | response cache, count in `0xFE3B9`, 22 segments |
 | `0xE17A` | unsolicited-push cache, 3 slots; ROM table at `0x3025` = `80 01`, `80 00`, `94 01` |
 | `0xE2F5` | 18-byte RECEIVE state (what §4 calls `state[0..17]`) |
@@ -1148,6 +1208,7 @@ segment.
 | `0x5679` | emit one queued segment per MISO frame into `DB9..DB12`, set the opdata bit in `DB6`; when drained, state→3 |
 | `0x53BB` | copy MOSI frame → raw state `0xE3BA`, then call the two below |
 | `0x58B1` | handle one received segment: push-cache check, then match against the request queue; all matched ⇒ state 4 |
+| `0x591A` | the push cache's own classifier — 17 operation-data codes, including indoor/outdoor disambiguation for `0x1E`/`0x1F`. Reached only for codes in the `0x3025` table, so all but `0x80`/`0x94` are unreachable |
 | `0x5B27` | build the RECEIVE trailer from push cache + response cache |
 | `0x680F` | build the RECEIVE state: `state[i] = raw[i] & ~mask[i]`, then force `state[12] = 1` on the legacy signature (§6.7) |
 | `0x58A2` | pick the MISO signature byte from the MOSI one — the protocol-variant switch (§6.7) |
