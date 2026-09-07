@@ -277,7 +277,9 @@ class _ServiceDataParser(RacParser):
     Off by default and switched on per device by _note_unit_stopped_on_request(),
     because it costs something the empty frame does not: the state it carries
     is up to a poll old, so on a unit that honours set-bits properly this turns
-    a read into a real power write.
+    a read into a real power write. Which is why only "on" is ever carried, and
+    only while the unit is believed to be running: a confirmation that is wrong
+    can then only fail to change anything.
     """
 
     carry_power_state = False
@@ -285,10 +287,15 @@ class _ServiceDataParser(RacParser):
     @override
     def status_request_to_byte(self, aircon_stat: AirconStat) -> bytearray:
         stat_byte = super().status_request_to_byte(aircon_stat)
-        if self.carry_power_state:
+        if self.carry_power_state and aircon_stat.Operation:
             # Same encoding as command_to_byte(): bit 0 the value, bit 1 the
-            # set-bit that makes the value count.
-            stat_byte[2] |= 3 if aircon_stat.Operation else 2
+            # set-bit that makes the value count. Only ever "on": the state
+            # this carries is as old as the last poll, and a stale "off" here
+            # is not a confirmation but a shutdown command for a unit somebody
+            # switched on in the meantime (#329). A unit believed off gets no
+            # request at all - see _power_state_is_safe_to_carry - so this is
+            # the second lock on the same door, not the first.
+            stat_byte[2] |= 3
         # BETA DEBUG (#329) - remove before the final release. The whole
         # question in that issue is what this frame contains, and reconstructing
         # it from the base64 in the request log is a step nobody should have to
@@ -1032,12 +1039,34 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             and datetime.now() < self._foreign_activity_until
         )
 
+    def _power_state_is_safe_to_carry(self) -> bool:
+        """Whether an operation-data request may go out right now.
+
+        Only ever False on a unit that needs the power state carried (#329),
+        and only while we believe that unit is off. On such a module the field
+        is applied rather than ignored, so the request is a power write in all
+        but name - and the state it would write is as old as the last poll. A
+        unit switched on with the remote inside that window would be switched
+        straight back off by the very frame meant to confirm its state.
+
+        Skipped rather than sent with the field left out: without the field
+        this module reads the zero in the block as "off" too, which is the
+        original fault. And a reading taken while the unit is off is worth
+        little anyway - the compressor is stopped and the valve is closed - so
+        nothing much is lost by waiting for the poll that finds it running.
+        """
+        return not self._parser.carry_power_state or bool(
+            self._airco is not None and self._airco.Operation
+        )
+
     def _maybe_request_service_data(self) -> None:
         """Kick off a background request for active operation-data segments
         when due (see SERVICE_DATA_MIN_SPACING).
         """
         service_data_codes = self._subscribed_service_data_codes()
         if not service_data_codes:
+            return
+        if not self._power_state_is_safe_to_carry():
             return
         if self.foreign_activity:
             # Skipped entirely rather than deferred: this request would take
@@ -1104,6 +1133,16 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # timestamp below trades away part of the lock for. The offset stays
         # because it is about spacing requests, not about what they contain -
         # a second request too soon after the poll is what the module refuses.
+        if not self._power_state_is_safe_to_carry():
+            # Re-checked after the sleep, not only when the request was
+            # scheduled: the offset is up to half a minute, and the unit going
+            # off inside it is exactly the window this protects.
+            _LOGGER.debug(
+                "Skipping the operation-data request for [%s]: the unit is "
+                "off and this request would carry its power state",
+                self.device_name,
+            )
+            return
         params = {AirconCommands.ServiceDataStatusRequest: service_data_codes}
         timestamp_offset = -round(self._service_data_stamp_backdate().total_seconds())
         was_running = self._airco is not None and self._airco.Operation

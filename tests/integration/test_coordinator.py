@@ -2128,6 +2128,60 @@ async def test_a_unit_switched_off_at_the_unit_is_not_blamed_on_us(
     assert device._parser.carry_power_state is False
 
 
+async def test_no_request_goes_out_while_a_carrying_unit_is_believed_off(
+    device, monkeypatch
+):
+    """Once the power state is carried, the request is a power write in all but
+    name - and what it would write is as old as the last poll. So it is not
+    sent at all while the unit is believed off: a unit switched on with the
+    remote inside that window would be switched straight back off by the frame
+    meant to confirm its state (#329).
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
+    await device.update()
+    device._parser.carry_power_state = True
+    device.set_airco = set_airco = AsyncMock()
+
+    await _run_service_data_request(device, monkeypatch)
+
+    set_airco.assert_not_awaited()
+
+    # Running again, the same request goes out as usual.
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    await _run_service_data_request(device, monkeypatch)
+
+    set_airco.assert_awaited()
+
+
+async def test_a_unit_switched_off_inside_the_offset_gets_no_request(
+    device, monkeypatch
+):
+    """The check is repeated after the wait, not only when the request was
+    scheduled: the offset is up to half a minute, and the unit going off inside
+    it is exactly the window this protects.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._parser.carry_power_state = True
+    device.set_airco = set_airco = AsyncMock()
+
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=30)
+    )
+    monkeypatch.setattr(coordinator_module, "SERVICE_DATA_MIN_SPACING", timedelta(0))
+    monkeypatch.setattr(device, "async_contexts", lambda: {SERVICE_DATA_EEV_PULSES})
+    device._service_data_offset = timedelta(milliseconds=30)
+    device._maybe_request_service_data()
+
+    # ... and the unit goes off while the request is still waiting out its
+    # offset.
+    device._airco.Operation = False
+    await asyncio.sleep(0.1)
+
+    set_airco.assert_not_awaited()
+
+
 async def test_carrying_the_power_state_sets_the_set_bit_with_the_value(device):
     """Bit 0 is the value, bit 1 the set-bit that makes it count. Without the
     set-bit the value is what a well-behaved unit ignores - and what the
@@ -2143,8 +2197,10 @@ async def test_carrying_the_power_state_sets_the_set_bit_with_the_value(device):
     device._parser.carry_power_state = True
     assert device._parser.status_request_to_byte(stat)[2] == 3
 
+    # And "off" is never carried: that state is up to a poll old, so it is not
+    # a confirmation but a shutdown for a unit switched on in the meantime.
     stat.Operation = False
-    assert device._parser.status_request_to_byte(stat)[2] == 2
+    assert device._parser.status_request_to_byte(stat)[2] == 0
 
 
 async def test_the_request_moves_back_towards_the_poll_while_it_keeps_landing(
