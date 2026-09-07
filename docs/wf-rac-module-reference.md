@@ -532,6 +532,15 @@ frame: `[FW]`
 
 `OP2`/`OP3` are the value, or the sub-selector, depending on the code.
 
+**In a request, all three of `OP1`, `OP2` and `OP3` are `0xFF`.** They are the
+answer's fields, not yours: the AC fills them in when it replies. `[EXT]` The
+bus-level capture in MHI-AC-Trace shows the same request the bridge builds -
+`DB6`, the code in `DB9`, and `ff ff ff` behind it - with the reply carrying the
+sub-selector in `DB10` and the value in `DB11`. Putting anything else in those
+three bytes does not add information to the request, it malforms it: asking with
+`OP1 = 0x10` here returned a body that was not even valid UTF-8, and `OP1 = 0x20`
+got the segment dropped without an answer. `[HW]`
+
 > **Safety note.** `OP1 = 0` writes into the AC main board through a path nobody
 > outside MHI has mapped. If you are exploring, send `0xFF` only.
 
@@ -660,10 +669,15 @@ Two things that do **not** work as one might expect `[HW]`:
 - **The command-block echo does not reflect your trailer.** It stays at the
   `0xFF` sentinel, so it cannot be used as an "was my request accepted"
   channel. The answer itself is the only confirmation.
-- **You cannot choose the unit.** The bridge fixes the `DB6` selector, and the
-  reply tells you which sensor you got via its own `sel` byte (`0x10` vs
-  `0x20`, the same convention as air temperature in §5.2). Codes that need a
-  selector the bridge cannot send answer with all-`0xFF` (see `0x1E`/`0x1F`).
+- **You cannot choose the unit, and there is no field to choose it in.** On the
+  bus the unit is selected by `DB6`, which the bridge overwrites on every frame
+  it sends `[FW]` - your four segment bytes go to `DB9…DB12` and nothing else.
+  `[EXT]` The reply tells you which sensor you got via its own `sel` byte
+  (`0x10` vs `0x20`, the same convention as air temperature in §5.2), but that
+  is the answer's field: it cannot be used to ask. Codes that exist on both the
+  indoor and the outdoor unit therefore answer with all-`0xFF` here - see
+  `0x1E`/`0x1F` in §5.4 - and no request you can build over this interface
+  reaches them.
 
 **Limits.** The bridge does not clamp the segment count and copies `count × 4`
 bytes into a queue with room for 22 entries. `[FW]` Keep the count small (1–3);
@@ -717,9 +731,15 @@ Notes on the shape of the answers `[HW]`:
   degree away or nowhere — which is what `ENHANCED_RESOLUTION` in MHI-AC-Ctrl
   works around. `[HW]` A correction finer than a degree has to travel in the
   injected room temperature instead (§5.6); that field has a 0.25 K grid.
-- `0x1E` and `0x1F` answer with all-`0xFF`. Both are codes MHI-AC-Ctrl requests
-  *twice*, once per unit, using the `DB6` selector the bridge does not expose —
-  the likeliest reading is "unit not selectable, so no value". Untested.
+- `0x1E` and `0x1F` answer with all-`0xFF`, and that is as far as this interface
+  goes. Both are codes that exist on both units - MHI-AC-Ctrl requests each of
+  them twice, once per unit, over the `DB6` selector the bridge overwrites
+  `[EXT]` - so the request cannot say which one it means. Confirmed by trying:
+  putting `0x10` or `0x20` in the request's `OP1` does not select a unit, it
+  only malforms the request (§5.1), while a single-unit code such as `0x11`
+  answers normally in the same session and fills in the selector itself. `[HW]`
+  Reading indoor fan speed or run hours needs a device on the indoor unit's own
+  connector; it is not available over this interface.
 - `0x34` is the only code that used `OP3`, so at least one value here is wider
   than one byte.
 - On a multi-split installation, `0x11`/`0x90`/`0x85` (compressor frequency,
