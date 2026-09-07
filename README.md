@@ -304,8 +304,8 @@ without one there is no room temperature for them to correct.
 | Target Temp. Offset | -5..5 °C | Calibrates the *setpoint sent to the unit* - see "Target Temp. Offset sign convention" below. Applies to every `hvac_mode` unless overridden by the two options below. |
 | Target Temp. Offset (Cooling) | -5..5 °C, unset by default | Overrides Target Temp. Offset for `cool` and `dry` mode. Leave unset to keep using Target Temp. Offset for those modes too. |
 | Target Temp. Offset (Heating) | -5..5 °C, unset by default | Overrides Target Temp. Offset for `heat` mode. Leave unset to keep using Target Temp. Offset for `heat` too. |
-| Cooling overshoot | -3..3 °C, in steps of 0.25 | How far past your setting the room actually goes before the unit stops. Set 22 °C, room settles at 21 °C: enter 1. Quarter degrees are the finest step that reaches the unit - the room temperature it is fed is carried in 0.25 °C steps. Only shown, and only has an effect, while an Indoor temperature source is configured. |
-| Heating overshoot | -3..3 °C, in steps of 0.25 | The same for heating: how far above your setting the room ends up. Positive in both cases. |
+| Cooling overshoot | -3..3 °C, in steps of 0.25 | How far past your setting the room actually goes before the unit stops. Applies in `cool` mode only. Set 22 °C, room settles at 21 °C: enter 1. Quarter degrees are the finest step that reaches the unit - the room temperature it is fed is carried in 0.25 °C steps. Only shown, and only has an effect, while an Indoor temperature source is configured. |
+| Heating overshoot | -3..3 °C, in steps of 0.25 | The same for heating, and in `heat` mode only: how far above your setting the room ends up. Positive in both cases. |
 | Check for firmware updates | on/off, off by default | Creates the Firmware Update entity (see Update above) and periodically checks the manufacturer's `getFirmware` endpoint. The only outbound internet call this integration makes - leave off to stay fully local. |
 
 ### Target Temp. Offset sign convention
@@ -360,6 +360,15 @@ An action-driven override survives a restart and a reload. It is re-armed, not r
 With a room temperature supplied, most units cool the room further than asked before stopping - measured between 0.6 and 1.3 K across four different models, three of them between 1.0 and 1.2, and the same figure repeats every cycle. That is the unit's own thermostat band, not a sensor error: its return-air sensor is out of the loop while it regulates on your value. Heating has so far looked correct.
 
 Set **Cooling overshoot** to how far it goes: aim for 22 °C, watch where the room settles, and enter the difference as a positive number. The field opens on 1 because that is what the units measured so far need; it is a starting point, not a measurement of yours, and it only takes effect once you save the options. If your unit stops short instead and never quite gets there, a negative number corrects that the other way. The integration then hands the unit a room temperature that much lower, so the unit reaches its own stopping point exactly when your room is on target. Your setpoint and everything shown in Home Assistant stay the number you asked for.
+
+**Which modes it corrects: `cool` and `heat`, and no others.** In `dry` and `auto` the unit is handed
+the room temperature as measured, uncorrected. This is not the same scope as the setpoint offsets above,
+where the cooling override also covers `dry` - the two levers are grouped differently, which is worth
+knowing before reading a difference as a fault. The reason is that the correction is a measurement of the
+unit's own thermostat band, and that band has only been measured in those two modes; dry runs a different
+airflow, and auto picks its direction itself. A mode gets its own field once somebody has a settled figure
+for it: a target set, the room left alone until the compressor is cycling, and a reading from a thermometer
+that is not the unit's own.
 
 Why here and not in Target Temp. Offset: on the units measured so far, a half-degree setpoint is rounded up to the next whole one, so that field is too coarse for a correction of less than a degree (owners of ZT and ZTL units report their models do take half degrees). The room temperature the unit is fed has 0.25 °C steps on every model, so correcting there is the finer of the two - and it leaves the setpoint matching what the official app shows.
 
