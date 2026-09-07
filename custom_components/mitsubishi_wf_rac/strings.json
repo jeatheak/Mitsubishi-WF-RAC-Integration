@@ -92,7 +92,7 @@
             },
             "data_description": {
               "external_temperature_source": "The unit regulates on this sensor. Leave it empty to put the unit back on its own sensor. Unavailable or unknown states do the same on the next frame.",
-              "overshoot_cool": "How far the room goes past your setting before the unit stops. Set 22 °C and the room settles at 21 °C: enter 1. Starts at 1 because that is what the units measured so far need - check where your own room settles and adjust. If it stops short instead and never gets cold enough, enter a negative number.",
+              "overshoot_cool": "How far the room goes past your setting before the unit stops. Set 22 °C and the room settles at 21 °C: enter 1. Starts at 1 because that is what the units measured so far need - check where your own room settles and adjust. If it stops short instead and never gets cold enough, enter a negative number. Quarter degrees are the finest step that reaches the unit.",
               "overshoot_heat": "The same for heating: positive if the room ends up above your setting, negative if it stops short of it."
             }
           },
