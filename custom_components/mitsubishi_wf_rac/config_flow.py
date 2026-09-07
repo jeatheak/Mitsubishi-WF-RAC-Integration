@@ -19,6 +19,7 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_NAME,
     CONF_PORT,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
@@ -507,8 +508,21 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
         # so far: a unit that stops short of the setting instead needs the
         # correction the other way, and there is no reason to make that
         # impossible before anyone has looked.
-        overshoot_validator = vol.All(
-            vol.Coerce(float), vol.Range(min=-OVERSHOOT_MAX, max=OVERSHOOT_MAX)
+        # A number box rather than a bare float: a plain float field leaves the
+        # step to the browser, which is a whole degree by default, and this
+        # correction is only ever read in fractions of one. 0.25 is the step
+        # because that is what the wire carries - the room temperature byte is
+        # round(T * 4) + 61 - so a finer figure is rounded away in the encoder
+        # and 0.1 quietly does nothing at all. Off-grid values that are already
+        # stored still load: the selector holds the range, not the step.
+        overshoot_validator = selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=-OVERSHOOT_MAX,
+                max=OVERSHOOT_MAX,
+                step=0.25,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement=UnitOfTemperature.CELSIUS,
+            )
         )
 
         source_fields: dict[Any, Any] = {

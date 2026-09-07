@@ -526,6 +526,18 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                 self._external_temperature_carrier = self.async_add_listener(
                     lambda: None, context=SERVICE_DATA_INDOOR_COIL_RAW
                 )
+                # Ask for the carrier frame now rather than waiting for a poll
+                # to schedule one. Only a poll calls this otherwise, and the
+                # poll that runs during setup happens before the entities
+                # exist - so nothing is subscribed for it and the request is
+                # skipped. An entry reload is exactly that path, and saving
+                # the options reloads the entry (OptionsFlowWithReload): a
+                # changed overshoot would sit unsent for a full poll interval
+                # on top of the offset, until some other frame happened to
+                # carry it. The spacing and in-flight guards inside still
+                # apply, so a source flapping in and out cannot turn this into
+                # a second request per cycle.
+                self._maybe_request_service_data()
             return
         self._release_external_temperature_carrier()
 

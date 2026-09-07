@@ -450,6 +450,32 @@ async def test_set_airco_explicitly_clears_external_temperature_override(device)
     assert raw[5] == 0xFF
 
 
+async def test_arming_an_override_asks_for_the_frame_that_carries_it(device, monkeypatch):
+    """The override has no frame of its own, and only a poll schedules the one
+    it rides on - while the poll during setup runs before any entity exists to
+    arm it. Saving the options reloads the entry, so without this a changed
+    overshoot would wait a whole poll interval to reach the unit.
+    """
+    _shorten_service_data_timing(monkeypatch)
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device.set_airco = set_airco = AsyncMock()
+
+    device.set_external_temperature_override(18.7)
+    await asyncio.sleep(0.05)
+
+    set_airco.assert_awaited_once()
+    assert set_airco.await_args.kwargs["is_status_request"] is True
+
+    # A source reporting again is not a new arming: the carrier is already
+    # subscribed, so the new value rides the cadence like every other one.
+    set_airco.reset_mock()
+    device.set_external_temperature_override(19.0)
+    await asyncio.sleep(0.05)
+
+    set_airco.assert_not_awaited()
+
+
 async def test_external_temperature_applied_reads_the_echoed_byte(device):
     # The unit echoes an injected value back in byte 5 unchanged, so the byte
     # it reports matching one a recent frame carried is the whole question.
