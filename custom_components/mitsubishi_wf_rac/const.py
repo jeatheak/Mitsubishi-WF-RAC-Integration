@@ -85,8 +85,10 @@ CONF_TARGET_OFFSET_HEAT = "target_offset_heat"
 # Protocol mode numbers, mirroring HVAC_TRANSLATION below.
 OPERATION_MODE_COOL = 1
 OPERATION_MODE_HEAT = 2
+OPERATION_MODE_DRY = 4
 CONF_OVERSHOOT_COOL = "overshoot_cool"
 CONF_OVERSHOOT_HEAT = "overshoot_heat"
+CONF_OVERSHOOT_DRY = "overshoot_dry"
 OVERSHOOT_MAX = 3.0
 
 SENSOR_TYPE_TEMPERATURE = "temperature"

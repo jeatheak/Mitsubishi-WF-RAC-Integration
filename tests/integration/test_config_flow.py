@@ -25,6 +25,7 @@ from custom_components.mitsubishi_wf_rac.const import (
     CONF_OPERATOR_ID,
     CONF_OUTDOOR_OFFSET,
     CONF_OVERSHOOT_COOL,
+    CONF_OVERSHOOT_DRY,
     CONF_OVERSHOOT_HEAT,
     CONF_TARGET_OFFSET,
     CONF_TARGET_OFFSET_COOL,
@@ -508,6 +509,7 @@ async def test_zeroconf_discovery_confirm_port_can_be_overridden(hass: HomeAssis
 _OPTION_SECTIONS = {
     CONF_EXTERNAL_TEMPERATURE_SOURCE: SECTION_INDOOR_TEMPERATURE_SOURCE,
     CONF_OVERSHOOT_COOL: SECTION_INDOOR_TEMPERATURE_SOURCE,
+    CONF_OVERSHOOT_DRY: SECTION_INDOOR_TEMPERATURE_SOURCE,
     CONF_OVERSHOOT_HEAT: SECTION_INDOOR_TEMPERATURE_SOURCE,
     CONF_TARGET_OFFSET: SECTION_SETPOINT_OFFSETS,
     CONF_TARGET_OFFSET_COOL: SECTION_SETPOINT_OFFSETS,
@@ -838,6 +840,7 @@ async def test_options_flow_only_offers_the_overshoots_with_a_source(hass: HomeA
     assert {str(key.schema) for key in source_section.schema.schema} == {
         CONF_EXTERNAL_TEMPERATURE_SOURCE,
         CONF_OVERSHOOT_COOL,
+        CONF_OVERSHOOT_DRY,
         CONF_OVERSHOOT_HEAT,
     }
 
@@ -864,6 +867,10 @@ async def test_options_flow_opens_the_cooling_overshoot_on_the_measured_figure(
     assert validated[CONF_OVERSHOOT_COOL] == 1.0
     # Heating has looked symmetric wherever it was measured - no figure to offer.
     assert validated[CONF_OVERSHOOT_HEAT] == 0.0
+    # Dry opens on 0 for the opposite reason to heating: not a figure that
+    # turned out to be zero, but a mode nobody has measured (#218). A guess
+    # pre-filled here would move real regulation on the strength of one.
+    assert validated[CONF_OVERSHOOT_DRY] == 0.0
     # Nothing is applied by opening the form: the resolver still reads 0.
     assert entry.options.get(CONF_OVERSHOOT_COOL) is None
 
@@ -873,6 +880,33 @@ async def test_options_flow_opens_the_cooling_overshoot_on_the_measured_figure(
     result = await hass.config_entries.options.async_init(entry.entry_id)
     validated = result["data_schema"](_form_input())[SECTION_INDOOR_TEMPERATURE_SOURCE]
     assert validated[CONF_OVERSHOOT_COOL] == 0.0
+
+
+async def test_options_flow_saves_a_dry_overshoot(hass: HomeAssistant):
+    """Dry cools as well, so its correction takes the cooling sign - but it is
+    a field of its own rather than a share of the cooling one, because the band
+    being corrected belongs to how the unit runs and dry runs a different
+    airflow.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"name": "Living Room AC"},
+        options={
+            "host": "192.168.1.50",
+            CONF_EXTERNAL_TEMPERATURE_SOURCE: "sensor.hallway_temperature",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], _form_input({CONF_OVERSHOOT_DRY: 0.75})
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_OVERSHOOT_DRY] == 0.75
+    # The cooling field is untouched by it: separate figures, separate modes.
+    assert result["data"][CONF_OVERSHOOT_COOL] == 1.0
 
 
 async def test_options_flow_keeps_values_it_never_showed(hass: HomeAssistant):
@@ -956,7 +990,11 @@ async def test_options_form_fields_all_have_a_label(hass: HomeAssistant):
     # This entry has no source, so the overshoot fields are not rendered -
     # they are still labelled, and must be.
     assert fields <= labelled
-    assert labelled - fields == {CONF_OVERSHOOT_COOL, CONF_OVERSHOOT_HEAT}
+    assert labelled - fields == {
+        CONF_OVERSHOOT_COOL,
+        CONF_OVERSHOOT_DRY,
+        CONF_OVERSHOOT_HEAT,
+    }
 
 
 # --- WfRacConfigFlow.is_matching() / _name ------------------------------

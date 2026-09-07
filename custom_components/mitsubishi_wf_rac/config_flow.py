@@ -31,6 +31,7 @@ from .const import (
     AC_CERT_FILENAME,
     DEFAULT_PORT,
     CONF_OVERSHOOT_COOL,
+    CONF_OVERSHOOT_DRY,
     CONF_OVERSHOOT_HEAT,
     OVERSHOOT_MAX,
     CONF_AIRCO_ID,
@@ -473,7 +474,7 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
             CONF_OUTDOOR_OFFSET,
         }
         if self._source_configured:
-            keys |= {CONF_OVERSHOOT_COOL, CONF_OVERSHOOT_HEAT}
+            keys |= {CONF_OVERSHOOT_COOL, CONF_OVERSHOOT_DRY, CONF_OVERSHOOT_HEAT}
         return keys
 
     async def async_step_init(
@@ -581,12 +582,16 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
                     # until then, so nobody's regulation moves without them
                     # seeing the value first. Heating has looked symmetric
                     # around the setting wherever it has been measured, so
-                    # there is no figure to offer.
+                    # there is no figure to offer - and dry opens on zero for
+                    # the opposite reason: nobody has measured it at all, and a
+                    # pre-filled guess there would move real regulation on the
+                    # strength of one (#218).
                     vol.Optional(
                         key, default=options.get(key, suggested)
                     ): overshoot_validator
                     for key, suggested in (
                         (CONF_OVERSHOOT_COOL, 1.0),
+                        (CONF_OVERSHOOT_DRY, 0.0),
                         (CONF_OVERSHOOT_HEAT, 0.0),
                     )
                 }

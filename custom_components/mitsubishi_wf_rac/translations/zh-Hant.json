@@ -119,11 +119,13 @@
             "data": {
               "external_temperature_source": "感測器",
               "overshoot_cool": "製冷過衝",
+              "overshoot_dry": "除濕過衝",
               "overshoot_heat": "製熱過衝"
             },
             "data_description": {
               "external_temperature_source": "空調依這個感測器的讀數調節。留空即可讓它回到自己的感測器；讀數為 unavailable 或 unknown 時，也會在下一個訊框回復。",
               "overshoot_cool": "空調停機前房間越過設定值的幅度。設為 22 °C，房間穩定在 21 °C：填 1。預設從 1 開始，因為目前量測過的機器都需要這個值——看看你自己的房間穩定在哪裡再調整。若反而停得太早、始終不夠涼，請填負數。",
+              "overshoot_dry": "除濕同理：它同樣製冷，符號也相同。初始值為 0，因為還沒有人測量過這個模式。設定一個目標溫度，等房間穩定下來，再填入超出的度數。",
               "overshoot_heat": "製熱同理：房間高於設定值填正數，低於設定值填負數。"
             }
           },
