@@ -560,7 +560,13 @@ The bridge keeps a cache of exactly **three** slots, hard-coded in ROM `[FW]`:
 | `0x94` | `0x10` | energy meter | `(OP3<<8 \| OP2) × 0.25` kWh |
 
 These appear in the RECEIVE block's trailer on ordinary polls, without being
-asked for. `[HW]`
+asked for. `[HW]` They are not pushed by the AC of its own accord, though: the
+bridge requests them itself, cycling a three-entry ROM table of `(code, unit)`
+pairs - `80 01`, `80 00`, `94 01` at `0x3025` - and setting the bus-level unit
+selector per entry, `0xc0` for the indoor variant and `0x40` for the outdoor
+one. `[FW]` That is why `0x80` arrives twice with different `OP1` values: it is
+asked twice. It is also the only place in the firmware where that selector is
+set from anything other than a constant - see §5.3.
 
 The energy counter is **per run, not lifetime**: it counts up in 0.25 kWh steps
 while the indoor unit is running, holds its last value while the unit is off,
@@ -675,13 +681,14 @@ Two things that do **not** work as one might expect `[HW]`:
   `0xFF` sentinel, so it cannot be used as an "was my request accepted"
   channel. The answer itself is the only confirmation.
 - **The only field that steers a request is one you cannot write.** Of the four
-  segment bytes only the code reaches the AC as an input; the unit is selected
-  in `DB6`, and the bridge overwrites `DB6` on every frame it sends, as
-  `(DB6 & 0x3f) | 0x80`. `[FW]` That is not the value the working CNS
-  implementations use for these reads - they send `0xc0` for an indoor datum and
-  `0x40` for an outdoor one `[EXT]` - and nothing in the trailer changes it. The
-  reply's own `OP1` says which sensor answered (§5.1), but that is the answer's
-  field, not a way to ask.
+  segment bytes only the code reaches the AC as an input. The unit is selected
+  in `DB6`, and on the path that carries *your* segments the bridge writes it as
+  `(DB6 & 0x3f) | 0x80` - a constant, regardless of what you sent. `[FW]` The
+  firmware does know how to set that selector properly, and does so with
+  `0xc0`/`0x40` exactly as the CNS implementations do `[EXT]` - but only for the
+  three requests of its own in §5.2, driven by a table in flash. There is no
+  path from the trailer to it. The reply's own `OP1` says which sensor answered
+  (§5.1), but that is the answer's field, not a way to ask.
 
 **Limits.** The bridge does not clamp the segment count and copies `count × 4`
 bytes into a queue with room for 22 entries. `[FW]` Keep the count small (1–3);
@@ -741,8 +748,10 @@ Notes on the shape of the answers `[HW]`:
   fixes to something else (§5.3). Confirmed by trying: putting `0x10` or `0x20`
   in the request's `OP1` does not stand in for that, it only malforms the
   request (§5.1), while a single-unit code such as `0x11` answers normally in
-  the same session. `[HW]` Why the AC declines these two rather than defaulting
-  to a unit is not established from here. Either way, reading indoor fan speed
+  the same session. `[HW]` The constant the bridge does send, `0x80`, is what
+  those implementations use for "no operating-data request at all" `[EXT]` -
+  which is a plausible reason the AC answers codes that exist once and declines
+  the two that do not, though that step is inference, not measurement. Either way, reading indoor fan speed
   or run hours needs a device on the indoor unit's own connector; it is not
   available over this interface.
 - `0x34` is the only code that used `OP3`, so at least one value here is wider
