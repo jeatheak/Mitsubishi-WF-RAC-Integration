@@ -123,12 +123,14 @@
             "data": {
               "external_temperature_source": "Sensor",
               "overshoot_cool": "Überschwingen Kühlen",
+              "overshoot_dry": "Überschwingen Trocknen",
               "overshoot_heat": "Überschwingen Heizen"
             },
             "data_description": {
               "external_temperature_source": "Das Gerät regelt auf diesen Sensor. Leer lassen, damit es wieder seinen eigenen benutzt; bei „unavailable“ oder „unknown“ geschieht dasselbe mit dem nächsten Frame.",
               "overshoot_cool": "Wie weit der Raum über Ihre Einstellung hinausschießt, bevor das Gerät abschaltet. 22 °C eingestellt, Raum pendelt sich bei 21 °C ein: 1 eintragen. Startet bei 1, weil die bisher gemessenen Geräte das brauchen — prüfen Sie, wo Ihr Raum landet, und passen Sie an. Bleibt er stattdessen darüber und wird nie kalt genug, tragen Sie eine negative Zahl ein. Viertelgrad ist der feinste Schritt, der beim Gerät ankommt.",
-              "overshoot_heat": "Dasselbe fürs Heizen: positiv, wenn der Raum über Ihrer Einstellung landet, negativ, wenn er darunter bleibt."
+              "overshoot_dry": "Dasselbe fürs Trocknen, das ebenfalls kühlt und dasselbe Vorzeichen hat. Startet bei 0, weil niemand gemessen hat, was ein Gerät in diesem Modus tut — Ziel einstellen, den Raum einpendeln lassen und eintragen, wie weit er darüber hinausging.",
+              "overshoot_heat": "Dasselbe fürs Heizen, und nur im Modus Heizen: positiv, wenn der Raum über Ihrer Einstellung landet, negativ, wenn er darunter bleibt."
             }
           },
           "setpoint_offsets": {

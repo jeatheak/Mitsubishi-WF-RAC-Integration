@@ -20,6 +20,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.mitsubishi_wf_rac.const import (
     CONF_OVERSHOOT_COOL,
+    CONF_OVERSHOOT_DRY,
     CONF_OVERSHOOT_HEAT,
     DOMAIN,
 )
@@ -347,19 +348,20 @@ async def test_set_airco_includes_stored_external_temperature_override(device):
 
 
 @pytest.mark.parametrize(
-    "mode,overshoot_key,expected",
+    "operation_mode,overshoot_key,expected",
     [
         # Cooling stops below the setting, so the unit is told the room is
         # that much colder than it is - it then reaches its stop point where
-        # the room is actually on target. Heating is the mirror image.
-        (AirconCommands.OperationMode, CONF_OVERSHOOT_COOL, 18.7 - 1.25),
-        (AirconCommands.OperationMode, CONF_OVERSHOOT_HEAT, 18.7 + 1.25),
+        # the room is actually on target. Heating is the mirror image, and dry
+        # cools, so it takes the cooling sign with a figure of its own.
+        (1, CONF_OVERSHOOT_COOL, 18.7 - 1.25),
+        (2, CONF_OVERSHOOT_HEAT, 18.7 + 1.25),
+        (4, CONF_OVERSHOOT_DRY, 18.7 - 1.25),
     ],
 )
 async def test_set_airco_bends_the_override_by_the_configured_overshoot(
-    device, mode, overshoot_key, expected
+    device, operation_mode, overshoot_key, expected
 ):
-    operation_mode = 1 if overshoot_key == CONF_OVERSHOOT_COOL else 2
     device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
     await device.update()
     _set_options(device, {overshoot_key: 1.25})
@@ -405,12 +407,22 @@ async def test_set_airco_bends_the_override_the_other_way_when_negative(device):
     assert raw[5] == int(round((18.7 + 0.75) * 4)) + 61
 
 
-async def test_set_airco_leaves_the_override_alone_in_other_modes(device):
-    # Dry and auto have no measured overshoot of their own, and applying the
-    # cooling figure there would be a guess dressed as a correction.
+async def test_set_airco_leaves_the_override_alone_in_auto(device):
+    # Auto is not corrected at all: the direction it runs in is the unit's own
+    # cool/heat decision, which some units never report, so there is nothing to
+    # hang the sign of a correction on. Every other overshoot is set here as
+    # well - none of them may reach a mode by inheritance. (fan_only carries no
+    # room temperature at all, see the 0xFF test above.)
     device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
     await device.update()
-    _set_options(device, {CONF_OVERSHOOT_COOL: 1.25, CONF_OVERSHOOT_HEAT: 1.25})
+    _set_options(
+        device,
+        {
+            CONF_OVERSHOOT_COOL: 1.25,
+            CONF_OVERSHOOT_HEAT: 1.25,
+            CONF_OVERSHOOT_DRY: 1.25,
+        },
+    )
     device._external_temperature_override = 18.7
 
     captured = {}
@@ -422,7 +434,7 @@ async def test_set_airco_leaves_the_override_alone_in_other_modes(device):
     device._api.send_airco_command = AsyncMock(side_effect=_capture_and_echo)
 
     await device.set_airco(
-        {AirconCommands.Operation: True, AirconCommands.OperationMode: 4}
+        {AirconCommands.Operation: True, AirconCommands.OperationMode: 0}
     )
 
     raw = base64.b64decode(captured["command"])

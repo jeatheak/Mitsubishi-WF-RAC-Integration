@@ -26,10 +26,12 @@ from .const import (
     AC_CERT_FILENAME,
     CONF_EXTERNAL_TEMPERATURE_SOURCE,
     CONF_OVERSHOOT_COOL,
+    CONF_OVERSHOOT_DRY,
     CONF_OVERSHOOT_HEAT,
     DOMAIN,
     MIN_TIME_BETWEEN_UPDATES,
     OPERATION_MODE_COOL,
+    OPERATION_MODE_DRY,
     OPERATION_MODE_HEAT,
 )
 from pywfrac import (
@@ -557,13 +559,20 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         degrees, this lever has the protocol's 0.25 K resolution.
 
         Heating is the mirror image, and zero - the default - changes nothing.
+
+        Dry has a correction of its own rather than sharing the cooling one.
+        It cools too, so the sign matches, but its airflow and its thermostat
+        band are not the cooling ones, and nobody has measured what it does -
+        which is why its field opens on zero where cooling opens on the figure
+        four units needed. Auto is left uncorrected: which direction it is
+        running in is CoolHotJudge, a value some units never report.
         """
         if temperature is None:
             return None
         overshoot = self._resolve_overshoot(operation_mode)
         if not overshoot:
             return temperature
-        if operation_mode == OPERATION_MODE_COOL:
+        if operation_mode in (OPERATION_MODE_COOL, OPERATION_MODE_DRY):
             return temperature - overshoot
         if operation_mode == OPERATION_MODE_HEAT:
             return temperature + overshoot
@@ -575,6 +584,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             key = CONF_OVERSHOOT_COOL
         elif operation_mode == OPERATION_MODE_HEAT:
             key = CONF_OVERSHOOT_HEAT
+        elif operation_mode == OPERATION_MODE_DRY:
+            key = CONF_OVERSHOOT_DRY
         else:
             return 0.0
         value = self.options.get(key, 0.0)
