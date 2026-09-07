@@ -375,7 +375,31 @@ rather than ramping, and read your source sensor. The gap between that reading a
 number for this field. Measurements welcome in [#218](https://github.com/blues-sechseck/Mitsubishi-WF-RAC-Integration/issues/218).
 
 **`auto` is not corrected at all.** Which direction it is running in is the unit's own cool/heat decision,
-and some units never report it - so there is nothing to hang the sign of a correction on.
+and some units never report it - so there is nothing to hang the sign of a correction on. A correction
+would not help there anyway, which is worth knowing before you go looking for one.
+
+### What `auto` does with your setting
+
+`auto` is not a thermostat that holds your number. The service documentation for these units spells out
+two things that together explain a room which never settles:
+
+- **Cooling is controlled to the temperature you set; heating is controlled to that temperature plus
+  2 °C** (dry, plus 1). So `auto` at 23 heats to 25 and cools to 23.
+- **The direction changes only after the thermostat has been off for 20 minutes**, and only once the room
+  is more than 1 K from your setting: below it by more than 1 K it heats, above by more than 1 K it cools,
+  and in between it keeps doing whatever it was doing. It will also not switch to heating at all while the
+  outdoor temperature is 28 °C or above.
+
+Those two combine into a loop. Heating ends 2 K above your setting, which is past the 1 K threshold, so
+the unit is guaranteed to change over to cooling; cooling ends below your setting by its own band, drifts
+further through the 20-minute wait, and changes back. Measured on a multi-split with 23 set: turning
+points at 24.8 and 20.8, about two hours a lap. This is the unit working as designed, not a fault, and no
+overshoot figure can narrow it - the correction shifts both turning points the same way, so it moves the
+whole swing without making it smaller.
+
+If you want a room held closely, `cool` or `heat` does it: there the setting means what it says, the
+overshoot correction applies, and the band is a fraction as wide. Choosing the direction is then an
+automation's job.
 
 Why here and not in Target Temp. Offset: on the units measured so far, a half-degree setpoint is rounded up to the next whole one, so that field is too coarse for a correction of less than a degree (owners of ZT and ZTL units report their models do take half degrees). The room temperature the unit is fed has 0.25 °C steps on every model, so correcting there is the finer of the two - and it leaves the setpoint matching what the official app shows.
 
@@ -393,6 +417,11 @@ While an override is in effect, the climate entity's `current_temperature` shows
 - **Not every entity appears on every unit.** Occupancy, Home Leave Mode, and a few diagnostic
   sensors only get created if the unit itself reports support for the underlying feature (see the
   notes under Entities above) - missing rather than `unavailable` is expected there, not a bug.
+- **`auto` mode swings by several degrees, by design.** The unit heats to 2 °C above your setting and
+  cools to it, and only changes direction after 20 minutes off and more than 1 K of deviation - so a room
+  in `auto` cycles rather than settles (measured: 4 K peak to peak). Nothing in this integration can
+  narrow that; `cool` or `heat` holds a room far more closely (see
+  [What `auto` does with your setting](#what-auto-does-with-your-setting) above).
 - **One device, one connection.** The WF-RAC module handles requests one at a time. This
   integration already serializes its own requests to respect that, but running a second tool (a
   custom script, another integration instance, the Smart M-Air app at the same moment) against the
