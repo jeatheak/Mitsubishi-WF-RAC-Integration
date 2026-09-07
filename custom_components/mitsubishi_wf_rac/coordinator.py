@@ -443,10 +443,13 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     def set_external_temperature_override(self, value: float | None) -> None:
         """Set the integration-side override state.
 
-        Used by the climate entity when restoring persisted state; the value
-        is re-armed into future commands without immediately issuing a new one.
-        Which is exactly why it counts as unapplied until a frame has carried
-        it: a restored value says what we intend to send, not what the unit
+        Used by the climate entity when restoring persisted state and whenever
+        the configured source reports. Arming asks for the operation-data frame
+        the value rides on (see _sync_external_temperature_carrier), since the
+        poll that would otherwise schedule one runs before the entities exist -
+        but that frame writes no setting of its own, so nothing here commands
+        the unit. Which is exactly why the value counts as unapplied until a
+        frame has carried it: it says what we intend to send, not what the unit
         currently regulates on.
 
         Nothing here says the unit has been told - see

@@ -503,27 +503,43 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
             return self.async_create_entry(title="", data=data)
 
         options = self.config_entry.options
-        offset_range_validator = vol.All(vol.Coerce(float), vol.Range(min=-5.0, max=5.0))
+
+        def degrees(limit: float, step: float) -> selector.NumberSelector:
+            """A correction in degrees, as a number box.
+
+            A bare float leaves the step to the browser, which is a whole
+            degree - and every field in this form is a correction that is read
+            in fractions of one. The step is what the value can still change
+            downstream, so each caller passes its own. Off-grid values already
+            stored keep loading either way: the selector holds the range, not
+            the step.
+            """
+            return selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=-limit,
+                    max=limit,
+                    step=step,
+                    mode=selector.NumberSelectorMode.BOX,
+                    unit_of_measurement=UnitOfTemperature.CELSIUS,
+                )
+            )
+
+        # Half a degree, because that is the setpoint's own resolution - and
+        # most units round that up to the next whole one anyway (see the
+        # field's description), so a finer step here would promise a precision
+        # the setpoint does not have.
+        offset_range_validator = degrees(5.0, 0.5)
         # Negative allowed, though overshooting is what everyone has measured
         # so far: a unit that stops short of the setting instead needs the
         # correction the other way, and there is no reason to make that
         # impossible before anyone has looked.
-        # A number box rather than a bare float: a plain float field leaves the
-        # step to the browser, which is a whole degree by default, and this
-        # correction is only ever read in fractions of one. 0.25 is the step
-        # because that is what the wire carries - the room temperature byte is
-        # round(T * 4) + 61 - so a finer figure is rounded away in the encoder
-        # and 0.1 quietly does nothing at all. Off-grid values that are already
-        # stored still load: the selector holds the range, not the step.
-        overshoot_validator = selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=-OVERSHOOT_MAX,
-                max=OVERSHOOT_MAX,
-                step=0.25,
-                mode=selector.NumberSelectorMode.BOX,
-                unit_of_measurement=UnitOfTemperature.CELSIUS,
-            )
-        )
+        # A quarter degree is where this one stops mattering: the room
+        # temperature byte it corrects is round(T * 4) + 61, and the source
+        # value entering that sum has already been snapped to the same grid
+        # (see AircoClimate._external_temperature_from_source_state), so a
+        # finer correction is rounded away for every reading rather than only
+        # for some.
+        overshoot_validator = degrees(OVERSHOOT_MAX, 0.25)
 
         source_fields: dict[Any, Any] = {
             # Keep this optional without a default: an omitted source must
@@ -598,11 +614,14 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
             }
         )
 
+        # A tenth here, unlike the fields above: these two correct a reading on
+        # its way to being displayed, so nothing rounds them off afterwards.
+        sensor_offset_validator = degrees(15.0, 0.1)
         sensor_fields: dict[Any, Any] = {
             vol.Optional(
                 key,
                 default=options.get(key, 0.0),
-            ): vol.All(vol.Coerce(float), vol.Range(min=-15.0, max=15.0))
+            ): sensor_offset_validator
             for key in (CONF_INDOOR_OFFSET, CONF_OUTDOOR_OFFSET)
         }
 
