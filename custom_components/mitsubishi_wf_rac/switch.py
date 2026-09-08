@@ -1,4 +1,9 @@
-"""for switch integration."""
+"""Registry cleanup for switches this integration no longer creates.
+
+HACS only: the platform adds no entities. It exists to drop two switches
+that earlier HACS releases created, and core never published either, so
+nothing here is ported.
+"""
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations

@@ -74,6 +74,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+# HACS only: the climate entity already exposes horizontal swing, vertical
+# swing and fan speed. These three are a second, flatter control surface for
+# dashboards; core takes the climate entity alone.
 class HorizontalSwingSelect(WfRacEntity, SelectEntity):
     """Select component to set the horizontal swing direction of the airco"""
 

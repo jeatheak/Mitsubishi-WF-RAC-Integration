@@ -21,6 +21,8 @@ from homeassistant.helpers.service import async_register_platform_entity_service
 from pywfrac.parser import EXTERNAL_TEMPERATURE_MAX, EXTERNAL_TEMPERATURE_MIN
 
 from .const import (
+    SUPPORT_SWING_HORIZONTAL_MODES,
+    SUPPORT_SWING_MODES,
     DOMAIN,
     SERVICE_REQUEST_HOME_LEAVE_MODE_STATUS,
     SERVICE_SET_ENERGY_TOTAL,
@@ -39,13 +41,16 @@ def async_setup_services(hass: HomeAssistant) -> None:
     # is a cycle, by the time async_setup runs it is not.
     from .sensor import async_set_energy_total  # noqa: PLC0415  pylint: disable=import-outside-toplevel
 
+    # HACS only: climate.set_swing_mode and climate.set_swing_horizontal_mode
+    # already do this, and binding func= directly skips the base class's own
+    # mode validation - hence vol.In here, which it would otherwise do.
     async_register_platform_entity_service(
         hass,
         DOMAIN,
         SERVICE_SET_HORIZONTAL_SWING_MODE,
         entity_domain=Platform.CLIMATE,
         func="async_set_swing_horizontal_mode",
-        schema={vol.Required("swing_mode"): cv.string},
+        schema={vol.Required("swing_mode"): vol.In(SUPPORT_SWING_HORIZONTAL_MODES)},
     )
 
     async_register_platform_entity_service(
@@ -54,7 +59,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_SET_VERTICAL_SWING_MODE,
         entity_domain=Platform.CLIMATE,
         func="async_set_swing_mode",
-        schema={vol.Required("swing_mode"): cv.string},
+        schema={vol.Required("swing_mode"): vol.In(SUPPORT_SWING_MODES)},
     )
 
     # HomeLeaveMode (Tag 248, capability index 7) - deliberately actions, not

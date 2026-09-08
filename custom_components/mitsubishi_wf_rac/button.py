@@ -37,6 +37,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+# HACS only: it resets EnergyTotalSensor, so it goes wherever that goes.
 class EnergyTotalResetButton(WfRacEntity, ButtonEntity):
     """Resets the accumulated Energy Usage Total back to zero.
 

@@ -1,4 +1,8 @@
-"""for update integration (firmware-update-available indicator)."""
+"""for update integration (firmware-update-available indicator).
+
+HACS only: it reports what firmware_check.py finds, so it goes wherever
+that goes.
+"""
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations

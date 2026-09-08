@@ -158,6 +158,7 @@ async def async_set_energy_total(entity: SensorEntity, call: ServiceCall) -> Non
     await entity.async_set_total(call.data["value"])
 
 
+# HACS only: removes entities only earlier HACS releases ever created.
 def _async_remove_home_leave_mode_sensors(hass: HomeAssistant, device: Device) -> None:
     """Drop the former Home Leave Mode diagnostic sensors from the entity
     registry.
@@ -349,6 +350,9 @@ class EnergyTotalExtraStoredData(SensorExtraStoredData):
         )
 
 
+# HACS only: a resetting counter is expressed with TOTAL_INCREASING and the
+# utility_meter helper in core; this accumulates it in the integration and
+# takes a settable total, which core does not do.
 class EnergyTotalSensor(WfRacEntity, RestoreSensor):
     """Lifetime energy total, accumulated from the unit's per-run counter.
 
