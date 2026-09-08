@@ -1,7 +1,6 @@
 """Constants used by the mitsubishi-wf-rac component."""
 
 from datetime import timedelta
-from homeassistant.const import CONF_ICON, CONF_NAME, CONF_TYPE
 from homeassistant.components.climate.const import (
     HVACMode,
     ClimateEntityFeature,
@@ -18,7 +17,6 @@ DOMAIN = "mitsubishi_wf_rac"
 # WF-RAC branch). Used as the manual-setup default and as the fallback when a
 # discovery announcement carries something else.
 DEFAULT_PORT = 51443
-DEVICES = "wf-rac-devices"
 
 MIN_TIME_BETWEEN_UPDATES=timedelta(seconds=60)
 
@@ -95,20 +93,7 @@ CONF_OVERSHOOT_HEAT = "overshoot_heat"
 CONF_OVERSHOOT_DRY = "overshoot_dry"
 OVERSHOOT_MAX = 3.0
 
-SENSOR_TYPE_TEMPERATURE = "temperature"
 
-SENSOR_TYPES = {
-    ATTR_INSIDE_TEMPERATURE: {
-        CONF_NAME: "Inside Temperature",
-        CONF_ICON: "mdi:thermometer",
-        CONF_TYPE: SENSOR_TYPE_TEMPERATURE,
-    },
-    ATTR_OUTSIDE_TEMPERATURE: {
-        CONF_NAME: "Outside Temperature",
-        CONF_ICON: "mdi:thermometer",
-        CONF_TYPE: SENSOR_TYPE_TEMPERATURE,
-    },
-}
 
 # Heating uses the unit's own Heating TempSetting (10.0°C), which matches
 # HOME_LEAVE_TEMP_HEAT exactly. Cooling does not: the unit's Cooling
@@ -238,14 +223,6 @@ SUPPORTED_FAN_MODES = [
 ]
 
 
-OPERATION_LIST = {
-    # HVAC_MODE_OFF: "Off",
-    HVACMode.HEAT: "Heat",
-    HVACMode.COOL: "Cool",
-    HVACMode.AUTO: "Auto",
-    HVACMode.DRY: "Dry",
-    HVACMode.FAN_ONLY: "Fan",
-}
 
 
 # Optional certificate for the unit's HTTPS stack, looked up in the HA config

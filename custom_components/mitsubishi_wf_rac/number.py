@@ -73,9 +73,7 @@ class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
     # diagnostic sensors. Disabled by default though, same as those sensors
     # were: a niche away-mode feature, not everyone with a HomeLeaveMode-
     # capable model wants six extra entities on their device page.
-    _attr_entity_category = None
     _attr_entity_registry_enabled_default = False
-    _attr_has_entity_name: bool = True
     _attr_device_class = NumberDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_native_min_value = HOME_LEAVE_TEMP_MIN

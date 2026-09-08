@@ -57,7 +57,7 @@ async def async_setup_entry(
     """Setup select entries"""
 
     device: Device = entry.runtime_data.device
-    _LOGGER.info("Setup Fan, Horizontal and Vertical Select: %s, %s", device.device_name, device.airco_id)
+    _LOGGER.debug("Setup selects for: %s, %s", device.device_name, device.airco_id)
     entities = [HorizontalSwingSelect(device), VerticalSwingSelect(device), FanSpeedSelect(device)]
 
     # Same VacantProperty capability gate as OccupancyBinarySensor in
@@ -81,7 +81,6 @@ class HorizontalSwingSelect(WfRacEntity, SelectEntity):
     """Select component to set the horizontal swing direction of the airco"""
 
     _attr_translation_key = "horizontal_swing"
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
@@ -139,7 +138,6 @@ class VerticalSwingSelect(WfRacEntity, SelectEntity):
     """Select component to set the vertical swing direction of the airco"""
 
     _attr_translation_key = "vertical_swing"
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
@@ -195,7 +193,6 @@ class FanSpeedSelect(WfRacEntity, SelectEntity):
     """Select component to set the fan speed of the airco"""
 
     _attr_translation_key = "fan_speed"
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
@@ -243,7 +240,6 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
     """
 
     _attr_translation_key = "home_leave_mode"
-    _attr_has_entity_name: bool = True
     _attr_icon = "mdi:home-export-outline"
 
     def __init__(self, device: Device) -> None:
@@ -322,7 +318,6 @@ class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
     # niche away-mode feature, not everyone with a HomeLeaveMode-capable
     # model wants extra entities on their device page.
     _attr_entity_registry_enabled_default = False
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device, mode: str) -> None:
         super().__init__(device)

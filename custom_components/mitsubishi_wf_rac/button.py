@@ -49,7 +49,6 @@ class EnergyTotalResetButton(WfRacEntity, ButtonEntity):
 
     _attr_translation_key = "reset_energy_total"
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_has_entity_name = True
 
     def __init__(self, device: Device) -> None:
         """Initialize the button."""

@@ -64,9 +64,9 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # Assistant skips migration entirely once entry.version equals this, so a
     # new step that is not reflected here never runs.
     VERSION = 7
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
-    _discovery_info: dict[str, Any] = {}
     DOMAIN = DOMAIN
+    # Annotated, not assigned: a dict here would be shared by every flow.
+    _discovery_info: dict[str, Any]
 
     def is_matching(self, other_flow: "WfRacConfigFlow") -> bool:
         """Return True if two flows are attempting to configure the same device."""
@@ -156,11 +156,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not airco_id:
             raise CannotConnect(reason="unknown reason")
 
-        _LOGGER.info(
-            "Trying to register OperatorId[%s] on Airco[%s]",
-            data[CONF_OPERATOR_ID],
-            data[CONF_AIRCO_ID],
-        )
+        _LOGGER.debug("Registering this controller on airco [%s]", airco_id)
         result = await repository.update_account_info(airco_id, hass.config.time_zone)
         if not result:
             raise CannotConnect(reason="no answer to the registration request")
@@ -242,7 +238,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors, placeholders = error.get_errors_and_placeholders(
                     data_schema.schema
                 )
-                errors.update(errors)
                 for key, value in placeholders.items():
                     if isinstance(value, dict):
                         description_placeholders[key] = str(value)

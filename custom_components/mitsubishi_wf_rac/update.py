@@ -49,7 +49,6 @@ class FirmwareUpdateEntity(WfRacEntity, UpdateEntity):
     itself while switched off, so triggering an install isn't offered here.
     """
 
-    _attr_has_entity_name = True
     _attr_translation_key = "firmware_update"
     _attr_device_class = UpdateDeviceClass.FIRMWARE
     # Reports only; installing is the module's own business (see the class

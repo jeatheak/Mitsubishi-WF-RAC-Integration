@@ -30,6 +30,8 @@ class WfRacEntity(CoordinatorEntity[Device]):
     command completes.
     """
 
+    _attr_has_entity_name = True
+
     def __init__(self, device: Device, context: Any | None = None) -> None:
         super().__init__(device, context=context)
         self._device = device

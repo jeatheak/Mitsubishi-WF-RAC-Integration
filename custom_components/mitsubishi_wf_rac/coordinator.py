@@ -315,6 +315,10 @@ class _ServiceDataParser(RacParser):
 class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instance-attributes
     """Device Class"""
 
+    # Narrowed from the base class's optional: this integration never builds a
+    # Device without one.
+    config_entry: ConfigEntry
+
     def __init__(  # pylint: disable=too-many-arguments
             self,
             hass: HomeAssistant,
@@ -430,19 +434,12 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     @property
     def options(self) -> Mapping[str, Any]:
-        """Options of the config entry that owns this device.
-
-        DataUpdateCoordinator.config_entry is typed as optional because a
-        coordinator need not have one - this integration always constructs a
-        Device with one, passed to super().__init__() above.
-        """
-        assert self.config_entry is not None
+        """Options of the config entry that owns this device."""
         return self.config_entry.options
 
     @property
     def entry_id(self) -> str:
         """Id of the config entry that owns this device - see options above."""
-        assert self.config_entry is not None
         return self.config_entry.entry_id
 
     @property
@@ -1436,7 +1433,6 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # in front of us, and a restart that forgot it would put the unit
         # through the same shutdowns again to learn the same thing.
         entry = self.config_entry
-        assert entry is not None  # always constructed with one - see options
         self._hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_CARRY_POWER_STATE: True}
         )

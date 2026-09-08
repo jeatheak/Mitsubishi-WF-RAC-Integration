@@ -84,7 +84,7 @@ async def async_setup_entry(
 
     device: Device = entry.runtime_data.device
 
-    _LOGGER.info("Setup: %s, %s", device.device_name, device.airco_id)
+    _LOGGER.debug("Setup sensors for: %s, %s", device.device_name, device.airco_id)
     entities = [
         TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
         TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
@@ -184,7 +184,6 @@ class DiagnosticsSensor(WfRacEntity, SensorEntity):
     """Representation of a Sensor."""
 
     _attr_entity_category: EntityCategory | None = EntityCategory.DIAGNOSTIC
-    _attr_has_entity_name: bool = True
 
     def __init__(
         self, device: Device, name: str, custom_type: str, enable: bool = False
@@ -260,7 +259,6 @@ class TemperatureSensor(WfRacEntity, SensorEntity):
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device, name: str, custom_type: str, enable: bool = True) -> None:
         """Initialize the sensor."""
@@ -310,7 +308,6 @@ class EnergySensor(WfRacEntity, SensorEntity):
     _attr_native_unit_of_measurement: str | None = UnitOfEnergy.KILO_WATT_HOUR
     _attr_device_class: SensorDeviceClass | None = SensorDeviceClass.ENERGY
     _attr_state_class: SensorStateClass | None = SensorStateClass.TOTAL_INCREASING
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device) -> None:
         """Initialize the sensor."""
@@ -371,7 +368,6 @@ class EnergyTotalSensor(WfRacEntity, RestoreSensor):
     _attr_native_unit_of_measurement: str | None = UnitOfEnergy.KILO_WATT_HOUR
     _attr_device_class: SensorDeviceClass | None = SensorDeviceClass.ENERGY
     _attr_state_class: SensorStateClass | None = SensorStateClass.TOTAL_INCREASING
-    _attr_has_entity_name: bool = True
     _attr_suggested_display_precision: int | None = 2
 
     def __init__(self, device: Device) -> None:
@@ -447,7 +443,6 @@ class ServiceDataSensor(WfRacEntity, SensorEntity):
     only those segments.
     """
 
-    _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False

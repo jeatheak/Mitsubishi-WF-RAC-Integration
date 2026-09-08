@@ -36,7 +36,6 @@ from pywfrac import AIRFLOW_UNKNOWN, Aircon, AirconCommands, HomeLeaveModeSettin
 from pywfrac.parser import (
     EXTERNAL_TEMPERATURE_MAX,
     EXTERNAL_TEMPERATURE_MIN,
-    is_external_temperature_mode,
 )
 from .const import (
     DOMAIN,
@@ -81,7 +80,7 @@ async def async_setup_entry(
 ) -> None:
     """Setup climate entities"""
     device: Device = entry.runtime_data.device
-    _LOGGER.info("Setup climate for: %s, %s", device.device_name, device.airco_id)
+    _LOGGER.debug("Setup climate for: %s, %s", device.device_name, device.airco_id)
     async_add_entities([AircoClimate(device)])
 
 
@@ -119,7 +118,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
     _attr_hvac_modes: list[HVACMode] = SUPPORTED_HVAC_MODES
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
-    _attr_hvac_action: HVACAction | None = None
     _attr_fan_mode: str = FAN_AUTO
     _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
@@ -141,7 +139,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     # own - the same shape every other platform here already uses. It displayed
     # the device name before too, by copying it into _attr_name; the difference
     # is that a renamed device now reaches it without a reload.
-    _attr_has_entity_name: bool = True
     _attr_name: str | None = None
 
     def __init__(self, device: Device) -> None:

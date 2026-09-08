@@ -53,7 +53,6 @@ class ProblemBinarySensor(WfRacEntity, BinarySensorEntity):
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_has_entity_name = True
     _attr_translation_key = "problem"
 
     def __init__(self, device: Device) -> None:
@@ -88,7 +87,6 @@ class CompressorBinarySensor(WfRacEntity, BinarySensorEntity):
     a sibling unit while this reads off, so it is demand, not compressor state."""
 
     _attr_device_class = BinarySensorDeviceClass.RUNNING
-    _attr_has_entity_name = True
     _attr_translation_key = "compressor"
 
     def __init__(self, device: Device) -> None:
@@ -116,7 +114,6 @@ class ExternalControlBinarySensor(WfRacEntity, BinarySensorEntity):
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_has_entity_name = True
     _attr_translation_key = "external_control"
 
     def __init__(self, device: Device) -> None:
@@ -143,7 +140,6 @@ class ExternalTemperatureActiveBinarySensor(WfRacEntity, BinarySensorEntity):
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_has_entity_name = True
     _attr_translation_key = "external_temperature_active"
 
     def __init__(self, device: Device) -> None:
@@ -163,7 +159,6 @@ class OccupancyBinarySensor(WfRacEntity, BinarySensorEntity):
     """Reports the occupancy state of the unit (VacantProperty-capable models only)."""
 
     _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
-    _attr_has_entity_name = True
     _attr_translation_key = "occupancy"
 
     def __init__(self, device: Device) -> None:

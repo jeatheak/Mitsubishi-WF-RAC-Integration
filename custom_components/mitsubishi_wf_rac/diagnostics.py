@@ -17,7 +17,6 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: MitsubishiWfRacConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    del hass
     device = entry.runtime_data.device
 
     diagnostics = {
