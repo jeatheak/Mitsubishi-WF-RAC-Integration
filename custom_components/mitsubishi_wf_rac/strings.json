@@ -198,7 +198,11 @@
         "name": "Model Nr"
       },
       "cool_hot_judge": {
-        "name": "Cool Hot Judge"
+        "name": "Cool Hot Judge",
+        "state": {
+          "cooling": "Cooling",
+          "heating": "Heating"
+        }
       },
       "energy_usage": {
         "name": "Energy Usage (current run)"

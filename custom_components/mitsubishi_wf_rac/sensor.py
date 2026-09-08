@@ -196,6 +196,9 @@ class DiagnosticsSensor(WfRacEntity, SensorEntity):
             f"{DOMAIN}-{self._device.airco_id}-{self._custom_type}-sensor"
         )
         self._attr_translation_key = custom_type
+        if custom_type == ATTR_COOL_HOT_JUDGE:
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = ["cooling", "heating"]
         self._apply_state()
 
     def _mark_state_unknown(self) -> None:

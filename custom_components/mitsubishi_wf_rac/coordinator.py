@@ -349,7 +349,6 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # state has always needed it, and relearning costs the unit the same
         # shutdowns every time (see _check_request_stopped_unit).
         self._parser.carry_power_state = carry_power_state
-        self._hass = hass
 
         # Protected state
         self._airco = Aircon()
@@ -782,7 +781,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         ):
             return
         self._last_firmware_check = now
-        self._hass.async_create_task(
+        self.hass.async_create_task(
             self._async_check_firmware_update(
                 self._firm_type, self._wireless_firmware_ver
             )
@@ -793,7 +792,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     ) -> None:
         """Compare the locally-reported wireless firmware version against the
         manufacturer's latest for this firmType."""
-        latest = await fetch_latest_firmware(self._hass, firm_type)
+        latest = await fetch_latest_firmware(self.hass, firm_type)
         if latest is None or latest.get("wireless") is None:
             return
 
@@ -1094,7 +1093,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # Background task, not a plain one: it spends most of its life asleep
         # waiting out the offset, and HA cancels background tasks at shutdown
         # instead of waiting for them.
-        self._service_data_task = self._hass.async_create_background_task(
+        self._service_data_task = self.hass.async_create_background_task(
             self._async_request_service_data(service_data_codes),
             name=f"{DOMAIN} service data request {self._airco_id}",
         )
@@ -1304,7 +1303,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         """Add account (operator id) from the airco"""
         try:
             result = await self._api.update_account_info(
-                self._airco_id, self._hass.config.time_zone
+                self._airco_id, self.hass.config.time_zone
             )
         except (WfRacError, KeyError, TypeError):
             _LOGGER.warning("Could not add account from airco %s", self._airco_id)
@@ -1433,7 +1432,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # in front of us, and a restart that forgot it would put the unit
         # through the same shutdowns again to learn the same thing.
         entry = self.config_entry
-        self._hass.config_entries.async_update_entry(
+        self.hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_CARRY_POWER_STATE: True}
         )
         _LOGGER.warning(
@@ -1446,7 +1445,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             self.device_name,
         )
         ir.async_create_issue(
-            self._hass,
+            self.hass,
             DOMAIN,
             request_stops_unit_issue_id(self.entry_id),
             is_fixable=False,
@@ -1457,7 +1456,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     def _report_registration_full(self) -> None:
         ir.async_create_issue(
-            self._hass,
+            self.hass,
             DOMAIN,
             registration_full_issue_id(self.entry_id),
             is_fixable=False,
@@ -1468,7 +1467,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     def _clear_registration_full_issue(self) -> None:
         ir.async_delete_issue(
-            self._hass, DOMAIN, registration_full_issue_id(self.entry_id)
+            self.hass, DOMAIN, registration_full_issue_id(self.entry_id)
         )
 
     async def set_airco(

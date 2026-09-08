@@ -965,7 +965,7 @@ async def test_update_detects_available_firmware_update(device, monkeypatch):
     await device.update()
     await device.hass.async_block_till_done()
 
-    fetch.assert_awaited_once_with(device._hass, "WF-RAC-HTTPS")
+    fetch.assert_awaited_once_with(device.hass, "WF-RAC-HTTPS")
     assert device.wireless_firmware_version == "025"
     assert device.latest_wireless_firmware_version == "026"
     assert device.firmware_update_available is True
@@ -1519,7 +1519,7 @@ async def test_add_account_returns_none_on_api_error(device):
 
 
 def _issue(device):
-    return ir.async_get(device._hass).async_get_issue(
+    return ir.async_get(device.hass).async_get_issue(
         DOMAIN, coordinator_module.registration_full_issue_id(device.config_entry.entry_id)
     )
 
