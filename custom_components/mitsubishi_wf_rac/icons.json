@@ -37,6 +37,31 @@
             "reset_energy_total": {
                 "default": "mdi:restart"
             }
+        },
+        "sensor": {
+            "connected_accounts": {
+                "default": "mdi:account-group"
+            },
+            "eev_pulses": {
+                "default": "mdi:pulse"
+            },
+            "eev_position": {
+                "default": "mdi:valve"
+            }
+        },
+        "select": {
+            "horizontal_swing": {
+                "default": "mdi:weather-dust"
+            },
+            "vertical_swing": {
+                "default": "mdi:weather-dust"
+            },
+            "fan_speed": {
+                "default": "mdi:fan"
+            },
+            "home_leave_mode": {
+                "default": "mdi:home-export-outline"
+            }
         }
     }
 }

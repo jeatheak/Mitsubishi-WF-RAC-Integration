@@ -229,7 +229,7 @@ async def test_round_trip_symmetry_survives_unit_being_off(device):
 
 # --- the Target sensor agrees with the climate entity ---------------------
 #
-# TemperatureSensor("Target") shows the same setpoint as the climate entity,
+# The target temperature sensor shows the same setpoint as the climate entity,
 # derived from the same PresetTemp, so it has to resolve the offset the same
 # way. Adding only the global CONF_TARGET_OFFSET there made the two disagree
 # by the difference as soon as a per-mode override was configured.
@@ -254,7 +254,7 @@ async def test_target_sensor_matches_climate_entity(device, hvac_mode, override_
     device.airco.OperationMode = HVAC_TRANSLATION[hvac_mode]
 
     climate = AircoClimate(device)
-    sensor = TemperatureSensor(device, "Target", ATTR_TARGET_TEMPERATURE, False)
+    sensor = TemperatureSensor(device, ATTR_TARGET_TEMPERATURE, False)
     climate._update_state()
     sensor._update_state()
 

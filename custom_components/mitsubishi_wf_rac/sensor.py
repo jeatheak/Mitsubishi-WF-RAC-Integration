@@ -86,30 +86,30 @@ async def async_setup_entry(
 
     _LOGGER.debug("Setup sensors for: %s, %s", device.device_name, device.airco_id)
     entities = [
-        TemperatureSensor(device, "Indoor", ATTR_INSIDE_TEMPERATURE),
-        TemperatureSensor(device, "Outdoor", ATTR_OUTSIDE_TEMPERATURE),
-        TemperatureSensor(device, "Target", ATTR_TARGET_TEMPERATURE, False),
+        TemperatureSensor(device, ATTR_INSIDE_TEMPERATURE),
+        TemperatureSensor(device, ATTR_OUTSIDE_TEMPERATURE),
+        TemperatureSensor(device, ATTR_TARGET_TEMPERATURE, False),
         # The `enable` flag decides entity_registry_enabled_default: on for
         # readings that say something about the unit, off for the internal
         # plumbing (ids, session, addressing) that only matters when
         # diagnosing a connection problem. All of these come out of the
         # regular poll, so enabling one costs no extra request.
-        DiagnosticsSensor(device, "Airco ID", CONF_AIRCO_ID),
-        DiagnosticsSensor(device, "Operator ID", CONF_OPERATOR_ID),
-        DiagnosticsSensor(device, "Device ID", ATTR_DEVICE_ID),
-        DiagnosticsSensor(device, "IP", CONF_HOST),
-        DiagnosticsSensor(device, "Accounts", ATTR_CONNECTED_ACCOUNTS),
-        DiagnosticsSensor(device, "Error", CONF_ERROR, True),
-        DiagnosticsSensor(device, "Updated By", ATTR_UPDATED_BY, True),
-        DiagnosticsSensor(device, "Account Expires", ATTR_ACCOUNT_EXPIRES),
+        DiagnosticsSensor(device, CONF_AIRCO_ID),
+        DiagnosticsSensor(device, CONF_OPERATOR_ID),
+        DiagnosticsSensor(device, ATTR_DEVICE_ID),
+        DiagnosticsSensor(device, CONF_HOST),
+        DiagnosticsSensor(device, ATTR_CONNECTED_ACCOUNTS),
+        DiagnosticsSensor(device, CONF_ERROR, True),
+        DiagnosticsSensor(device, ATTR_UPDATED_BY, True),
+        DiagnosticsSensor(device, ATTR_ACCOUNT_EXPIRES),
         # Off by default: mirrors the unit's own "LED ON" display-light
         # setting (see wf-rac-module-reference.md §2.8), which nobody has
         # switched off on either test unit - a constant 1 is the default,
         # not a broken read.
-        DiagnosticsSensor(device, "LED Status", ATTR_LED_STATUS),
-        DiagnosticsSensor(device, "Auto Heating", ATTR_AUTO_HEATING, True),
-        DiagnosticsSensor(device, "Model Nr", ATTR_MODEL_NR),
-        DiagnosticsSensor(device, "Cool Hot Judge", ATTR_COOL_HOT_JUDGE),
+        DiagnosticsSensor(device, ATTR_LED_STATUS),
+        DiagnosticsSensor(device, ATTR_AUTO_HEATING, True),
+        DiagnosticsSensor(device, ATTR_MODEL_NR),
+        DiagnosticsSensor(device, ATTR_COOL_HOT_JUDGE),
     ]
     if device.airco.Electric is not None:
         entities.append(EnergySensor(device))
@@ -186,37 +186,16 @@ class DiagnosticsSensor(WfRacEntity, SensorEntity):
     _attr_entity_category: EntityCategory | None = EntityCategory.DIAGNOSTIC
 
     def __init__(
-        self, device: Device, name: str, custom_type: str, enable: bool = False
+        self, device: Device, custom_type: str, enable: bool = False
     ) -> None:
         """Initialize the sensor."""
         super().__init__(device)
         self._attr_entity_registry_enabled_default = enable
         self._custom_type = custom_type
-        self._attr_native_unit_of_measurement = (
-            "Accounts" if custom_type == ATTR_CONNECTED_ACCOUNTS else None
-        )
-        self._attr_icon = (
-            "mdi:account-group" if custom_type == ATTR_CONNECTED_ACCOUNTS else None
-        )
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-{self._custom_type}-sensor"
         )
-        # Map custom_type to translation key
-        type_map = {
-            "airco_id": "airco_id",
-            "operator_id": "operator_id",
-            "device_id": "device_id",
-            "host": "host",
-            "connected_accounts": "connected_accounts",
-            "error": "error",
-            "updated_by": "updated_by",
-            "account_expires": "account_expires",
-            "led_status": "led_status",
-            "auto_heating": "auto_heating",
-            "model_nr": "model_nr",
-            "cool_hot_judge": "cool_hot_judge",
-        }
-        self._attr_translation_key = type_map.get(custom_type, custom_type)
+        self._attr_translation_key = custom_type
         self._apply_state()
 
     def _mark_state_unknown(self) -> None:
@@ -260,7 +239,15 @@ class TemperatureSensor(WfRacEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, device: Device, name: str, custom_type: str, enable: bool = True) -> None:
+    _TRANSLATION_KEYS = {
+        "inside_temperature": "indoor",
+        "outside_temperature": "outdoor",
+        "target_temperature": "target",
+    }
+
+    def __init__(
+        self, device: Device, custom_type: str, enable: bool = True
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(device)
         self._custom_type = custom_type
@@ -268,13 +255,7 @@ class TemperatureSensor(WfRacEntity, SensorEntity):
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-{self._custom_type}-sensor"
         )
-        # Map custom_type to translation key
-        type_map = {
-            "inside_temperature": "indoor",
-            "outside_temperature": "outdoor",
-            "target_temperature": "target"
-        }
-        self._attr_translation_key = type_map.get(custom_type, custom_type)
+        self._attr_translation_key = self._TRANSLATION_KEYS[custom_type]
         self._apply_state()
 
     def _mark_state_unknown(self) -> None:
@@ -484,10 +465,8 @@ class ServiceDataSensor(WfRacEntity, SensorEntity):
             self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
         elif custom_type == ATTR_EEV_PULSES:
             self._attr_native_unit_of_measurement = "pulses"
-            self._attr_icon = "mdi:pulse"
         elif custom_type == ATTR_EEV_POSITION:
             self._attr_native_unit_of_measurement = PERCENTAGE
-            self._attr_icon = "mdi:valve"
         elif custom_type in (ATTR_INDOOR_COIL_TEMP, ATTR_INDOOR_COIL_OUTLET_TEMP):
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
             self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS

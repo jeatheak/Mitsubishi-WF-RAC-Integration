@@ -86,7 +86,6 @@ class HorizontalSwingSelect(WfRacEntity, SelectEntity):
         super().__init__(device)
         self._attr_entity_registry_enabled_default = device.swing_selects_enabled_default
         self._attr_options = SUPPORT_SWING_HORIZONTAL_MODES
-        self._attr_icon = "mdi:weather-dust"
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-horizontal-swing-direction"
         )
@@ -143,7 +142,6 @@ class VerticalSwingSelect(WfRacEntity, SelectEntity):
         super().__init__(device)
         self._attr_entity_registry_enabled_default = device.swing_selects_enabled_default
         self._attr_options = SUPPORT_SWING_MODES
-        self._attr_icon = "mdi:weather-dust"
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-vertical-swing-direction"
         )
@@ -198,7 +196,6 @@ class FanSpeedSelect(WfRacEntity, SelectEntity):
         super().__init__(device)
         self._attr_entity_registry_enabled_default = device.swing_selects_enabled_default
         self._attr_options = SUPPORTED_FAN_MODES
-        self._attr_icon = "mdi:fan"
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-fan-speed"
         self._apply_state()
 
@@ -240,7 +237,6 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
     """
 
     _attr_translation_key = "home_leave_mode"
-    _attr_icon = "mdi:home-export-outline"
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
