@@ -353,13 +353,63 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             max(self._max_temp_for_mode(mode) for mode in REGULATING_HVAC_MODES),
         )
 
+    def _writing_mode(self, hvac_mode: HVACMode) -> HVACMode:
+        """The mode a setpoint for this hvac_mode is actually written in.
+
+        A call naming a regulating mode switches to it. Off leaves the unit on
+        the mode it keeps underneath, and that is what the value lands in and
+        what _update_state() reads it back with. That underlying mode can be
+        fan-only itself, which has no setpoint range of its own.
+        """
+        if hvac_mode in REGULATING_HVAC_MODES:
+            return hvac_mode
+        return self._hvac_mode_from_operation
+
+    def _offset_for_target(self, hvac_mode: HVACMode) -> float:
+        """The target offset a setpoint for this mode is written with."""
+        return self._resolve_target_offset(self._writing_mode(hvac_mode))
+
+    def _displayed_setpoint_range(self, hvac_mode: HVACMode) -> tuple[float, float]:
+        """The setpoint range in the numbers the card shows.
+
+        The device is held to _setpoint_range_for_mode(); what the user sets
+        and reads back is that value plus the target offset, so the bounds move
+        with it. Advertising the device's own range instead let a setpoint at
+        the edge pass validation, get clamped on the wire and come back one
+        offset away from what was asked for - with a +1 offset, a requested 16
+        became 15, was clamped back to 16 and displayed as 17.
+
+        For a mode with no range of its own the shift happens per mode and the
+        union comes after, because each mode carries its own offset. Shifting
+        the union by one mode's offset instead would reject a setpoint that is
+        legal in the mode the call switches to - and Home Assistant reads
+        min_temp/max_temp and rejects on its own before the entity ever sees
+        the call, so there is no second chance to get it right. That pre-check
+        still measures a mode-switching call against the mode the unit is in
+        right now, which no integration can help.
+        """
+        if hvac_mode in REGULATING_HVAC_MODES:
+            offset = self._resolve_target_offset(hvac_mode)
+            return (
+                self._min_temp_for_mode(hvac_mode) + offset,
+                self._max_temp_for_mode(hvac_mode) + offset,
+            )
+        shifted = [
+            (
+                self._min_temp_for_mode(mode) + self._resolve_target_offset(mode),
+                self._max_temp_for_mode(mode) + self._resolve_target_offset(mode),
+            )
+            for mode in REGULATING_HVAC_MODES
+        ]
+        return min(low for low, _ in shifted), max(high for _, high in shifted)
+
     @property
     def min_temp(self) -> float:
-        return self._setpoint_range_for_mode(self._attr_hvac_mode)[0]
+        return self._displayed_setpoint_range(self._attr_hvac_mode)[0]
 
     @property
     def max_temp(self) -> float:
-        return self._setpoint_range_for_mode(self._attr_hvac_mode)[1]
+        return self._displayed_setpoint_range(self._attr_hvac_mode)[1]
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
@@ -368,7 +418,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         # being switched to, not the (still stale until the next poll) current one.
         target_hvac_mode = kwargs.get("hvac_mode", self._attr_hvac_mode)
         target_hvac_mode = HVACMode.OFF if target_hvac_mode is None else target_hvac_mode
-        min_temp, max_temp = self._setpoint_range_for_mode(target_hvac_mode)
+        min_temp, max_temp = self._displayed_setpoint_range(target_hvac_mode)
 
         # Naming the mode is the whole message: the range depends on it, and
         # an automation that sets a setpoint before switching mode gets
@@ -403,12 +453,18 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         # biased against the room. The target offset compensates that on the
         # wire while the displayed target_temperature stays what was asked
         # for - CONF_INDOOR_OFFSET is a separate, display-only correction and
-        # is not what is subtracted here. Resolved against the mode the unit
-        # will be in after this command, since cooling and heating have
-        # opposite-sign bias.
-        target_offset = self._resolve_target_offset(target_hvac_mode)
-        target_temp = set_temp - target_offset
-        target_temp = max(min_temp, min(max_temp, target_temp))
+        # is not what is subtracted here. Resolved against the mode the value
+        # lands in, since cooling and heating have opposite-sign bias.
+        target_temp = set_temp - self._offset_for_target(target_hvac_mode)
+        # Cannot bite when the call names a regulating mode: the bounds checked
+        # above are then that mode's own, shifted by the same offset just
+        # subtracted. It is here for off and fan-only, where the range
+        # deliberately spans every regulating mode (#317) and the value can
+        # land outside the range of the one it is written in.
+        device_low, device_high = self._setpoint_range_for_mode(
+            self._writing_mode(target_hvac_mode)
+        )
+        target_temp = max(device_low, min(device_high, target_temp))
 
         opts: dict[AirconCommands, Any] = {AirconCommands.PresetTemp: target_temp}
 
@@ -524,8 +580,22 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         through HomeLeaveModeSelect instead of guessed at here.
         """
         if preset_mode == PRESET_NONE:
+            # Offset-corrected like every other setpoint: NORMAL_TEMP is what
+            # the card should read afterwards, not what goes on the wire - sent
+            # raw, _update_state() would add the offset back and leave the card
+            # showing 21 plus it. Held to the device's range too, which a
+            # user's own request never is: this value is ours, and an offset
+            # can push it under the mode's floor. It can never land back on a
+            # Home Leave setpoint, but only because the options flow caps a
+            # target offset at +/-5: reaching HOME_LEAVE_TEMP_HEAT would take
+            # +11, HOME_LEAVE_TEMP_COOL -10. Widening that would need a guard
+            # here.
+            low, high = self._setpoint_range_for_mode(
+                self._writing_mode(self._attr_hvac_mode)
+            )
+            normal_temp = NORMAL_TEMP - self._offset_for_target(self._attr_hvac_mode)
             await self._device.async_queue_command(
-                {AirconCommands.PresetTemp: NORMAL_TEMP}
+                {AirconCommands.PresetTemp: max(low, min(high, normal_temp))}
             )
             return
 
