@@ -56,6 +56,9 @@ See [Github To Do & Bug List](https://github.com/blues-sechseck/Mitsubishi-WF-RA
 This integration is part of the HACS default list — no custom repository needed. In HACS, go to
 **Integrations**, search for **"Mitsubishi WF-RAC"**, and install it from there.
 
+Needs Home Assistant **2026.4** or newer. That is the oldest release the test suite runs against,
+so it is a version this has actually been shown to work on rather than one it is merely hoped to.
+
 Already installed? Jump straight to setup:
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=mitsubishi_wf_rac)
@@ -67,19 +70,22 @@ Clone or copy this repository and copy the folder `custom_components/mitsubishi_
 
 ### Setting it up
 
-Units on the same network are found by themselves and show up as discovered devices — confirm one,
-give it a name, and you are done. Adding one by hand asks for the same details:
+Units on the same network are found by themselves and show up as discovered devices — confirm one
+and you are done. Adding one by hand asks for the same details:
 
 | Field | Description |
 |---|---|
-| Airco Name | The name the airco gets in Home Assistant. It names the device and prefixes the entities belonging to it. |
-| Host (IP) address | The local IP address of the airco's wireless module. Give the module a fixed address in your router — a changed address isn't followed on its own, it has to be corrected here via **Reconfigure**. |
+| Host (IP) address | The local IP address of the airco's wireless module. A changed address is picked up when the module announces itself again; give the module a fixed address in your router, or correct it here via **Reconfigure**. |
 | Port | The port the module's local API listens on, `51443` on every firmware branch seen so far. Discovery fills this in; correct it only if your module announces something else. |
 | Ignore duplicate IP address | Off by default. Adds the airco even though another entry already uses that IP address — meant for re-adding a unit whose old entry went missing. The module accepts one connection at a time, so two entries polling it produce errors in the log. |
 
-Discovery asks only for the name and the port; the address is the one the module announced. The
-setup connects to the airco right away and registers Home Assistant as an operator on it, so the
-unit has to be reachable at that moment. Everything else is configured afterwards under
+Discovery asks only for the port; the address is the one the module announced. The setup connects
+to the airco right away and registers Home Assistant as an operator on it, so the unit has to be
+reachable at that moment.
+
+The entry is named after the unit — `WF-RAC` plus the last four characters of the airco id, which
+match the label on the module. Rename it whenever you like: use Home Assistant's own rename on the
+device or the entry, and the device name follows. Everything else is configured afterwards under
 **Configure** (see [Options](#options)).
 
 ### Removing the integration
@@ -106,7 +112,7 @@ This integration creates one device per airco with the following entities.
 | | `fan_mode` | `auto`, `quiet`, `low`, `medium`, `high` | Fan speed. `quiet` is the lowest of the four steps, not the remote's ECO setting - ECO can't be set or read through the WLAN module, and while the remote has it running the unit reports the lowest step. |
 | | `swing_mode` | `up_down_auto`, `highest`, `middle`, `normal`, `lowest`, `3d_auto` | Vertical louver position. `3d_auto` hands vertical *and* horizontal swing over to the unit's own automatic mode. |
 | | `swing_horizontal_mode` | `left_right_auto`, `left_left`, `left_center`, `center_center`, `center_right`, `right_right`, `left_right`, `right_left`, `3d_auto` | Horizontal louver position. `3d_auto` behaves as above. |
-| | `target_temperature` | 16–30 °C (cool), 18–30 °C (other modes) | Setpoint. Cooling accepts a lower minimum than heating/auto/dry in practice; heating below 18 °C isn't a reliable plain setpoint (see Home Leave Mode for that instead). |
+| | `target_temperature` | 16–30 °C (cool), 18–30 °C (other modes) | Setpoint. Cooling accepts a lower minimum than heating/auto/dry in practice; heating below 18 °C isn't a reliable plain setpoint (see Home Leave Mode for that instead). With a Target Temp. Offset set, the offered range moves with it - see the sign convention below. |
 | | `current_temperature` | °C | Indoor temperature as measured by the unit, corrected by the "Indoor Temp. Sensor Offset" option if set. |
 | | `preset_mode` | `none`, `away` | Only on units that report the Vacant bit. `away` is the unit's own Home Leave Mode, entered with the away-target of the direction the unit is currently running in - so it needs `cool` or `heat`, and refuses in `auto`/`dry`/`fan_only`. The Home Leave Mode select names the direction explicitly and works from any mode. |
 | | `target_temperature` step | 0.5 °C | The setpoint travels the wire in 0.5 K steps; anything finer is truncated by the unit. |
@@ -319,6 +325,8 @@ The unit's internal temperature sensor is a **return-air sensor built into the i
 There's no way to predict which case applies to your unit from its mode alone - you have to measure.
 
 Target Temp. Offset corrects for this bias: `true_room ≈ PresetTemp + offset`. To land the *room* on the temperature you actually requested, the setpoint sent to the unit is `commanded PresetTemp = requested − offset`. Concretely: **a negative offset raises the setpoint actually sent to the unit** (a positive offset lowers it).
+
+The offered setpoint range moves with the offset, so the bounds shown are the values you can actually ask for. With a +1 °C offset in cooling the card offers 17–31 °C: 17 goes out as 16, the lowest the unit takes, and reads back as 17. In `off` and `fan_only` the card spans every regulating mode, each shifted by its own offset - the setpoint there applies to whichever mode is turned on next.
 
 **Measuring it:** place a reference sensor away from the unit's own airflow, then average `current_temperature` (the Indoor Temperature sensor) minus that reference, split by the climate entity's `hvac_action`. Use the average while `cooling` (or `heating`) as your starting point for Target Temp. Offset (Cooling) / (Heating) - that's the state the thermostat loop actually regulates in, and it's not interchangeable with `idle` or `off`: on the installation above, the same unit's average bias moved by more than a kelvin between `cooling` and `off`. This is also why no single value is correct for both cool and heat at once, and why the offset isn't a fixed mounting/calibration error you can look up - it calibrates your installation's operating regime, and only a measurement of *your* unit, in the state it's actually controlling in, gets it right.
 

@@ -4,7 +4,6 @@
       "unexpected_error": "Įvyko nežinoma klaida. Pasitikrinkite log failus",
       "cannot_connect": "Nepavyko prisijungti prie kondicionieriaus: {reason}",
       "invalid_host": "Netinkamas serverio vardas arba IP adresas",
-      "name_invalid": "Pavadinimas jau naudojamas arba yra trumpesnis nei 3 simboliai",
       "host_already_configured": "Kondicionieriaus IP jau nustatytas kaip [{error_name}]",
       "too_many_devices_registered": "Su kondicionieriumi susieta per daug įrenginių. Ištrinkitę įrenginį programėlėje arba atstatykite modulį į gamyklinę būseną."
     },
@@ -16,13 +15,11 @@
     "step": {
       "user": {
         "data": {
-          "name": "Kondicionieriaus pavadinimas",
           "host": "Host (IP) adresas",
           "port": "Portas",
           "force_update": "Nepaisyti pasikartojančio IP adreso"
         },
         "data_description": {
-          "name": "Šio kondicionieriaus pavadinimas Home Assistant sistemoje. Juo pavadinamas įrenginys, jis rašomas ir prieš susijusių objektų pavadinimus.",
           "host": "Vietinis kondicionieriaus belaidžio modulio IP adresas. Pasikeitęs adresas perimamas, kai modulis vėl praneša apie save; maršrutizatoriuje priskirkite pastovų adresą arba, jei taip neįvyksta, pataisykite jį čia.",
           "port": "Prievadas, kuriuo pasiekiama vietinė modulio sąsaja. Palikite 51443, nebent modulis nurodo kitą.",
           "force_update": "Prideda šį kondicionierių, nors tą patį IP adresą jau naudoja kitas įrašas. Skirta įrenginiui, kurio senas įrašas dingo: modulis vienu metu priima tik vieną prisijungimą, todėl du jį apklausiantys įrašai kelia klaidas žurnale."
@@ -31,25 +28,21 @@
         "title": "WF-RAC AC susijungimo informacija"
       },
       "discovery_confirm": {
-        "description": "Rastas kondicionierius, kurio id: {id}, IP: {host} ir portas: {port}. Paprastai šis portas yra 51443 — jei kitoks, pataisykite žemiau. Suteikite jam pavadinimą.",
+        "description": "Rastas kondicionierius, kurio id: {id}, IP: {host} ir portas: {port}. Paprastai šis portas yra 51443 — jei kitoks, pataisykite žemiau.",
         "title": "Atrastas WF-RAC kondicionierius",
         "data": {
-          "name": "Kondicionieriaus pavadinimas",
           "port": "Portas"
         },
         "data_description": {
-          "name": "Šio kondicionieriaus pavadinimas Home Assistant sistemoje. Juo pavadinamas įrenginys, jis rašomas ir prieš susijusių objektų pavadinimus.",
           "port": "Modulio nurodytas prievadas. Paprastai 51443 — jei kitoks, pataisykite čia."
         }
       },
       "reconfigure": {
         "data": {
-          "name": "Kondicionieriaus pavadinimas",
           "host": "Host (IP) adresas",
           "port": "Portas"
         },
         "data_description": {
-          "name": "Šio kondicionieriaus pavadinimas Home Assistant sistemoje. Juo pavadinamas įrenginys, jis rašomas ir prieš susijusių objektų pavadinimus.",
           "host": "Vietinis kondicionieriaus belaidžio modulio IP adresas. Pasikeitęs adresas perimamas, kai modulis vėl praneša apie save; maršrutizatoriuje priskirkite pastovų adresą arba, jei taip neįvyksta, pataisykite jį čia.",
           "port": "Prievadas, kuriuo pasiekiama vietinė modulio sąsaja. Palikite 51443, nebent modulis nurodo kitą."
         },

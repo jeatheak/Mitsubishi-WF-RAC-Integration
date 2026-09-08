@@ -4,7 +4,6 @@
       "unexpected_error": "An unexpected error occurred. Please check the log for details.",
       "cannot_connect": "Could not connect with the Airco: {reason}",
       "invalid_host": "Invalid hostname or IP address",
-      "name_invalid": "Name is already taken or is shorter than 3 characters",
       "host_already_configured": "Airco IP already configured as [{error_name}]",
       "too_many_devices_registered": "There are too many devices registered for this airco. Please delete a device (in the app) or do a factory reset of the module."
     },
@@ -16,13 +15,11 @@
     "step": {
       "user": {
         "data": {
-          "name": "Airco Name",
           "host": "Host (IP) address",
           "port": "Port",
           "force_update": "Ignore duplicate IP address"
         },
         "data_description": {
-          "name": "The name for this airco in Home Assistant. It names the device and prefixes the entities belonging to it.",
           "host": "The local IP address of the airco's wireless module. A changed address is picked up when the module announces itself again; give the module a fixed address in your router, or correct it here if it does not.",
           "port": "The port the module's local API listens on. Leave this at 51443 unless your module announces a different one.",
           "force_update": "Add this airco even though another entry already uses this IP address. Meant for re-adding a unit whose old entry went missing: the module accepts one connection at a time, so two entries polling it will produce errors in the log."
@@ -31,25 +28,21 @@
         "title": "WF-RAC AC connection info"
       },
       "discovery_confirm": {
-        "description": "The airco with id: {id}, IP: {host} and port: {port} was discovered. The port is normally 51443 — correct it below if it looks different. Please give it a name.",
+        "description": "The airco with id: {id}, IP: {host} and port: {port} was discovered. The port is normally 51443 — correct it below if it looks different.",
         "title": "Discovered WF-RAC airco",
         "data": {
-          "name": "Airco Name",
           "port": "Port"
         },
         "data_description": {
-          "name": "The name for this airco in Home Assistant. It names the device and prefixes the entities belonging to it.",
           "port": "The port the module announced. It is normally 51443 - correct it here if the value above looks different."
         }
       },
       "reconfigure": {
         "data": {
-          "name": "Airco Name",
           "host": "Host (IP) address",
           "port": "Port"
         },
         "data_description": {
-          "name": "The name for this airco in Home Assistant. It names the device and prefixes the entities belonging to it.",
           "host": "The local IP address of the airco's wireless module. A changed address is picked up when the module announces itself again; give the module a fixed address in your router, or correct it here if it does not.",
           "port": "The port the module's local API listens on. Leave this at 51443 unless your module announces a different one."
         },

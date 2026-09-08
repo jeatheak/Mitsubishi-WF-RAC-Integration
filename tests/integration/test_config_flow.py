@@ -80,11 +80,14 @@ async def test_user_flow_success_creates_entry(hass: HomeAssistant):
         )
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443},
+            {"host": "192.168.1.50", "port": 51443},
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Living Room AC"
+    # Titled after the unit, not asked for: the last four characters of the
+    # airco id tell two units apart without putting the whole id into the
+    # device name and every entity id built from it.
+    assert result["title"] == "WF-RAC co-1"
     # CONF_HOST moves from data to options (see _async_create_common) - not
     # duplicated across both.
     assert result["data"]["host"] == "192.168.1.50"
@@ -103,7 +106,7 @@ async def test_user_flow_invalid_host_shows_error(hass: HomeAssistant):
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC", "host": "ab"}
+            result["flow_id"], {"host": "ab"}
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -111,18 +114,6 @@ async def test_user_flow_invalid_host_shows_error(hass: HomeAssistant):
     repo.get_airco_id.assert_not_awaited()
 
 
-async def test_user_flow_invalid_name_shows_error(hass: HomeAssistant):
-    repo = _mock_repository()
-    with _patch_repository(repo):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": config_entries.SOURCE_USER}
-        )
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "ab", "host": "192.168.1.50"}
-        )
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"name": "name_invalid"}
 
 
 async def test_user_flow_host_already_configured_shows_error(hass: HomeAssistant):
@@ -138,7 +129,7 @@ async def test_user_flow_host_already_configured_shows_error(hass: HomeAssistant
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "New AC", "host": "192.168.1.50", "port": 51443}
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -162,7 +153,7 @@ async def test_user_flow_force_update_bypasses_duplicate_host_check(hass: HomeAs
         )
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"name": "New AC", "host": "192.168.1.50", "port": 51443, "force_update": True},
+            {"host": "192.168.1.50", "port": 51443, "force_update": True},
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -176,7 +167,7 @@ async def test_user_flow_cannot_connect_shows_error(hass: HomeAssistant):
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443}
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -190,7 +181,7 @@ async def test_user_flow_empty_airco_id_is_cannot_connect(hass: HomeAssistant):
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443}
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -205,7 +196,7 @@ async def test_user_flow_update_account_info_falsy_is_cannot_connect(hass: HomeA
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443}
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -219,7 +210,7 @@ async def test_user_flow_too_many_devices_shows_error(hass: HomeAssistant):
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443}
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -234,7 +225,7 @@ async def test_user_flow_unexpected_exception_shows_generic_error(hass: HomeAssi
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443}
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -259,7 +250,7 @@ async def test_user_flow_reuses_operator_and_device_id_from_existing_entry(hass:
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Second AC", "host": "192.168.1.50", "port": 51443}
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -300,7 +291,7 @@ async def test_reconfigure_flow_shows_form_with_current_values(hass: HomeAssista
     suggested = {
         key.schema: key.description["suggested_value"] for key in result["data_schema"].schema
     }
-    assert suggested == {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443}
+    assert suggested == {"host": "192.168.1.50", "port": 51443}
 
 
 async def test_reconfigure_flow_updates_host_and_reloads(hass: HomeAssistant):
@@ -311,7 +302,7 @@ async def test_reconfigure_flow_updates_host_and_reloads(hass: HomeAssistant):
         result = await entry.start_reconfigure_flow(hass)
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"name": "Living Room AC", "host": "192.168.1.60", "port": 51443},
+            {"host": "192.168.1.60", "port": 51443},
         )
         await hass.async_block_till_done()
 
@@ -336,7 +327,7 @@ async def test_reconfigure_flow_allows_resubmitting_the_same_host(hass: HomeAssi
         result = await entry.start_reconfigure_flow(hass)
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"name": "Living Room AC", "host": "192.168.1.50", "port": 51443},
+            {"host": "192.168.1.50", "port": 51443},
         )
 
     assert result["type"] is FlowResultType.ABORT
@@ -356,7 +347,7 @@ async def test_reconfigure_flow_rejects_another_entrys_host(hass: HomeAssistant)
         result = await entry.start_reconfigure_flow(hass)
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"name": "Living Room AC", "host": "192.168.1.99", "port": 51443},
+            {"host": "192.168.1.99", "port": 51443},
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -373,7 +364,7 @@ async def test_reconfigure_flow_cannot_connect_shows_error(hass: HomeAssistant):
         result = await entry.start_reconfigure_flow(hass)
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"name": "Living Room AC", "host": "192.168.1.60", "port": 51443},
+            {"host": "192.168.1.60", "port": 51443},
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -430,8 +421,9 @@ async def test_zeroconf_discovery_confirm_creates_entry(hass: HomeAssistant):
             context={"source": config_entries.SOURCE_ZEROCONF},
             data=_zeroconf_info(),
         )
+        # The form pre-fills the announced port and the user confirms it.
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC"}
+            result["flow_id"], {"port": 51443}
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -453,7 +445,7 @@ async def test_zeroconf_announced_port_falls_back_to_the_fixed_one(hass: HomeAss
             data=_zeroconf_info(port=5353),
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC"}
+            result["flow_id"], {"port": 5353}
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -475,7 +467,7 @@ async def test_manual_port_is_not_second_guessed(hass: HomeAssistant):
         )
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"name": "Living Room AC", "host": "192.168.1.50", "port": 8443},
+            {"host": "192.168.1.50", "port": 8443},
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -496,7 +488,7 @@ async def test_zeroconf_discovery_confirm_port_can_be_overridden(hass: HomeAssis
             data=_zeroconf_info(port=5353),
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"name": "Living Room AC", "port": 51443}
+            result["flow_id"], {"port": 51443}
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -1025,12 +1017,6 @@ def test_is_matching_without_unique_id_never_matches():
     assert flow_a.is_matching(flow_b) is False
 
 
-def test_name_property_reads_from_context():
-    from custom_components.mitsubishi_wf_rac.config_flow import WfRacConfigFlow
-
-    flow = WfRacConfigFlow()
-    flow.context = {"name": "Living Room AC"}
-    assert flow._name == "Living Room AC"
 
 
 async def test_a_rediscovery_refreshes_the_address_but_not_the_port(hass: HomeAssistant):
@@ -1069,3 +1055,41 @@ async def test_a_rediscovery_refreshes_the_address_but_not_the_port(hass: HomeAs
     assert result["reason"] == "already_configured"
     assert entry.data[CONF_HOST] == "192.168.1.60"
     assert entry.data[CONF_PORT] == 51443
+
+
+async def test_a_shouted_hostname_still_matches_the_entry(hass: HomeAssistant):
+    """The unique id is one case, whoever supplied it.
+
+    Discovery takes it from the announced hostname and every other path from
+    the airconId the unit reports. Compared as they arrive, a difference in
+    case would offer a configured unit as a new discovery and never refresh
+    its address.
+    """
+    entry = _existing_entry(hass, host="192.168.1.50")
+    hass.config_entries.async_update_entry(entry, unique_id="ac-living-room")
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=_zeroconf_info(host="192.168.1.99", hostname="AC-Living-Room.local."),
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert entry.data["host"] == "192.168.1.99"
+
+
+async def test_the_manual_flow_registers_the_unit_as_the_unique_id(hass: HomeAssistant):
+    """What lets a later discovery recognise a hand-added entry."""
+    repo = _mock_repository(airco_id="348E89C5A137", update_result=0)
+    with _patch_repository(repo):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    assert entry.unique_id == "348e89c5a137"
+    assert result["title"] == "WF-RAC A137"
