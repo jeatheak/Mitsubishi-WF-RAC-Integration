@@ -167,8 +167,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEnt
     # device that's unreachable at startup gets HA's automatic retry-with-backoff
     # rather than a silently "loaded" entry with no working entities.
     if not _device.available:
+        # No positional message: HomeAssistantError only renders the
+        # translation when it is constructed without one.
         raise ConfigEntryNotReady(
-            f"Could not reach device [{device}]",
             translation_domain=DOMAIN,
             translation_key="cannot_connect",
             translation_placeholders={"device": device},

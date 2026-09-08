@@ -787,9 +787,12 @@ async def test_unknown_fan_step_leaves_the_entity_constructed(device, monkeypatc
 
     # Constructing must not raise: the platform would never finish setting up
     # and the entry would load without a climate entity at all.
-    AircoClimate(device)
+    entity = AircoClimate(device)
 
-    set_available.assert_called_once_with(False)
+    # The unit answered and still takes commands, so only this entity's state
+    # is unknown - the device stays as available as it was.
+    assert entity.hvac_mode is None
+    set_available.assert_not_called()
 
 
 async def test_unknown_fan_step_is_recognised_by_name(device, monkeypatch):

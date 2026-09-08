@@ -62,6 +62,9 @@ class ProblemBinarySensor(WfRacEntity, BinarySensorEntity):
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-problem"
         self._apply_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
+
     def _update_state(self) -> None:
         code = self._device.airco.ErrorCode
         self._attr_is_on = code != "00"
@@ -94,6 +97,9 @@ class CompressorBinarySensor(WfRacEntity, BinarySensorEntity):
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-compressor"
         self._apply_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
+
     def _update_state(self) -> None:
         self._attr_is_on = self._device.airco.CompressorRunning
 
@@ -119,6 +125,9 @@ class ExternalControlBinarySensor(WfRacEntity, BinarySensorEntity):
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-external-control"
         self._apply_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
+
     def _update_state(self) -> None:
         self._attr_is_on = self._device.foreign_activity
 
@@ -143,6 +152,9 @@ class ExternalTemperatureActiveBinarySensor(WfRacEntity, BinarySensorEntity):
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-external-temperature-active"
         self._apply_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
+
     def _update_state(self) -> None:
         self._attr_is_on = self._device.external_temperature_applied
 
@@ -159,6 +171,9 @@ class OccupancyBinarySensor(WfRacEntity, BinarySensorEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-occupancy"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
 
     def _update_state(self) -> None:
         # Vacant == True means nobody is present.

@@ -21,7 +21,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import section
+from homeassistant.data_entry_flow import AbortFlow, section
 from homeassistant.helpers import entity_registry as er, selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
@@ -248,6 +248,10 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         description_placeholders[key] = str(value)
                     else:
                         description_placeholders[key] = value
+            except AbortFlow:
+                # An abort is the flow working as intended - already
+                # configured, already in progress - not an unexpected error.
+                raise
             except Exception:  # pylint: disable=broad-except
                 # Intentionally broad: this is the outermost boundary of the config
                 # flow step, so any bug here should show the user a graceful
@@ -380,6 +384,10 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 description_placeholders.update(
                     {k: str(v) for k, v in placeholders.items()}
                 )
+            except AbortFlow:
+                # An abort is the flow working as intended - already
+                # configured, already in progress - not an unexpected error.
+                raise
             except Exception:  # pylint: disable=broad-except
                 # Same outermost boundary as _async_create_common: a bug here
                 # should surface as "unexpected_error", not crash the flow.

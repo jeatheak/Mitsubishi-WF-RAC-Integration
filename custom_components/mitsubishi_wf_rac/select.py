@@ -97,6 +97,9 @@ class HorizontalSwingSelect(WfRacEntity, SelectEntity):
             ]
         )
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
+
     def _update_state(self) -> None:
         self.select_option(
             SWING_3D_AUTO
@@ -151,6 +154,9 @@ class VerticalSwingSelect(WfRacEntity, SelectEntity):
             ]
         )
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
+
     def _update_state(self) -> None:
         self.select_option(
             SWING_3D_AUTO
@@ -195,6 +201,9 @@ class FanSpeedSelect(WfRacEntity, SelectEntity):
         self._attr_icon = "mdi:fan"
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-fan-speed"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         # Same marker check as the climate entity's fan mode: the library
@@ -243,6 +252,9 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
         ]
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-home-leave-mode"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         airco = self._device.airco
@@ -325,6 +337,9 @@ class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
             if self._mode == "cooling"
             else self._device.airco.HomeLeaveModeForHeating
         )
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         setting = self._current_setting()

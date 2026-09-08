@@ -58,6 +58,10 @@ class FirmwareUpdateEntity(WfRacEntity, UpdateEntity):
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-firmware-update"
         self._apply_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_installed_version = None
+        self._attr_latest_version = None
+
     def _update_state(self) -> None:
         self._attr_installed_version = self._device.wireless_firmware_version
         latest = self._device.latest_wireless_firmware_version

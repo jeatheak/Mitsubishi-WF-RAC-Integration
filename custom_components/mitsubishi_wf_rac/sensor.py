@@ -219,6 +219,9 @@ class DiagnosticsSensor(WfRacEntity, SensorEntity):
         self._attr_translation_key = type_map.get(custom_type, custom_type)
         self._apply_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_native_value = None
+
     def _update_state(self) -> None:
         if self._custom_type == CONF_OPERATOR_ID:
             self._attr_native_value = self._device.operator_id
@@ -275,6 +278,9 @@ class TemperatureSensor(WfRacEntity, SensorEntity):
         self._attr_translation_key = type_map.get(custom_type, custom_type)
         self._apply_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_native_value = None
+
     def _update_state(self) -> None:
         if self._custom_type == ATTR_INSIDE_TEMPERATURE:
             indoor_offset = self._device.options.get(CONF_INDOOR_OFFSET, 0.0)
@@ -310,6 +316,9 @@ class EnergySensor(WfRacEntity, SensorEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-energy-sensor"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_native_value = None
 
     def _update_state(self) -> None:
         self._attr_native_value = self._device.airco.Electric
@@ -404,6 +413,9 @@ class EnergyTotalSensor(WfRacEntity, RestoreSensor):
         self._apply_state()
         self.async_write_ha_state()
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_native_value = None
+
     def _update_state(self) -> None:
         raw = self._device.airco.Electric
         if raw is None:
@@ -481,6 +493,9 @@ class ServiceDataSensor(WfRacEntity, SensorEntity):
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
             self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_native_value = None
 
     def _update_state(self) -> None:
         self._attr_native_value = getattr(self._device.airco, self._FIELD_BY_TYPE[self._custom_type])

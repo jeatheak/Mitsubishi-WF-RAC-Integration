@@ -103,6 +103,9 @@ class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
             else self._device.airco.HomeLeaveModeForHeating
         )
 
+    def _mark_state_unknown(self) -> None:
+        self._attr_native_value = None
+
     def _update_state(self) -> None:
         # WfRacEntity.available reflects device connectivity, not per-value
         # readiness - a not-yet-requested Home Leave value just reads as

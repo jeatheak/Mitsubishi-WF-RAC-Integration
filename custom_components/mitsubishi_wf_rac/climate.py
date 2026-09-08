@@ -119,7 +119,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
     _attr_hvac_modes: list[HVACMode] = SUPPORTED_HVAC_MODES
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
-    _attr_hvac_mode: HVACMode = HVACMode.OFF
     _attr_hvac_action: HVACAction | None = None
     _attr_fan_mode: str = FAN_AUTO
     _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
@@ -358,7 +357,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             max(self._max_temp_for_mode(mode) for mode in REGULATING_HVAC_MODES),
         )
 
-    def _writing_mode(self, hvac_mode: HVACMode) -> HVACMode:
+    def _writing_mode(self, hvac_mode: HVACMode | None) -> HVACMode:
         """The mode a setpoint for this hvac_mode is actually written in.
 
         A call naming a regulating mode switches to it. Off leaves the unit on
@@ -370,11 +369,13 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             return hvac_mode
         return self._hvac_mode_from_operation
 
-    def _offset_for_target(self, hvac_mode: HVACMode) -> float:
+    def _offset_for_target(self, hvac_mode: HVACMode | None) -> float:
         """The target offset a setpoint for this mode is written with."""
         return self._resolve_target_offset(self._writing_mode(hvac_mode))
 
-    def _displayed_setpoint_range(self, hvac_mode: HVACMode) -> tuple[float, float]:
+    def _displayed_setpoint_range(
+        self, hvac_mode: HVACMode | None
+    ) -> tuple[float, float]:
         """The setpoint range in the numbers the card shows.
 
         The device is held to _setpoint_range_for_mode(); what the user sets
@@ -661,6 +662,9 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
                 AirFlow=air_flow_heating,
             ),
         )
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_hvac_mode = None
 
     def _update_state(self) -> None:
         """Private update attributes"""

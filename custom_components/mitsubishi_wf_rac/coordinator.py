@@ -21,6 +21,7 @@ from homeassistant.helpers.device_registry import (
     format_mac,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import (
     AC_CERT_FILENAME,
@@ -777,7 +778,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             return
         if not self._firm_type or not self._wireless_firmware_ver:
             return
-        now = datetime.now()
+        now = dt_util.utcnow()
         if (
             self._last_firmware_check is not None
             and now - self._last_firmware_check < FIRMWARE_CHECK_INTERVAL
@@ -870,8 +871,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     def _note_foreign_write(self, evidence: str) -> None:
         if self._foreign_activity_since is None:
-            self._foreign_activity_since = datetime.now()
-        self._foreign_activity_until = datetime.now() + FOREIGN_ACTIVITY_BACKOFF
+            self._foreign_activity_since = dt_util.utcnow()
+        self._foreign_activity_until = dt_util.utcnow() + FOREIGN_ACTIVITY_BACKOFF
         _LOGGER.debug("Another client wrote to [%s]: %s", self.device_name, evidence)
 
     def _settings_snapshot(self) -> dict[str, Any] | None:
@@ -984,7 +985,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             return WRITE_LOCK_RETRY_DELAY.total_seconds()
         # The module compares whole seconds and refuses while `expires` still
         # equals the current one, so land on the far side of the lapse.
-        remaining = expires - datetime.now().timestamp() + 1
+        remaining = expires - dt_util.utcnow().timestamp() + 1
         return max(0.0, min(remaining, WRITE_LOCK_MAX_WAIT.total_seconds()))
 
     def _report_foreign_activity(self) -> None:
@@ -1042,7 +1043,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         are still standing down - see FOREIGN_ACTIVITY_BACKOFF."""
         return (
             self._foreign_activity_until is not None
-            and datetime.now() < self._foreign_activity_until
+            and dt_util.utcnow() < self._foreign_activity_until
         )
 
     def _power_state_is_safe_to_carry(self) -> bool:
@@ -1083,7 +1084,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             # A retry from the previous cycle is still in flight; piling a
             # second request on top is exactly the crowding this avoids.
             return
-        now = datetime.now()
+        now = dt_util.utcnow()
         if (
             self._last_service_data_request is not None
             and now - self._last_service_data_request < SERVICE_DATA_MIN_SPACING
@@ -1116,7 +1117,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         cycle.
         """
         if self._last_command_at is not None and (
-            datetime.now() - self._last_command_at < MIN_TIME_BETWEEN_UPDATES
+            dt_util.utcnow() - self._last_command_at < MIN_TIME_BETWEEN_UPDATES
         ):
             return timedelta(0)
         return SERVICE_DATA_STAMP_BACKDATE
@@ -1234,7 +1235,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         if self._airco is None:
             return
         self._settle_service_data_pause()
-        now = datetime.now()
+        now = dt_util.utcnow()
         if any(getattr(new_airco, name) is not None for name in SERVICE_DATA_FIELDS):
             self._last_service_data_response = now
             if self._service_data_expired:
@@ -1700,7 +1701,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # A real, set-bit command: mark it so the next operation-data request
         # stamps honestly and renews this command's lock rather than trimming
         # it (see _service_data_stamp_backdate).
-        self._last_command_at = datetime.now()
+        self._last_command_at = dt_util.utcnow()
         try:
             await self.set_airco(params)
         except (WfRacError, KeyError, TypeError, ValueError) as ex:

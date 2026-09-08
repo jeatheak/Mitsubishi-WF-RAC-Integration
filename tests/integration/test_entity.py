@@ -57,17 +57,22 @@ async def test_coordinator_contexts_include_only_contextual_entities(device):
     contextless_entity._call_on_remove_callbacks()
 
 
-async def test_base_entity_marks_device_unavailable_when_state_update_fails(device, monkeypatch):
+async def test_an_unreadable_frame_marks_the_entity_unknown_not_the_device(
+    device, monkeypatch
+):
+    """The unit answered and still takes commands, so it is not unavailable."""
     entity = WfRacEntity(device)
     entity._update_state = MagicMock(side_effect=ValueError)
+    entity._mark_state_unknown = MagicMock()
     entity.async_write_ha_state = lambda: None
     set_available = MagicMock()
     monkeypatch.setattr(device, "set_available", set_available)
 
-    assert entity.available is device.available
     entity._handle_coordinator_update()
 
-    set_available.assert_called_once_with(False)
+    entity._mark_state_unknown.assert_called_once_with()
+    set_available.assert_not_called()
+    assert entity.available is device.available
 
 
 async def test_apply_state_swallows_a_first_read_that_fails(device, monkeypatch):
@@ -81,12 +86,11 @@ async def test_apply_state_swallows_a_first_read_that_fails(device, monkeypatch)
     entity = WfRacEntity(device)
     entity._attr_unique_id = "airco-id-something"
     entity._update_state = MagicMock(side_effect=IndexError)
-    set_available = MagicMock()
-    monkeypatch.setattr(device, "set_available", set_available)
+    entity._mark_state_unknown = MagicMock()
 
     entity._apply_state()
 
-    set_available.assert_called_once_with(False)
+    entity._mark_state_unknown.assert_called_once_with()
 
 
 async def test_apply_state_names_the_entity_by_unique_id_before_it_is_added(
@@ -96,8 +100,30 @@ async def test_apply_state_names_the_entity_by_unique_id_before_it_is_added(
     entity = WfRacEntity(device)
     entity._attr_unique_id = "airco-id-fan-speed"
     entity._update_state = MagicMock(side_effect=IndexError)
-    monkeypatch.setattr(device, "set_available", MagicMock())
+    entity._mark_state_unknown = MagicMock()
 
     entity._apply_state()
 
     assert "airco-id-fan-speed" in caplog.text
+
+
+async def test_an_unreadable_frame_is_logged_once_and_the_entity_recovers(
+    device, caplog
+):
+    """The condition holds until the unit sends something else."""
+    entity = WfRacEntity(device)
+    entity._attr_unique_id = "airco-id-fan-speed"
+    entity._mark_state_unknown = MagicMock()
+    entity._update_state = MagicMock(side_effect=IndexError)
+
+    entity._apply_state()
+    entity._apply_state()
+
+    assert caplog.text.count("Could not update") == 1
+
+    entity._update_state = MagicMock()
+    entity._apply_state()
+    entity._update_state = MagicMock(side_effect=IndexError)
+    entity._apply_state()
+
+    assert caplog.text.count("Could not update") == 2

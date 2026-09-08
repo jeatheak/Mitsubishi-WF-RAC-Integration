@@ -34,6 +34,7 @@ from custom_components.mitsubishi_wf_rac.coordinator import Device
 from pywfrac import AIRFLOW_UNKNOWN, AirconCommands, HomeLeaveModeSetting
 
 from ..unit.live_captures import LIVE_CAPTURES
+from homeassistant.util import dt as dt_util
 
 
 def _entry(device, options=None):
@@ -170,11 +171,11 @@ async def test_external_control_sensor_follows_the_backoff(platform_device):
     entity = binary_sensor.ExternalControlBinarySensor(platform_device)
     assert entity.is_on is False
 
-    platform_device._foreign_activity_until = datetime.now() + timedelta(minutes=3)
+    platform_device._foreign_activity_until = dt_util.utcnow() + timedelta(minutes=3)
     entity._update_state()
     assert entity.is_on is True
 
-    platform_device._foreign_activity_until = datetime.now() - timedelta(seconds=1)
+    platform_device._foreign_activity_until = dt_util.utcnow() - timedelta(seconds=1)
     entity._update_state()
     assert entity.is_on is False
 
@@ -421,7 +422,7 @@ async def test_fan_speed_select_recognises_an_unreadable_fan_step(platform_devic
     fan = select.FanSpeedSelect(platform_device)
 
     assert fan.current_option is None
-    set_available.assert_called_once_with(False)
+    set_available.assert_not_called()
 
 
 async def test_the_climate_entity_is_the_device_itself(platform_device):

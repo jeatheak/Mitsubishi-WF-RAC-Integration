@@ -34,6 +34,7 @@ class WfRacEntity(CoordinatorEntity[Device]):
         super().__init__(device, context=context)
         self._device = device
         self._attr_device_info = device.device_info
+        self._state_unreadable = False
 
     @property
     def _hvac_mode_from_operation(self) -> HVACMode:
@@ -69,12 +70,23 @@ class WfRacEntity(CoordinatorEntity[Device]):
 
     @property
     def available(self) -> bool:
+        """Return whether the airco is currently reachable."""
         # Device tracks its own retry-tolerant availability (see
-        # Device._set_availability()), and entities follow that rather than the
-        # coordinator's last_update_success: an expected missed poll leaves the
-        # coordinator successful on purpose, so this is the only thing that
-        # decides whether entities go unavailable.
-        return self._device.available
+        # Device._set_availability()): an expected missed poll leaves the
+        # coordinator successful on purpose, so last_update_success alone
+        # would not hold the entity up. It still has to be honoured, though -
+        # an unexpected failure raises UpdateFailed and only shows there.
+        return super().available and self._device.available
+
+    def _mark_state_unknown(self) -> None:
+        """Drop the attributes that carry this entity's state.
+
+        Overridden per platform. Called when a frame arrives that the entity
+        cannot read: the unit answered and still takes commands, so it is not
+        unavailable - its state is merely unknown until a frame it can read
+        comes along.
+        """
+        raise NotImplementedError
 
     def _update_state(self) -> None:
         """Refresh entity state from the coordinator. Every concrete
@@ -83,25 +95,34 @@ class WfRacEntity(CoordinatorEntity[Device]):
         raise NotImplementedError
 
     def _apply_state(self) -> None:
-        """Read the current frame into this entity, or mark the device down.
+        """Read the current frame into this entity, or mark it unknown.
 
         Every read goes through here, the very first one included. A frame can
-        decode cleanly and still carry a value an entity cannot translate, and
-        letting that escape a constructor is not the same failure as letting it
-        escape a poll: the platform never finishes setting up, so the config
-        entry loads without a single one of its entities and only a traceback
-        to say why. The same value arriving one frame later merely takes the
-        device unavailable until it reads again.
+        decode cleanly and still carry a value this entity cannot translate,
+        and letting that escape a constructor is not the same failure as
+        letting it escape a poll: the platform never finishes setting up, so
+        the config entry loads with no entity at all and only a traceback to
+        say why. The same value arriving one frame later merely makes this
+        entity's state unknown.
         """
         try:
             self._update_state()
         except (IndexError, KeyError, AttributeError, ValueError):
-            # entity_id is only assigned once the entity is added, so on the
-            # first read the unique id is all there is to name it by.
-            _LOGGER.warning(
-                "Could not update %s", self.entity_id or self._attr_unique_id
-            )
-            self._device.set_available(False)
+            # Once, with the traceback: which field was missing is the whole
+            # diagnosis, and the condition holds until the unit sends
+            # something else - a line per poll would say nothing more.
+            if not self._state_unreadable:
+                # entity_id is only assigned once the entity is added, so on
+                # the first read the unique id is all there is to name it by.
+                _LOGGER.warning(
+                    "Could not update %s",
+                    self.entity_id or self._attr_unique_id,
+                    exc_info=True,
+                )
+            self._state_unreadable = True
+            self._mark_state_unknown()
+        else:
+            self._state_unreadable = False
 
     @callback
     def _handle_coordinator_update(self) -> None:

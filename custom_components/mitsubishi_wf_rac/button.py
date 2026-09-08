@@ -63,5 +63,8 @@ class EnergyTotalResetButton(WfRacEntity, ButtonEntity):
             0.0,
         )
 
+    def _mark_state_unknown(self) -> None:
+        """A button carries no state, so there is nothing to drop."""
+
     def _update_state(self) -> None:
         """No state to reflect - the button has none."""
