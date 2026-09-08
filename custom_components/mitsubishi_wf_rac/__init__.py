@@ -20,6 +20,7 @@ from .const import (
     CONF_AIRCO_ID,
     CONF_AVAILABILITY_CHECK,
     CONF_AVAILABILITY_RETRY_LIMIT,
+    CONF_CARRY_POWER_STATE,
     CONF_CONNECTION_METHOD,
     CONF_FIRMWARE_UPDATE_CHECK,
     CONF_OPERATOR_ID, CONF_CREATE_SWING_MODE_SELECT,
@@ -212,11 +213,13 @@ async def create_device_from_entry(entry: ConfigEntry, hass: HomeAssistant) -> D
         CONF_AVAILABILITY_RETRY_LIMIT, AVAILABILITY_FAILURE_LIMIT_MIN
     )
     connection_method: str | None = entry.data.get(CONF_CONNECTION_METHOD)
+    carry_power_state: bool = bool(entry.data.get(CONF_CARRY_POWER_STATE, False))
     _device = Device(hass, entry, name, device, port, device_id, operator_id, airco_id,
                      swing_selects_enabled_default,
                      availability_failure_limit=availability_failure_limit,
                      firmware_update_check_enabled=firmware_update_check_enabled,
-                     connection_method=connection_method)
+                     connection_method=connection_method,
+                     carry_power_state=carry_power_state)
     return _device
 
 

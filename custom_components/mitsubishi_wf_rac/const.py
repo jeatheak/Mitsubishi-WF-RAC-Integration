@@ -39,6 +39,10 @@ CONF_FIRMWARE_UPDATE_CHECK = "firmware_update_check"
 # New entries must not write this key.
 CONF_CREATE_SWING_MODE_SELECT = "create_swing_mode_select"
 CONF_CONNECTION_METHOD = "connection_method"
+# Learned, not configured: set once a module has shown that it applies the
+# operation-data request's empty power field as "switch off" (see
+# Device._check_request_stopped_unit).
+CONF_CARRY_POWER_STATE = "carry_power_state"
 ATTR_DEVICE_ID = "device_id"
 ATTR_CONNECTED_ACCOUNTS = "connected_accounts"
 ATTR_UPDATED_BY = "updated_by"
