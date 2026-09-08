@@ -32,7 +32,7 @@ from homeassistant.util.unit_conversion import TemperatureConverter
 
 from .entity import WfRacEntity
 from .coordinator import Device
-from pywfrac import Aircon, AirconCommands, HomeLeaveModeSetting
+from pywfrac import AIRFLOW_UNKNOWN, Aircon, AirconCommands, HomeLeaveModeSetting
 from pywfrac.parser import (
     EXTERNAL_TEMPERATURE_MAX,
     EXTERNAL_TEMPERATURE_MIN,
@@ -153,7 +153,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
                 SUPPORT_FLAGS | ClimateEntityFeature.PRESET_MODE
             )
             self._attr_preset_modes = [PRESET_NONE, PRESET_AWAY]
-        self._update_state()
+        self._apply_state()
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -173,7 +173,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         # state itself once this returns. (The source path above goes through
         # _set_external_temperature_override, whose write is harmless for the
         # same reason.)
-        self._update_state()
+        self._apply_state()
 
     @property
     def _external_temperature_source(self) -> str | None:
@@ -219,7 +219,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         """Arm an override and immediately publish its integration-side state."""
         self._external_temperature_override = temperature
         self._device.set_external_temperature_override(temperature)
-        self._update_state()
+        self._apply_state()
         self.async_write_ha_state()
 
     def _set_external_temperature_from_source_state(self, state: State | None) -> None:
@@ -620,6 +620,12 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             self._attr_current_temperature = airco.IndoorTemp + (
                 0.0 if self._device.external_temperature_applied else indoor_offset
             )
+        # Named rather than left to index past the end of the list: the library
+        # says so itself when it could not read the unit's fan step, and a sixth
+        # fan mode here would otherwise turn that marker into a real one and
+        # lose the unknown state without a sound.
+        if airco.AirFlow == AIRFLOW_UNKNOWN:
+            raise IndexError("the unit reported a fan step pywfrac cannot read")
         self._attr_fan_mode = list(FAN_MODE_TRANSLATION.keys())[airco.AirFlow]
         self._attr_swing_mode = (
             SWING_3D_AUTO

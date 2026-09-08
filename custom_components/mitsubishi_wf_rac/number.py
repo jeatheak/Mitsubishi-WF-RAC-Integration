@@ -94,7 +94,7 @@ class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-home-leave-{mode}-{slug}-number"
         )
-        self._update_state()
+        self._apply_state()
 
     def _current_setting(self) -> HomeLeaveModeSetting | None:
         return (
