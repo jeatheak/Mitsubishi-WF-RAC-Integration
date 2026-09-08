@@ -422,3 +422,16 @@ async def test_fan_speed_select_recognises_an_unreadable_fan_step(platform_devic
 
     assert fan.current_option is None
     set_available.assert_called_once_with(False)
+
+
+async def test_the_climate_entity_is_the_device_itself(platform_device):
+    """It carries the device's name and adds nothing of its own.
+
+    Every other platform here is already built this way. Climate used to copy
+    device_name into _attr_name instead, which displayed the same string but
+    only picked up a rename at the next reload.
+    """
+    entity = climate.AircoClimate(platform_device)
+
+    assert entity.has_entity_name is True
+    assert entity.name is None

@@ -138,10 +138,15 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     _attr_preset_modes: list[str] | None = None
     _attr_preset_mode: str | None = None
     _attr_translation_key = "mitsubishi_wf_rac"
+    # The unit itself, so it carries the device's name and adds nothing of its
+    # own - the same shape every other platform here already uses. It displayed
+    # the device name before too, by copying it into _attr_name; the difference
+    # is that a renamed device now reaches it without a reload.
+    _attr_has_entity_name: bool = True
+    _attr_name: str | None = None
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
-        self._attr_name = device.device_name
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-climate"
         # Away is the unit's own Home Leave mode, offered here as the preset a
         # thermostat card and a voice assistant already know how to ask for.
