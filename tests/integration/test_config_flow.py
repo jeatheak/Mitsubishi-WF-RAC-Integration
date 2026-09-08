@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant import config_entries
-from homeassistant.const import CONF_DEVICE_ID
+from homeassistant.const import CONF_DEVICE_ID, CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType, InvalidData, section
 from homeassistant.helpers import entity_registry as er
@@ -1031,3 +1031,41 @@ def test_name_property_reads_from_context():
     flow = WfRacConfigFlow()
     flow.context = {"name": "Living Room AC"}
     assert flow._name == "Living Room AC"
+
+
+async def test_a_rediscovery_refreshes_the_address_but_not_the_port(hass: HomeAssistant):
+    """A configured entry's port is not the announcement's to change.
+
+    Modules have been seen announcing 5353 - the mDNS port itself - in the
+    SRV record where the API port belongs (#290). At first discovery the
+    confirm step and the registration fallback catch that. An entry that is
+    already running has neither: the refresh would write the bad port
+    straight into it and take the unit offline until it is reconfigured
+    by hand (#329).
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "name": "Living Room AC",
+            "device_id": "dev-1",
+            "operator_id": "op-1",
+            "airco_id": "airco-1",
+            CONF_HOST: "192.168.1.50",
+            CONF_PORT: 51443,
+        },
+        options={},
+        unique_id="ac-living-room",
+        version=6,
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=_zeroconf_info(host="192.168.1.60", port=5353),
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_HOST] == "192.168.1.60"
+    assert entry.data[CONF_PORT] == 51443

@@ -36,17 +36,6 @@ from pywfrac import AirconCommands, HomeLeaveModeSetting
 from ..unit.live_captures import LIVE_CAPTURES
 
 
-@pytest.fixture
-async def platform_device(hass):
-    entry = MockConfigEntry(domain=DOMAIN, options={})
-    entry.add_to_hass(hass)
-    device = Device(hass, entry, "Test AC", "127.0.0.1", 51443, "device-id", "operator-id", "airco-id", swing_selects_enabled_default=True)
-    device._api = AsyncMock()
-    device._api.get_aircon_stats.return_value = {"numOfAccount": 1, "airconStat": LIVE_CAPTURES["on_cool"][0]}
-    await device.update()
-    return device
-
-
 def _entry(device, options=None):
     return MagicMock(
         runtime_data=MagicMock(device=device),
@@ -261,8 +250,6 @@ async def test_climate_commands_and_state_branches(platform_device):
     await entity.async_set_swing_horizontal_mode(horizontal)
     assert platform_device.async_queue_command.await_args.args[0][AirconCommands.Entrust] is False
 
-    with pytest.raises(ServiceValidationError, match="required"):
-        await entity.async_set_temperature()
     with pytest.raises(ServiceValidationError, match="below minimum") as below:
         await entity.async_set_temperature(temperature=9, hvac_mode=HVACMode.HEAT)
     with pytest.raises(ServiceValidationError, match="above maximum") as above:
@@ -380,12 +367,27 @@ async def test_select_command_and_state_branches(hass, platform_device):
     assert (cooling.AirFlow, heating.AirFlow) == (4, 1)
 
 
-async def test_home_leave_controls_require_known_settings_and_preserve_other_side(hass, platform_device):
+@pytest.mark.parametrize(
+    ("mode", "attribute", "expected"),
+    [
+        pytest.param("cooling", "TempRule", (15, 13), id="cooling_temp_rule"),
+        pytest.param("heating", "TempRule", (12, 15), id="heating_temp_rule"),
+        pytest.param("cooling", "TempSetting", (15, 10), id="cooling_temp_setting"),
+        pytest.param("heating", "TempSetting", (31, 15), id="heating_temp_setting"),
+    ],
+)
+async def test_home_leave_controls_require_known_settings_and_preserve_other_side(hass, platform_device, mode, attribute, expected):
+    """Each control writes its own field and carries the other three over.
+
+    The unit takes both directions in one frame, so the three fields this
+    control does not own have to be sent back unchanged - the value it writes
+    is the only difference between what came in and what goes out.
+    """
     platform_device.async_set_home_leave_mode = AsyncMock()
     control = _attached(
         hass,
-        number.HomeLeaveModeNumber(platform_device, "cooling", "TempRule"),
-        "number.home_leave_cooling_temp_rule",
+        number.HomeLeaveModeNumber(platform_device, mode, attribute),
+        f"number.home_leave_{mode}_{attribute.lower()}",
     )
     with pytest.raises(Exception, match="unknown yet"):
         await control.async_set_native_value(15)
@@ -393,7 +395,7 @@ async def test_home_leave_controls_require_known_settings_and_preserve_other_sid
     platform_device.airco.HomeLeaveModeForHeating = HomeLeaveModeSetting(13, 10, 1)
     await control.async_set_native_value(15)
     cooling, heating = platform_device.async_set_home_leave_mode.await_args.args
-    assert (cooling.TempRule, heating.TempRule) == (15, 13)
+    assert (getattr(cooling, attribute), getattr(heating, attribute)) == expected
 
 
 @pytest.mark.parametrize("available, latest", [(True, "2.0"), (False, "1.0"), (False, None)])

@@ -68,9 +68,6 @@
     "command_failed": {
       "message": "Het verzenden van de opdracht naar de airco op {device} is mislukt: {error}"
     },
-    "temperature_required": {
-      "message": "Een doeltemperatuur is verplicht."
-    },
     "temperature_below_minimum": {
       "message": "{temperature} °C is lager dan het minimum van {min_temp} °C voor hvac_mode {hvac_mode}. Geef hvac_mode mee in dezelfde aanroep om te toetsen aan de modus waarnaar je overschakelt."
     },

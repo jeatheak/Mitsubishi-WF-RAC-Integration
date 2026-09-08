@@ -68,9 +68,6 @@
     "command_failed": {
       "message": "Das Senden des Befehls an das Klimagerät unter {device} ist fehlgeschlagen: {error}"
     },
-    "temperature_required": {
-      "message": "Eine Zieltemperatur ist erforderlich."
-    },
     "temperature_below_minimum": {
       "message": "{temperature} °C liegt unter dem Minimum von {min_temp} °C für hvac_mode {hvac_mode}. Geben Sie hvac_mode im selben Aufruf mit an, damit gegen den Modus geprüft wird, in den Sie wechseln."
     },
