@@ -23,7 +23,7 @@
         },
         "data_description": {
           "name": "De naam van deze airco in Home Assistant. Hij benoemt het apparaat en gaat vooraf aan de namen van de bijbehorende entiteiten.",
-          "host": "Het lokale IP-adres van de wifi-module in de airco. Geef de module een vast adres in je router — de integratie volgt een gewijzigd adres niet vanzelf, je zou het hier opnieuw moeten instellen.",
+          "host": "Het lokale IP-adres van de wifi-module in de airco. Een gewijzigd adres wordt overgenomen zodra de module zich opnieuw aankondigt; geef de module een vast adres in je router, of corrigeer het hier als dat uitblijft.",
           "port": "De poort waarop de lokale API van de module luistert. Laat 51443 staan, tenzij je module een andere aankondigt.",
           "force_update": "Voegt deze airco toe hoewel een andere invoer hetzelfde IP-adres al gebruikt. Bedoeld voor een unit waarvan de oude invoer is verdwenen: de module accepteert één verbinding tegelijk, twee invoeren die hem bevragen leveren fouten in het log op."
         },
@@ -50,7 +50,7 @@
         },
         "data_description": {
           "name": "De naam van deze airco in Home Assistant. Hij benoemt het apparaat en gaat vooraf aan de namen van de bijbehorende entiteiten.",
-          "host": "Het lokale IP-adres van de wifi-module in de airco. Geef de module een vast adres in je router — de integratie volgt een gewijzigd adres niet vanzelf, je zou het hier opnieuw moeten instellen.",
+          "host": "Het lokale IP-adres van de wifi-module in de airco. Een gewijzigd adres wordt overgenomen zodra de module zich opnieuw aankondigt; geef de module een vast adres in je router, of corrigeer het hier als dat uitblijft.",
           "port": "De poort waarop de lokale API van de module luistert. Laat 51443 staan, tenzij je module een andere aankondigt."
         },
         "description": "Werk de verbindingsgegevens voor deze airco bij.",

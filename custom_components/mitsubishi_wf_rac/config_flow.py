@@ -61,7 +61,10 @@ SECTION_SENSOR_OFFSETS = "sensor_offsets"
 class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
-    VERSION = 5
+    # Has to match the highest version async_migrate_entry produces. Home
+    # Assistant skips migration entirely once entry.version equals this, so a
+    # new step that is not reflected here never runs.
+    VERSION = 6
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info: dict[str, Any] = {}
     DOMAIN = DOMAIN
