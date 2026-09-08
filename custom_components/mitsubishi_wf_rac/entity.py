@@ -57,8 +57,7 @@ class WfRacEntity(CoordinatorEntity[Device]):
         is unset (None), which is what keeps single-target_offset installs
         unchanged. Lives on the base entity so the climate write path, the
         climate read-back path and the target temperature sensor can never
-        resolve a different offset for the same mode (see beta2: that
-        divergence is what caused the target_temperature re-send loop).
+        resolve a different offset for the same mode.
         """
         options = self._device.options
         base_offset = options.get(CONF_TARGET_OFFSET, 0.0)

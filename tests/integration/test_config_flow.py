@@ -61,9 +61,6 @@ def bypass_entry_setup():
         yield
 
 
-# --- user flow --------------------------------------------------------
-
-
 async def test_user_flow_shows_form_with_no_input(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -112,8 +109,6 @@ async def test_user_flow_invalid_host_shows_error(hass: HomeAssistant):
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"host": "invalid_host"}
     repo.get_airco_id.assert_not_awaited()
-
-
 
 
 async def test_user_flow_host_already_configured_shows_error(hass: HomeAssistant):
@@ -258,9 +253,6 @@ async def test_user_flow_reuses_operator_and_device_id_from_existing_entry(hass:
     assert result["data"][CONF_DEVICE_ID] == "shared-device-id"
 
 
-# --- reconfigure flow ---------------------------------------------------
-
-
 def _existing_entry(
     hass: HomeAssistant, name="Living Room AC", host="192.168.1.50", port=51443
 ):
@@ -370,9 +362,6 @@ async def test_reconfigure_flow_cannot_connect_shows_error(hass: HomeAssistant):
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "cannot_connect"}
     assert entry.data["host"] == "192.168.1.50"
-
-
-# --- zeroconf discovery -------------------------------------------------
 
 
 def _zeroconf_info(host="192.168.1.50", port=51443, hostname="ac-living-room.local."):
@@ -493,9 +482,6 @@ async def test_zeroconf_discovery_confirm_port_can_be_overridden(hass: HomeAssis
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["port"] == 51443
-
-
-# --- options flow --------------------------------------------------------
 
 
 _OPTION_SECTIONS = {
@@ -989,9 +975,6 @@ async def test_options_form_fields_all_have_a_label(hass: HomeAssistant):
     }
 
 
-# --- WfRacConfigFlow.is_matching() / _name ------------------------------
-
-
 def test_is_matching_compares_unique_ids():
     from custom_components.mitsubishi_wf_rac.config_flow import WfRacConfigFlow
 
@@ -1015,8 +998,6 @@ def test_is_matching_without_unique_id_never_matches():
     flow_b.context = {}
 
     assert flow_a.is_matching(flow_b) is False
-
-
 
 
 async def test_a_rediscovery_refreshes_the_address_but_not_the_port(hass: HomeAssistant):

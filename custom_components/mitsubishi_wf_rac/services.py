@@ -1,12 +1,9 @@
 """Entity service actions of the WF-RAC integration.
 
-Registered from async_setup rather than from the platforms themselves: with
-the platform-level API the actions only existed once a config entry had
-finished setting up its climate/sensor platform, so a device that was
-unreachable at startup left the actions missing from the UI and from any
-automation that referenced them. Registering here makes them independent of
-that - the entities a call resolves to are still restricted to this
-integration's own, the helper takes care of that.
+Registered from async_setup, not from the platforms: an action registered by
+a platform is missing from the UI and from automations until a config entry
+finishes setting that platform up, which a device unreachable at startup
+never does. Calls still resolve only to this integration's entities.
 """
 
 from __future__ import annotations

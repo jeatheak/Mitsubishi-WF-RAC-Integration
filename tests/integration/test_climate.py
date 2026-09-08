@@ -115,7 +115,6 @@ async def test_target_offset_zero_is_identity(device):
     assert entity._attr_target_temperature == 23
 
 
-# --- per-mode target_offset resolver ------------------------------------
 #
 # CONF_TARGET_OFFSET_COOL/_HEAT are optional per-mode overrides that must
 # fall back to the single CONF_TARGET_OFFSET when unset (None, not 0.0),
@@ -169,7 +168,6 @@ async def test_resolve_target_offset_ignores_overrides_for_other_modes(device, h
     assert entity._resolve_target_offset(hvac_mode) == 1.0
 
 
-# --- round-trip symmetry across modes ------------------------------------
 #
 # Regression guard for the 2026.9.1-beta2 fix: the write path (subtract) and
 # the read-back path (add) must resolve the *same* offset for the same mode,
@@ -227,7 +225,6 @@ async def test_round_trip_symmetry_survives_unit_being_off(device):
     assert entity._attr_target_temperature == 21
 
 
-# --- the Target sensor agrees with the climate entity ---------------------
 #
 # The target temperature sensor shows the same setpoint as the climate entity,
 # derived from the same PresetTemp, so it has to resolve the offset the same
@@ -772,7 +769,6 @@ async def test_set_preset_none_restores_a_normal_setpoint(device):
     assert sent == {AirconCommands.PresetTemp: NORMAL_TEMP}
 
 
-# --- an unreadable fan step ---------------------------------------------
 #
 # pywfrac 0.1.3 reports a fan nibble it cannot decode as AIRFLOW_UNKNOWN,
 # one past the end of FAN_MODE_TRANSLATION. Up to 0.1.1 the same nibble
@@ -813,7 +809,6 @@ async def test_unknown_fan_step_is_recognised_by_name(device, monkeypatch):
         AircoClimate(device)._update_state()
 
 
-# --- the offset moves the range, not the value behind the user's back -----
 #
 # The device is held to its own range; what the user sets and reads back is
 # that value plus the target offset. Advertising the device's range and

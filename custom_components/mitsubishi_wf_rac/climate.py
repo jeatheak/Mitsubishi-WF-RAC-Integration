@@ -59,13 +59,8 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-# Zero, not one, although this platform writes: the serialisation the module
-# needs already lives in the coordinator, which holds a send lock around the
-# request and spaces requests by MIN_TIME_BETWEEN_REQUESTS. A platform
-# semaphore on top of that only stops actions issued together - a scene, an
-# automation step that fans out - from reaching the coordinator's
-# consolidation window together, and those are exactly the ones worth
-# merging into a single frame.
+# Zero although this platform writes: the coordinator already serialises and
+# spaces every request.
 PARALLEL_UPDATES = 0
 
 # The modes whose setpoint the unit actually regulates on. Off and fan-only
@@ -135,10 +130,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     _attr_preset_modes: list[str] | None = None
     _attr_preset_mode: str | None = None
     _attr_translation_key = "mitsubishi_wf_rac"
-    # The unit itself, so it carries the device's name and adds nothing of its
-    # own - the same shape every other platform here already uses. It displayed
-    # the device name before too, by copying it into _attr_name; the difference
-    # is that a renamed device now reaches it without a reload.
+    # The unit itself: it carries the device's name and adds nothing of its own.
     _attr_name: str | None = None
 
     def __init__(self, device: Device) -> None:

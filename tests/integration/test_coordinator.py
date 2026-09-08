@@ -152,9 +152,6 @@ async def device(hass):
     await dev.async_shutdown()
 
 
-# --- update() -------------------------------------------------------------
-
-
 async def test_update_success_marks_available_and_parses_state(device):
     device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     assert await device.update() is True
@@ -291,9 +288,6 @@ async def test_update_malformed_stat_marks_unavailable(device):
     }
     await device.update()
     assert device.available is False
-
-
-# --- set_airco(): diff is merged with current state, not just the params -
 
 
 async def test_set_airco_merges_params_with_current_state(device):
@@ -609,7 +603,6 @@ async def test_set_airco_fetches_state_first_if_unset(device):
     assert device.airco is not None
 
 
-# --- set_airco()'s lock: a call must never snapshot stale state while ----
 # another set_airco() call is still in flight (see conversation - this is
 # the actual fix for the fan/temperature command collision bug).
 
@@ -654,9 +647,6 @@ async def test_set_airco_lock_prevents_stale_snapshot_race(device):
     # been built from the first call's already-committed result.
     assert device.airco.AirFlow == 3
     assert device.airco.PresetTemp == 24.0
-
-
-# --- async_queue_command(): coalesces calls within the consolidation window
 
 
 async def test_async_queue_command_coalesces_into_one_send(device, monkeypatch):
@@ -802,9 +792,6 @@ async def test_home_leave_mode_status_request_does_not_swallow_a_queued_command(
     assert any(block[4] & 0x80 for block in blocks)
 
 
-# --- misc: properties, delete_account(), availability retry, coordinator -
-
-
 async def test_properties_reflect_constructor_args(device):
     assert device.device_name == "Test AC"
     assert device.host == "127.0.0.1"
@@ -940,10 +927,6 @@ async def test_availability_recovers_and_resets_the_failure_count(hass):
     assert dev.available is False
 
 
-
-# --- firmware update check (firmware_check.py) ----------------------------
-
-
 def _stats_response_with_firmware(payload: str, firm_type: str, wireless_ver: str) -> dict:
     return {
         **_stats_response(payload),
@@ -1034,9 +1017,6 @@ async def test_update_firmware_check_failure_leaves_state_unknown(device, monkey
 
     assert device.firmware_update_available is None
     assert device.latest_wireless_firmware_version is None
-
-
-# --- operation-data request (rac_parser.SERVICE_DATA_CODES) ----------------
 
 
 async def test_update_does_not_request_service_data_without_active_entities(device, monkeypatch):
@@ -1538,9 +1518,6 @@ async def test_add_account_returns_none_on_api_error(device):
     assert await device.add_account() is None
 
 
-# --- add_account() / registration-full repair issue -----------------------
-
-
 def _issue(device):
     return ir.async_get(device._hass).async_get_issue(
         DOMAIN, coordinator_module.registration_full_issue_id(device.config_entry.entry_id)
@@ -1884,9 +1861,6 @@ async def test_async_update_data_counts_timeouts_as_connection_failures(
     ]
 
 
-# --- service data is carried between polls, but not forever ---------------
-
-
 async def test_service_data_is_carried_forward_between_polls(device):
     device._airco.CompressorFrequency = 40.0
     device._last_service_data_response = dt_util.utcnow()
@@ -2015,9 +1989,6 @@ async def test_service_data_that_never_arrived_stays_quiet_until_it_is_due(
     device._carry_forward_service_data(Aircon())
 
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
-
-
-# --- a unit that stops when asked for readings (#329) ----------------------
 
 
 async def _run_service_data_request(device, monkeypatch, ceiling_ms: int = 1):

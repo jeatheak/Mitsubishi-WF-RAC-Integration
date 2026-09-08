@@ -440,11 +440,9 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
 
     OptionsFlowWithReload rather than OptionsFlow: every option here is read
     once while the device is built (see create_device_from_entry), so a change
-    only takes effect after a reload. Letting the flow do that itself is what
-    replaced the entry update listener - HA deprecated combining a listener
-    with the config flow's own reloading methods (async_update_reload_and_abort
-    and _abort_if_unique_id_configured), which this flow uses, because the two
-    reload the entry twice and race each other.
+    only takes effect after a reload. An update listener must not be combined
+    with the flow's own reloading methods - the two reload the entry twice and
+    race each other.
     """
 
     def _own_entity_ids(self) -> list[str]:

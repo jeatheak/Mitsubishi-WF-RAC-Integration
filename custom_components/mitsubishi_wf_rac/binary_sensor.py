@@ -134,9 +134,7 @@ class ExternalTemperatureActiveBinarySensor(WfRacEntity, BinarySensorEntity):
 
     Armed is not the same as in effect: nothing is written while the unit is
     off or in fan_only (see is_external_temperature_mode), and after a restart
-    the value waits for the next outgoing frame. Both cases used to be visible
-    only in the README, which is where people went looking after their
-    override appeared to do nothing.
+    the value waits for the next outgoing frame.
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC

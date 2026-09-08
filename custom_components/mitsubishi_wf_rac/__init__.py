@@ -86,11 +86,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, data=new_data, options=new_options, version=2
         )
     if entry.version == 2:
-        # This step used to write an "availability_retry" key that nothing ever
-        # reads, and to reset CONF_AVAILABILITY_RETRY_LIMIT back to 3 over any
-        # value the user had picked. Both are gone; the version bump is all that
-        # is left. Entries that already ran the old step get the stale key
-        # cleaned up by the v3 -> v4 step below.
+        # Nothing to change here any more; the v3 -> v4 step below clears
+        # what this step once wrote.
         hass.config_entries.async_update_entry(entry, version=3)
     if entry.version == 3:
         new_options = dict(entry.options)
@@ -252,10 +249,8 @@ async def async_remove_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEn
     """Handle removal of an entry."""
 
     temp_device = await create_device_from_entry(entry, hass)
-    # delete_account() catches its own errors and returns None on failure (see
-    # coordinator.py) rather than raising, so check the result instead of
-    # try/except - the previous try/except here could never actually trigger,
-    # and the "Deleted" log below used to fire unconditionally even on failure.
+    # delete_account() returns None on failure rather than raising, so the
+    # result is what says whether the slot was actually released.
     result = await temp_device.delete_account()
     if result is not None:
         _LOGGER.info(
