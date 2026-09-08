@@ -1776,7 +1776,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         info: DeviceInfo = {
             "sw_version": self._firmware,
             "identifiers": {(DOMAIN, self.airco_id)},
-            "manufacturer": "Mitsubishi (WF-RAC)",
+            "manufacturer": "Mitsubishi Heavy Industries",
             "name": self.device_name,
         }
         # airconId is MAC-derived, and on every module seen so far it is the

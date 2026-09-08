@@ -647,21 +647,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             self._attr_hvac_mode = HVACMode.OFF
             self._attr_hvac_action = HVACAction.OFF
         else:
-            _new_mode: HVACMode = HVACMode.OFF
-            _mode = airco.OperationMode
-            if _mode == 0:
-                _new_mode = HVACMode.AUTO
-            elif _mode == 1:
-                _new_mode = HVACMode.COOL
-            elif _mode == 2:
-                _new_mode = HVACMode.HEAT
-            elif _mode == 3:
-                _new_mode = HVACMode.FAN_ONLY
-            elif _mode == 4:
-                _new_mode = HVACMode.DRY
-            self._attr_hvac_mode = _new_mode
-
-            # Determine hvac_action based on operation mode and state
             self._attr_hvac_action = self._determine_hvac_action(airco)
 
         # Read back from the same Vacant bit HomeLeaveModeSelect uses, so the
@@ -673,40 +658,34 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     def _determine_hvac_action(self, airco: Aircon) -> HVACAction:
         """Determine the current HVAC action from operation mode and state.
 
-        CoolHotJudge (content[8] & 8) reflects what the unit's own AUTO logic
-        is doing - set means COOLING, clear means HEATING. CompressorRunning
-        (content[9] & 2) distinguishes "unit on" from "compressor actually
-        running" (e.g. setpoint satisfied), same signal as the Compressor
-        binary sensor - used here so COOL/HEAT/AUTO can report IDLE instead
-        of claiming to cool/heat while the compressor is stopped.
-        """
-        if not airco.Operation:
-            return HVACAction.OFF
+        CoolHotJudge reflects what the unit's own AUTO logic is doing. Mind
+        the inversion: the parser reads it as (content[8] & 8) == 0, so the
+        raw bit set means COOLING and the resulting flag is then False -
+        a true CoolHotJudge is HEATING. CompressorRunning (content[9] & 2)
+        distinguishes "unit on" from "compressor actually running" (e.g.
+        setpoint satisfied), same signal as the Compressor binary sensor -
+        used here so COOL/HEAT/AUTO can report IDLE instead of claiming to
+        cool/heat while the compressor is stopped.
 
+        Only called while the unit is on, and only with an OperationMode of
+        0-4: anything else has already raised in _hvac_mode_from_operation.
+        """
         _mode = airco.OperationMode
 
-        # FAN_ONLY mode
         if _mode == 3:
             return HVACAction.FAN
 
-        # DRY mode
         if _mode == 4:
             return HVACAction.DRYING
 
         if not airco.CompressorRunning:
             return HVACAction.IDLE
 
-        # AUTO mode - use CoolHotJudge directly (unit tells us what it's doing)
+        # AUTO leaves the direction to the unit, so ask it what it picked.
         if _mode == 0:
             return HVACAction.HEATING if airco.CoolHotJudge else HVACAction.COOLING
 
-        # COOL mode
         if _mode == 1:
             return HVACAction.COOLING
 
-        # HEAT mode
-        if _mode == 2:
-            return HVACAction.HEATING
-
-        # Unknown mode with compressor running - nothing better to report
-        return HVACAction.IDLE
+        return HVACAction.HEATING
