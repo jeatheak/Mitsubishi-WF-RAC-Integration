@@ -38,7 +38,7 @@ _DATA = {
     "port": 51443,
 }
 
-_CURRENT_VERSION = 6
+_CURRENT_VERSION = 7
 
 
 def _entry(hass: HomeAssistant, version: int, data: dict, options: dict) -> MockConfigEntry:
@@ -283,3 +283,46 @@ async def test_removal_says_so_when_the_slot_is_not_released(
         await async_remove_entry(hass, entry)
 
     assert "Could not delete operator ID" in caplog.text
+
+
+async def test_migrate_v6_registers_the_airco_id_as_unique_id(hass: HomeAssistant):
+    """Entries added by hand never got one.
+
+    Without a unique id zeroconf cannot recognise the entry, so a unit that
+    moved was offered as a new discovery and its address was never refreshed.
+    """
+    entry = _entry(hass, 6, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.version == _CURRENT_VERSION
+    assert entry.unique_id == "airco-1"
+
+
+async def test_migrate_v6_lowers_the_case_of_the_unique_id(hass: HomeAssistant):
+    """Discovery reads the id from the announced hostname, this from the unit.
+
+    Compared as they arrive, a difference in case would leave a configured
+    unit unrecognised and its address never refreshed.
+    """
+    entry = _entry(
+        hass, 6, {**_DATA, "airco_id": "348E89C5A137", CONF_HOST: "192.168.1.50"}, {}
+    )
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.unique_id == "348e89c5a137"
+
+
+async def test_the_device_name_follows_the_entry_title(hass: HomeAssistant):
+    """Home Assistant's own rename changes the title, so that is what to read.
+
+    A name kept in entry.data would leave the registry showing the new one
+    while every entity kept announcing the old.
+    """
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
+    hass.config_entries.async_update_entry(entry, title="Bedroom AC")
+
+    device = await create_device_from_entry(entry, hass)
+
+    assert device.device_name == "Bedroom AC"

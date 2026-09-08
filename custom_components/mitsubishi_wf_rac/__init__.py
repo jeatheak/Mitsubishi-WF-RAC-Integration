@@ -12,7 +12,6 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.const import (
     CONF_HOST,
     CONF_PORT,
-    CONF_NAME,
     CONF_DEVICE_ID,
     Platform,
 )
@@ -141,6 +140,17 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(
             entry, data=new_data, options=new_options, version=6
         )
+    if entry.version == 6:
+        # Entries added by hand never got a unique id: the manual step checked
+        # for a duplicate airco itself instead of registering one. Without it
+        # zeroconf cannot recognise the entry, so a unit that moved was offered
+        # as a new discovery and its address was never refreshed. The module
+        # announces itself as <mac>.local and the airco id is that same MAC, so
+        # this is the identity discovery already matches on - lower case,
+        # because the two sides supply it in whatever case they read it.
+        hass.config_entries.async_update_entry(
+            entry, unique_id=entry.data[CONF_AIRCO_ID].lower(), version=7
+        )
 
     return True
 
@@ -184,7 +194,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEnt
 
 async def create_device_from_entry(entry: ConfigEntry, hass: HomeAssistant) -> Device:
     device: str = entry.data[CONF_HOST]
-    name: str = entry.data[CONF_NAME]
+    # The entry title, not a stored name: that is what Home Assistant's own
+    # rename changes, and a name kept in entry.data would quietly ignore it.
+    name: str = entry.title
     device_id: str = entry.data[CONF_DEVICE_ID]
     operator_id: str = entry.data[CONF_OPERATOR_ID]
     port: int = entry.data[CONF_PORT]
@@ -225,9 +237,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: MitsubishiWfRacConfigEn
         await data.device.async_shutdown()
 
     if unload_ok:
-        _LOGGER.info("Unloaded entry for device [%s]", entry.data[CONF_NAME])
+        _LOGGER.info("Unloaded entry for device [%s]", entry.title)
     else:
-        _LOGGER.warning("Failed to unload entry for device [%s]", entry.data[CONF_NAME])
+        _LOGGER.warning("Failed to unload entry for device [%s]", entry.title)
 
     return unload_ok
 

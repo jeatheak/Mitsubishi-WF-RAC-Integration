@@ -56,6 +56,9 @@ See [Github To Do & Bug List](https://github.com/blues-sechseck/Mitsubishi-WF-RA
 This integration is part of the HACS default list — no custom repository needed. In HACS, go to
 **Integrations**, search for **"Mitsubishi WF-RAC"**, and install it from there.
 
+Needs Home Assistant **2026.4** or newer. That is the oldest release the test suite runs against,
+so it is a version this has actually been shown to work on rather than one it is merely hoped to.
+
 Already installed? Jump straight to setup:
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=mitsubishi_wf_rac)
@@ -67,19 +70,22 @@ Clone or copy this repository and copy the folder `custom_components/mitsubishi_
 
 ### Setting it up
 
-Units on the same network are found by themselves and show up as discovered devices — confirm one,
-give it a name, and you are done. Adding one by hand asks for the same details:
+Units on the same network are found by themselves and show up as discovered devices — confirm one
+and you are done. Adding one by hand asks for the same details:
 
 | Field | Description |
 |---|---|
-| Airco Name | The name the airco gets in Home Assistant. It names the device and prefixes the entities belonging to it. |
-| Host (IP) address | The local IP address of the airco's wireless module. Give the module a fixed address in your router — a changed address isn't followed on its own, it has to be corrected here via **Reconfigure**. |
+| Host (IP) address | The local IP address of the airco's wireless module. A changed address is picked up when the module announces itself again; give the module a fixed address in your router, or correct it here via **Reconfigure**. |
 | Port | The port the module's local API listens on, `51443` on every firmware branch seen so far. Discovery fills this in; correct it only if your module announces something else. |
 | Ignore duplicate IP address | Off by default. Adds the airco even though another entry already uses that IP address — meant for re-adding a unit whose old entry went missing. The module accepts one connection at a time, so two entries polling it produce errors in the log. |
 
-Discovery asks only for the name and the port; the address is the one the module announced. The
-setup connects to the airco right away and registers Home Assistant as an operator on it, so the
-unit has to be reachable at that moment. Everything else is configured afterwards under
+Discovery asks only for the port; the address is the one the module announced. The setup connects
+to the airco right away and registers Home Assistant as an operator on it, so the unit has to be
+reachable at that moment.
+
+The entry is named after the unit — `WF-RAC` plus the last four characters of the airco id, which
+match the label on the module. Rename it whenever you like: use Home Assistant's own rename on the
+device or the entry, and the device name follows. Everything else is configured afterwards under
 **Configure** (see [Options](#options)).
 
 ### Removing the integration

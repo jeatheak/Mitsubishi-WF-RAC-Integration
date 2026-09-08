@@ -31,19 +31,29 @@ jobs:
       - uses: "home-assistant/actions/hassfest@master"
 
   pytest:
-    name: Pytest
+    name: Pytest (${{ matrix.label }})
     runs-on: "ubuntu-latest"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The current Home Assistant, and the oldest one hacs.json claims.
+          # Both, because a floor nothing runs against is a number, not a
+          # promise - see requirements-floor.txt.
+          - label: current
+            requirements: requirements-dev.txt
+          - label: floor
+            requirements: requirements-floor.txt
     steps:
       - uses: "actions/checkout@v4"
       - uses: "actions/setup-python@v5"
         with:
           # pytest-homeassistant-custom-component pins an exact homeassistant
           # version per release; on Python <3.14 pip resolves to an old
-          # release pinned way below our own manifest.json minimum - see
-          # requirements-dev.txt.
+          # release pinned way below our own floor - see requirements-dev.txt.
           python-version: "3.14"
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: pip install -r ${{ matrix.requirements }}
       - name: Run tests
         run: pytest
 

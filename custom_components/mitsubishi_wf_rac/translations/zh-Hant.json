@@ -4,7 +4,6 @@
       "unexpected_error": "發生了意外錯誤。請查看日誌以獲取詳細信息。",
       "cannot_connect": "無法連接到空調：{reason}",
       "invalid_host": "主機名稱或 IP 位址無效",
-      "name_invalid": "名稱已被佔用或少於 3 個字元",
       "host_already_configured": "空調 IP 已被配置為 [{error_name}]",
       "too_many_devices_registered": "此空調已註冊了太多設備。請在應用中刪除一個設備或對模組進行出廠重置。"
     },
@@ -16,13 +15,11 @@
     "step": {
       "user": {
         "data": {
-          "name": "空調名稱",
           "host": "主機（IP）地址",
           "port": "埠號",
           "force_update": "忽略重複的 IP 位址"
         },
         "data_description": {
-          "name": "此空調在 Home Assistant 中的名稱。它是裝置的名稱，也是其下各實體名稱的前綴。",
           "host": "空調無線模組的本機 IP 位址。位址變更後，模組再次通告自身時即會採用；請在路由器中為該模組指派固定位址，若未生效則在此更正。",
           "port": "模組本機介面監聽的埠號。除非模組通告了其他埠號，否則保持 51443。",
           "force_update": "即使已有另一個項目使用相同的 IP 位址，仍然新增此空調。適用於舊項目遺失後重新新增裝置：模組一次只接受一個連線，兩個項目同時輪詢會在日誌中產生錯誤。"
@@ -31,25 +28,21 @@
         "title": "WF-RAC 空調連接資訊"
       },
       "discovery_confirm": {
-        "description": "發現了空調，ID: {id}，IP: {host}，埠號: {port}。通常應為 51443——如不同請在下方更正。請為其命名。",
+        "description": "發現了空調，ID: {id}，IP: {host}，埠號: {port}。通常應為 51443——如不同請在下方更正。",
         "title": "發現的 WF-RAC 空調",
         "data": {
-          "name": "空調名稱",
           "port": "埠號"
         },
         "data_description": {
-          "name": "此空調在 Home Assistant 中的名稱。它是裝置的名稱，也是其下各實體名稱的前綴。",
           "port": "模組通告的埠號。通常為 51443——如不同請在此更正。"
         }
       },
       "reconfigure": {
         "data": {
-          "name": "空調名稱",
           "host": "主機（IP）地址",
           "port": "埠號"
         },
         "data_description": {
-          "name": "此空調在 Home Assistant 中的名稱。它是裝置的名稱，也是其下各實體名稱的前綴。",
           "host": "空調無線模組的本機 IP 位址。位址變更後，模組再次通告自身時即會採用；請在路由器中為該模組指派固定位址，若未生效則在此更正。",
           "port": "模組本機介面監聽的埠號。除非模組通告了其他埠號，否則保持 51443。"
         },

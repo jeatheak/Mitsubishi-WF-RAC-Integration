@@ -1537,7 +1537,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                     )
                 except WfRacWriteRefusedError:
                     # Most likely another client's 60-second write lock - the
-                    # Smart M-Air app was used moments ago (#294). Waiting it
+                    # Smart M-Air app was used moments ago. Waiting it
                     # out is the only thing that helps: our registration is
                     # fine, so re-registering would just cost a request. One
                     # retry, placed where the lock lapses rather than at a

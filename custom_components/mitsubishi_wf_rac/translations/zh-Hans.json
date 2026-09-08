@@ -4,7 +4,6 @@
       "unexpected_error": "发生了意外错误。请查看日志以获取详细信息。",
       "cannot_connect": "无法连接到空调：{reason}",
       "invalid_host": "主机名或 IP 地址无效",
-      "name_invalid": "名称已被占用或少于 3 个字符",
       "host_already_configured": "空调 IP 已被配置为 [{error_name}]",
       "too_many_devices_registered": "此空调已注册了太多设备。请在应用中删除一个设备或对模块进行出厂重置。"
     },
@@ -16,13 +15,11 @@
     "step": {
       "user": {
         "data": {
-          "name": "空调名称",
           "host": "主机（IP）地址",
           "port": "端口",
           "force_update": "忽略重复的 IP 地址"
         },
         "data_description": {
-          "name": "此空调在 Home Assistant 中的名称。它是设备的名称，也是其下各实体名称的前缀。",
           "host": "空调无线模块的本地 IP 地址。地址变化后，模块再次通告自身时即会被采用；请在路由器中为该模块分配固定地址，若未生效则在此更正。",
           "port": "模块本地接口监听的端口。除非模块通告了其他端口，否则保持 51443。",
           "force_update": "即使已有另一个条目使用相同的 IP 地址，仍然添加此空调。适用于旧条目丢失后重新添加设备：模块一次只接受一个连接，两个条目同时轮询会在日志中产生错误。"
@@ -31,25 +28,21 @@
         "title": "WF-RAC 空调连接信息"
       },
       "discovery_confirm": {
-        "description": "发现了空调，ID: {id}，IP: {host}，端口: {port}。通常应为 51443——如不同请在下方更正。请为其命名。",
+        "description": "发现了空调，ID: {id}，IP: {host}，端口: {port}。通常应为 51443——如不同请在下方更正。",
         "title": "发现的 WF-RAC 空调",
         "data": {
-          "name": "空调名称",
           "port": "端口"
         },
         "data_description": {
-          "name": "此空调在 Home Assistant 中的名称。它是设备的名称，也是其下各实体名称的前缀。",
           "port": "模块通告的端口。通常为 51443——如不同请在此更正。"
         }
       },
       "reconfigure": {
         "data": {
-          "name": "空调名称",
           "host": "主机（IP）地址",
           "port": "端口"
         },
         "data_description": {
-          "name": "此空调在 Home Assistant 中的名称。它是设备的名称，也是其下各实体名称的前缀。",
           "host": "空调无线模块的本地 IP 地址。地址变化后，模块再次通告自身时即会被采用；请在路由器中为该模块分配固定地址，若未生效则在此更正。",
           "port": "模块本地接口监听的端口。除非模块通告了其他端口，否则保持 51443。"
         },

@@ -1,0 +1,10 @@
+# The oldest Home Assistant this integration claims to run on - hacs.json's
+# "homeassistant" key. pytest-homeassistant-custom-component pins an exact
+# homeassistant per release, so pinning the harness is how the floor gets
+# pinned: 0.13.325 is the last release carrying a 2026.4.x.
+#
+# Raise this together with hacs.json, never on its own: the whole point is
+# that the number we publish is the number the tests ran against.
+pytest-homeassistant-custom-component==0.13.325
+mypy
+pywfrac==0.1.3

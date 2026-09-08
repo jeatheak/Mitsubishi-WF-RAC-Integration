@@ -4,7 +4,6 @@
       "unexpected_error": "Er is een onverwachte fout opgetreden. Raadpleeg het logboek voor details.",
       "cannot_connect": "Kan niet verbinden met de Airco: {reason} ",
       "invalid_host": "Ongeldige hostnaam of IP-adres",
-      "name_invalid": "De naam is al in gebruik, of is korter dan 3 tekens. ",
       "host_already_configured": "IP is al geconfigureerd voor [{error_name}]",
       "too_many_devices_registered": "Er zijn te veel apparaten geregistreerd op deze airco. Verwijder een apparaat of reset de module."
     },
@@ -16,13 +15,11 @@
     "step": {
       "user": {
         "data": {
-          "name": "Airco Naam",
           "host": "Host (IP) adres",
           "port": "Poort",
           "force_update": "Dubbel IP-adres negeren"
         },
         "data_description": {
-          "name": "De naam van deze airco in Home Assistant. Hij benoemt het apparaat en gaat vooraf aan de namen van de bijbehorende entiteiten.",
           "host": "Het lokale IP-adres van de wifi-module in de airco. Een gewijzigd adres wordt overgenomen zodra de module zich opnieuw aankondigt; geef de module een vast adres in je router, of corrigeer het hier als dat uitblijft.",
           "port": "De poort waarop de lokale API van de module luistert. Laat 51443 staan, tenzij je module een andere aankondigt.",
           "force_update": "Voegt deze airco toe hoewel een andere invoer hetzelfde IP-adres al gebruikt. Bedoeld voor een unit waarvan de oude invoer is verdwenen: de module accepteert één verbinding tegelijk, twee invoeren die hem bevragen leveren fouten in het log op."
@@ -31,25 +28,21 @@
         "title": "WF-RAC AC verbinding info"
       },
       "discovery_confirm": {
-        "description": "De airco met id: {id}, IP: {host} en poort: {port} is ontdekt. Dit is normaal gesproken 51443 — corrigeer het hieronder als het afwijkt. Hoe heet deze airco?",
+        "description": "De airco met id: {id}, IP: {host} en poort: {port} is ontdekt. Dit is normaal gesproken 51443 — corrigeer het hieronder als het afwijkt.",
         "title": " WF-RAC Airco ontdekt ",
         "data": {
-          "name": "Airco naam",
           "port": "Poort"
         },
         "data_description": {
-          "name": "De naam van deze airco in Home Assistant. Hij benoemt het apparaat en gaat vooraf aan de namen van de bijbehorende entiteiten.",
           "port": "De poort die de module heeft aangekondigd. Normaal gesproken 51443 — corrigeer hem hier als hij afwijkt."
         }
       },
       "reconfigure": {
         "data": {
-          "name": "Airco Naam",
           "host": "Host (IP) adres",
           "port": "Poort"
         },
         "data_description": {
-          "name": "De naam van deze airco in Home Assistant. Hij benoemt het apparaat en gaat vooraf aan de namen van de bijbehorende entiteiten.",
           "host": "Het lokale IP-adres van de wifi-module in de airco. Een gewijzigd adres wordt overgenomen zodra de module zich opnieuw aankondigt; geef de module een vast adres in je router, of corrigeer het hier als dat uitblijft.",
           "port": "De poort waarop de lokale API van de module luistert. Laat 51443 staan, tenzij je module een andere aankondigt."
         },

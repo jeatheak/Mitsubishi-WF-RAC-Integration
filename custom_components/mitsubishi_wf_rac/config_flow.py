@@ -17,7 +17,6 @@ from homeassistant.const import (
     CONF_DEVICE_ID,
     CONF_FORCE_UPDATE,
     CONF_HOST,
-    CONF_NAME,
     CONF_PORT,
     UnitOfTemperature,
 )
@@ -64,7 +63,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # Has to match the highest version async_migrate_entry produces. Home
     # Assistant skips migration entirely once entry.version equals this, so a
     # new step that is not reflected here never runs.
-    VERSION = 6
+    VERSION = 7
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info: dict[str, Any] = {}
     DOMAIN = DOMAIN
@@ -96,13 +95,10 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Validate the user input allows us to connect, and register with the airco device.
 
         allow_port_fallback belongs to discovery only: a port the module
-        announced may be wrong (#290), a port a person typed is their decision.
+        announced may be wrong, a port a person typed is their decision.
         """
         if len(data[CONF_HOST]) < 3:
             raise InvalidHost
-
-        if len(data[CONF_NAME]) < 3:
-            raise InvalidName
 
         if not data.get(CONF_FORCE_UPDATE):
             # Is this hostname or IP address already configured on a *different*
@@ -112,7 +108,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_HOST, lambda h: h == data[CONF_HOST]
             )
             if existing_entry and existing_entry.entry_id != exclude_entry_id:
-                raise HostAlreadyConfigured(error_name=existing_entry.data[CONF_NAME])
+                raise HostAlreadyConfigured(error_name=existing_entry.title)
 
         repository = Repository(
             async_get_clientsession(hass),
@@ -127,7 +123,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             airco_id = await repository.get_airco_id()
         except (WfRacError, KeyError, TypeError) as query_failed:
             # A discovery announcement has been seen carrying a port the module
-            # does not serve (#290). The port is fixed in the firmware and not
+            # does not serve. The port is fixed in the firmware and not
             # user-settable, so rather than failing on a value the device
             # cannot have meant, try the one it always listens on. Only the
             # announced value is second-guessed - a port the user typed is
@@ -209,23 +205,35 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass, user_input, allow_port_fallback=allow_port_fallback
                 )
 
-                # A unit reached at a second address would otherwise become a
-                # second entry, whose entities collide with the first one's -
-                # the manual step has no unique id to abort on. The airco id
-                # the registration just returned is the unit's own identity.
-                if self._find_entry_matching(
-                    CONF_AIRCO_ID, lambda a: a == info[CONF_AIRCO_ID]
-                ):
-                    return self.async_abort(reason="already_configured")
+                # The airco id is the unit's own identity, and the one
+                # zeroconf keys on: the module announces itself as
+                # <mac>.local and the airco id is that same MAC. Registering
+                # it here is what lets a discovery recognise a manually added
+                # entry later - and it aborts a unit reached at a second
+                # address, which would otherwise become a second entry whose
+                # entities collide with the first one's. Lower case on both
+                # sides: discovery reads it from the announced hostname and
+                # every other path from the airconId the unit reports.
+                await self.async_set_unique_id(info[CONF_AIRCO_ID].lower())
+                self._abort_if_unique_id_configured()
 
                 data_input = user_input.copy()
+                # Form-only: it decides whether a duplicate host is accepted
+                # while adding, and means nothing to a stored entry.
+                data_input.pop(CONF_FORCE_UPDATE, None)
                 options_input = {
                     CONF_AVAILABILITY_RETRY_LIMIT: AVAILABILITY_FAILURE_LIMIT_MIN,
                     CONF_FIRMWARE_UPDATE_CHECK: False,
                 }
 
+                # Named after the unit rather than asked for: config flows do
+                # not collect entry names, and renaming is Home Assistant's
+                # own. The last four characters of the airco id are enough to
+                # tell two units apart and to match one against the label on
+                # the module, while the whole id stays out of the device name
+                # and the entity ids built from it.
                 return self.async_create_entry(
-                    title=info[CONF_NAME],
+                    title=f"WF-RAC {info[CONF_AIRCO_ID][-4:]}",
                     data=data_input,
                     options=options_input,
                 )
@@ -276,7 +284,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle adding device discovered by zeroconf."""
 
         description_placeholders = {
-            "id": self._discovery_info[CONF_NAME],
+            "id": self._discovery_info[CONF_AIRCO_ID],
             "host": self._discovery_info[CONF_HOST],
             "port": self._discovery_info[CONF_PORT],
         }
@@ -288,9 +296,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         field = partial(self._field, user_input)
         data_schema = vol.Schema(
             {
-                field(
-                    CONF_NAME, vol.Required, f"Airco {self._discovery_info[CONF_NAME]}"
-                ): str,
                 field(
                     CONF_PORT, vol.Optional, self._discovery_info[CONF_PORT]
                 ): cv.port,
@@ -321,7 +326,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         field = partial(self._field, user_input)
         data_schema = vol.Schema(
             {
-                field(CONF_NAME, vol.Required, "Airco unknown"): cv.string,
                 field(CONF_HOST, vol.Required): cv.string,
                 field(CONF_PORT, vol.Optional, DEFAULT_PORT): cv.port,
                 field(CONF_FORCE_UPDATE, vol.Optional, False): cv.boolean,
@@ -335,10 +339,9 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reconfigure(
             self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle changing an existing entry's connection details (host/port/name)."""
+        """Handle changing an existing entry's connection details (host/port)."""
         reconfigure_entry = self._get_reconfigure_entry()
         current = {
-            CONF_NAME: reconfigure_entry.data[CONF_NAME],
             CONF_HOST: reconfigure_entry.data[CONF_HOST],
             CONF_PORT: reconfigure_entry.data[CONF_PORT],
         }
@@ -346,7 +349,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         field = partial(self._field, user_input or current)
         data_schema = vol.Schema(
             {
-                field(CONF_NAME, vol.Required): cv.string,
                 field(CONF_HOST, vol.Required): cv.string,
                 field(CONF_PORT, vol.Optional, DEFAULT_PORT): cv.port,
             }
@@ -369,7 +371,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return self.async_update_reload_and_abort(
                     reconfigure_entry,
-                    title=info[CONF_NAME],
                     data=new_data,
                 )
             except KnownError as error:
@@ -409,7 +410,11 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             discovery_info.port,
         )
 
-        await self.async_set_unique_id(node_name)
+        # Lower case on both sides: this id comes from the announced
+        # hostname while every other path takes it from the airconId the unit
+        # reports, and a difference in case would leave discovery unable to
+        # recognise an entry it had matched on before.
+        await self.async_set_unique_id(node_name.lower())
         # The address only. A module that moved gets followed; its port is
         # what setup was configured with, and a rediscovery announcing a
         # different one would take a working entry offline.
@@ -422,16 +427,10 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.debug("already configured!")
             return self.async_abort(reason="already_configured")
 
-        info[CONF_NAME] = node_name
+        info[CONF_AIRCO_ID] = node_name
         self._discovery_info = info
 
         return await self.async_step_discovery_confirm()
-
-    @property
-    def _name(self) -> str | None:
-        name = self.context.get(CONF_NAME)
-        return name if isinstance(name, str) else None
-
 
 class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
     """Base class for options handling.
@@ -724,13 +723,6 @@ class HostAlreadyConfigured(KnownError):
 
     error_name = "host_already_configured"
     applies_to_field = CONF_HOST
-
-
-class InvalidName(KnownError):
-    """Error to indicate there is an invalid hostname."""
-
-    error_name = "name_invalid"
-    applies_to_field = CONF_NAME
 
 
 class TooManyDevicesRegistered(KnownError):

@@ -341,7 +341,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         the value applies to whichever regulating mode is turned on next, often
         in the very next step of the same automation. Holding it to the default
         18C floor there rejects a cooling setpoint the unit takes happily once
-        it is cooling, which is what it did until #317.
+        it is cooling.
         """
         if hvac_mode in REGULATING_HVAC_MODES:
             return (
@@ -424,7 +424,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         # an automation that sets a setpoint before switching mode gets
         # measured against the mode it is leaving. Saying so - and that
         # hvac_mode belongs in the same call - is the difference between a
-        # rejection and a fix (#317).
+        # rejection and a fix.
         if set_temp < min_temp:
             raise ServiceValidationError(
                 f"Temperature {set_temp} is below minimum {min_temp}",
@@ -459,7 +459,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         # Cannot bite when the call names a regulating mode: the bounds checked
         # above are then that mode's own, shifted by the same offset just
         # subtracted. It is here for off and fan-only, where the range
-        # deliberately spans every regulating mode (#317) and the value can
+        # deliberately spans every regulating mode and the value can
         # land outside the range of the one it is written in.
         device_low, device_high = self._setpoint_range_for_mode(
             self._writing_mode(target_hvac_mode)

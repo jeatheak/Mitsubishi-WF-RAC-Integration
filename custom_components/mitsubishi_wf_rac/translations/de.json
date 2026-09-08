@@ -4,7 +4,6 @@
       "unexpected_error": "Es ist ein unerwarteter Fehler aufgetreten. Weitere Informationen finden Sie im Protokoll.",
       "cannot_connect": "Konnte keine Verbindung zur Klimaanlage herstellen: {reason}",
       "invalid_host": "Ungültiger Hostname oder ungültige IP-Adresse",
-      "name_invalid": "Der Name ist bereits vergeben oder kürzer als 3 Zeichen",
       "host_already_configured": "Klima IP bereits konfiguriert als [{error_name}]",
       "too_many_devices_registered": "Für diese Klimaanlage sind zu viele Geräte registriert. Bitte löschen Sie ein Gerät (in der App) oder führen Sie einen Werksreset des Moduls durch."
     },
@@ -16,13 +15,11 @@
     "step": {
       "user": {
         "data": {
-          "name": "Klima Name",
           "host": "Host (IP) Adresse",
           "port": "Port",
           "force_update": "Doppelte IP-Adresse ignorieren"
         },
         "data_description": {
-          "name": "Der Name dieses Klimageräts in Home Assistant. Er benennt das Gerät und steht vor den Namen der zugehörigen Entitäten.",
           "host": "Die lokale IP-Adresse des WLAN-Moduls im Klimagerät. Eine geänderte Adresse wird übernommen, sobald sich das Modul wieder ankündigt; vergeben Sie im Router eine feste Adresse oder korrigieren Sie sie hier, falls das ausbleibt.",
           "port": "Der Port, auf dem die lokale Schnittstelle des Moduls lauscht. Belassen Sie 51443, sofern Ihr Modul keinen anderen ankündigt.",
           "force_update": "Fügt dieses Klimagerät hinzu, obwohl bereits ein anderer Eintrag dieselbe IP-Adresse verwendet. Gedacht für ein Gerät, dessen alter Eintrag verloren ging: Das Modul nimmt jeweils nur eine Verbindung an, zwei Einträge darauf erzeugen Fehler im Protokoll."
@@ -31,25 +28,21 @@
         "title": "WF-RAC AC Verbindungs-Info"
       },
       "discovery_confirm": {
-        "description": "Die Klima mit der ID: {id}, IP: {host} und Port: {port} wurde gefunden. Der Port ist normalerweise 51443 — bei Abweichung unten korrigieren. Bitte vergeben Sie einen Namen.",
+        "description": "Die Klima mit der ID: {id}, IP: {host} und Port: {port} wurde gefunden. Der Port ist normalerweise 51443 — bei Abweichung unten korrigieren.",
         "title": "WF-RAC Klima gefunden",
         "data": {
-          "name": "Klima Name",
           "port": "Port"
         },
         "data_description": {
-          "name": "Der Name dieses Klimageräts in Home Assistant. Er benennt das Gerät und steht vor den Namen der zugehörigen Entitäten.",
           "port": "Der vom Modul angekündigte Port. Normalerweise 51443 — bei Abweichung hier korrigieren."
         }
       },
       "reconfigure": {
         "data": {
-          "name": "Klima Name",
           "host": "Host (IP) Adresse",
           "port": "Port"
         },
         "data_description": {
-          "name": "Der Name dieses Klimageräts in Home Assistant. Er benennt das Gerät und steht vor den Namen der zugehörigen Entitäten.",
           "host": "Die lokale IP-Adresse des WLAN-Moduls im Klimagerät. Eine geänderte Adresse wird übernommen, sobald sich das Modul wieder ankündigt; vergeben Sie im Router eine feste Adresse oder korrigieren Sie sie hier, falls das ausbleibt.",
           "port": "Der Port, auf dem die lokale Schnittstelle des Moduls lauscht. Belassen Sie 51443, sofern Ihr Modul keinen anderen ankündigt."
         },
