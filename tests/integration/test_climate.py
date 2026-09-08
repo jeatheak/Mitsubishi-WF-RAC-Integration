@@ -808,3 +808,139 @@ async def test_unknown_fan_step_is_recognised_by_name(device, monkeypatch):
 
     with pytest.raises(IndexError):
         AircoClimate(device)._update_state()
+
+
+# --- the offset moves the range, not the value behind the user's back -----
+#
+# The device is held to its own range; what the user sets and reads back is
+# that value plus the target offset. Advertising the device's range and
+# clamping the converted value afterwards accepted a request the unit could
+# not hold: with a +1 offset a requested 16 became 15, was clamped back to 16
+# and read back as 17.
+
+
+async def test_the_offset_moves_the_range_the_card_offers(device):
+    _set_options(device, {CONF_TARGET_OFFSET: 1.0})
+    device.airco.Operation = True
+    device.airco.OperationMode = HVAC_TRANSLATION[HVACMode.COOL]
+    entity = AircoClimate(device)
+
+    assert (entity.min_temp, entity.max_temp) == (17.0, 31.0)
+
+    with pytest.raises(ServiceValidationError):
+        await entity.async_set_temperature(temperature=16.0)
+
+
+async def test_a_setpoint_at_the_offset_edge_reaches_the_unit_unclamped(device):
+    """The lowest value the card offers survives the trip to the unit and back."""
+    _set_options(device, {CONF_TARGET_OFFSET: 1.0})
+    device.airco.Operation = True
+    device.airco.OperationMode = HVAC_TRANSLATION[HVACMode.COOL]
+    device.async_queue_command = AsyncMock()
+    entity = AircoClimate(device)
+
+    await entity.async_set_temperature(temperature=17.0)
+
+    sent = device.async_queue_command.call_args.args[0]
+    assert sent[AirconCommands.PresetTemp] == 16.0
+
+    device.airco.PresetTemp = sent[AirconCommands.PresetTemp]
+    entity._update_state()
+    assert entity._attr_target_temperature == 17.0
+
+
+async def test_a_mode_switching_call_is_not_measured_against_another_modes_offset(
+    device,
+):
+    """An off unit advertises every mode's range, each with its own offset.
+
+    Home Assistant reads min_temp/max_temp and rejects out-of-range calls
+    itself, before the entity can measure them against the mode being switched
+    to. Shifting the whole range by the underlying mode's offset would
+    therefore refuse a setpoint that is perfectly legal in the mode the call
+    turns on - here a cooling offset moving the heating ceiling.
+    """
+    _set_options(device, {CONF_TARGET_OFFSET: 0.0, CONF_TARGET_OFFSET_COOL: -3.0})
+    device.airco.Operation = False
+    device.airco.OperationMode = HVAC_TRANSLATION[HVACMode.COOL]
+    device.async_queue_command = AsyncMock()
+    entity = AircoClimate(device)
+
+    # Cooling's floor moves down with its own offset, heating's ceiling stays.
+    assert (entity.min_temp, entity.max_temp) == (13.0, 30.0)
+
+    await entity.async_set_temperature(temperature=29.0, hvac_mode=HVACMode.HEAT)
+
+    # Heating takes the general offset, so it goes out unchanged.
+    sent = device.async_queue_command.call_args.args[0]
+    assert sent[AirconCommands.PresetTemp] == 29.0
+
+
+async def test_a_setpoint_sent_in_fan_only_is_held_to_every_modes_range(device):
+    """Fan-only has no setpoint range of its own, so the union applies.
+
+    The value is stored for whichever regulating mode is turned on next, and
+    fan-only takes the general offset because no per-mode one covers it.
+    """
+    _set_options(device, {CONF_TARGET_OFFSET: 1.0})
+    device.airco.Operation = True
+    device.airco.OperationMode = HVAC_TRANSLATION[HVACMode.FAN_ONLY]
+    device.async_queue_command = AsyncMock()
+    entity = AircoClimate(device)
+
+    assert entity._attr_hvac_mode == HVACMode.FAN_ONLY
+    assert (entity.min_temp, entity.max_temp) == (17.0, 31.0)
+
+    await entity.async_set_temperature(temperature=17.0)
+
+    # 17 - 1, and the union floor of 16 lets it through unclamped.
+    sent = device.async_queue_command.call_args.args[0]
+    assert sent[AirconCommands.PresetTemp] == 16.0
+
+
+async def test_an_off_unit_writes_the_setpoint_with_the_underlying_modes_offset(
+    device,
+):
+    """The offset that goes out has to be the one the read-back adds again.
+
+    While the unit is off the value lands in the mode it keeps underneath, and
+    that is what _update_state() reads it back with. Resolving OFF against the
+    general offset instead moved the displayed target the moment the command
+    landed.
+    """
+    _set_options(device, {CONF_TARGET_OFFSET: 0.0, CONF_TARGET_OFFSET_COOL: 2.0})
+    device.airco.Operation = False
+    device.airco.OperationMode = HVAC_TRANSLATION[HVACMode.COOL]
+    device.async_queue_command = AsyncMock()
+    entity = AircoClimate(device)
+
+    await entity.async_set_temperature(temperature=24.0)
+
+    sent = device.async_queue_command.call_args.args[0]
+    assert sent[AirconCommands.PresetTemp] == 22.0
+
+    device.airco.PresetTemp = sent[AirconCommands.PresetTemp]
+    entity._update_state()
+    assert entity._attr_target_temperature == 24.0
+
+
+async def test_leaving_home_leave_lands_on_the_normal_setpoint_the_card_shows(device):
+    """The restored setpoint is offset-corrected like any other.
+
+    Sent raw, the read-back would add the offset on top and leave the card
+    showing NORMAL_TEMP plus it.
+    """
+    _set_options(device, {CONF_TARGET_OFFSET: 1.0})
+    device.airco.Operation = True
+    device.airco.OperationMode = HVAC_TRANSLATION[HVACMode.COOL]
+    device.async_queue_command = AsyncMock()
+    entity = AircoClimate(device)
+
+    await entity.async_set_preset_mode(PRESET_NONE)
+
+    sent = device.async_queue_command.call_args.args[0]
+    assert sent[AirconCommands.PresetTemp] == NORMAL_TEMP - 1.0
+
+    device.airco.PresetTemp = sent[AirconCommands.PresetTemp]
+    entity._update_state()
+    assert entity._attr_target_temperature == NORMAL_TEMP
