@@ -23,7 +23,7 @@
         },
         "data_description": {
           "name": "The name for this airco in Home Assistant. It names the device and prefixes the entities belonging to it.",
-          "host": "The local IP address of the airco's wireless module. Give the module a fixed address in your router - the integration does not follow a changed one on its own, you would have to reconfigure it here.",
+          "host": "The local IP address of the airco's wireless module. A changed address is picked up when the module announces itself again; give the module a fixed address in your router, or correct it here if it does not.",
           "port": "The port the module's local API listens on. Leave this at 51443 unless your module announces a different one.",
           "force_update": "Add this airco even though another entry already uses this IP address. Meant for re-adding a unit whose old entry went missing: the module accepts one connection at a time, so two entries polling it will produce errors in the log."
         },
@@ -50,7 +50,7 @@
         },
         "data_description": {
           "name": "The name for this airco in Home Assistant. It names the device and prefixes the entities belonging to it.",
-          "host": "The local IP address of the airco's wireless module. Give the module a fixed address in your router - the integration does not follow a changed one on its own, you would have to reconfigure it here.",
+          "host": "The local IP address of the airco's wireless module. A changed address is picked up when the module announces itself again; give the module a fixed address in your router, or correct it here if it does not.",
           "port": "The port the module's local API listens on. Leave this at 51443 unless your module announces a different one."
         },
         "description": "Update the connection details for this Airco.",

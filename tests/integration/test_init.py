@@ -7,6 +7,7 @@ them at runtime any more - the migration's job is to leave no trace of them.
 
 from unittest.mock import AsyncMock, patch
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
@@ -17,6 +18,7 @@ from custom_components.mitsubishi_wf_rac import (
     async_remove_entry,
     create_device_from_entry,
 )
+from custom_components.mitsubishi_wf_rac.config_flow import WfRacConfigFlow
 from custom_components.mitsubishi_wf_rac.const import (
     CONF_AVAILABILITY_CHECK,
     CONF_AVAILABILITY_RETRY_LIMIT,
@@ -153,3 +155,36 @@ async def test_remove_entry_clears_the_registration_full_repair_issue(hass: Home
         ir.async_get(hass).async_get_issue(DOMAIN, registration_full_issue_id(entry.entry_id))
         is None
     )
+
+
+def test_the_config_flow_declares_the_version_the_migration_ends_at():
+    """Home Assistant stops migrating as soon as entry.version reaches this.
+
+    ConfigEntry.async_migrate returns early when the entry is already at the
+    handler's VERSION, so a migration step added without raising it here is
+    never called - and every entry keeps whatever layout that step was meant
+    to fix.
+    """
+    assert WfRacConfigFlow.VERSION == _CURRENT_VERSION
+
+
+async def test_an_entry_from_before_the_host_moved_still_sets_up(hass: HomeAssistant):
+    """What a manually added installation actually has on disk.
+
+    Discovery writes the host into entry.data as a side effect of its address
+    refresh, so a discovered entry has one either way. An entry added by hand
+    never was: the host lived in options alone, and setup reads it from data.
+    """
+    entry = _entry(hass, 5, _DATA, {CONF_HOST: "192.168.1.50"})
+
+    with patch(
+        "custom_components.mitsubishi_wf_rac.coordinator.Repository",
+        return_value=AsyncMock(),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is not ConfigEntryState.SETUP_ERROR
+    assert entry.version == _CURRENT_VERSION
+    assert entry.data[CONF_HOST] == "192.168.1.50"
+    assert CONF_HOST not in entry.options
