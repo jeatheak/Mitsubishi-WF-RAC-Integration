@@ -24,6 +24,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import (
     AC_CERT_FILENAME,
+    CONF_CARRY_POWER_STATE,
     CONF_EXTERNAL_TEMPERATURE_SOURCE,
     CONF_OVERSHOOT_COOL,
     CONF_OVERSHOOT_DRY,
@@ -327,6 +328,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             availability_failure_limit: int = AVAILABILITY_FAILURE_LIMIT_MIN,
             firmware_update_check_enabled: bool = False,
             connection_method: str | None = None,
+            carry_power_state: bool = False,
     ) -> None:
         self._api = Repository(
             async_get_clientsession(hass),
@@ -338,6 +340,10 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             cert_path=hass.config.path(AC_CERT_FILENAME),
         )
         self._parser = _ServiceDataParser()
+        # Carried over from a previous run: a module that needs the power
+        # state has always needed it, and relearning costs the unit the same
+        # shutdowns every time (see _check_request_stopped_unit).
+        self._parser.carry_power_state = carry_power_state
         self._hass = hass
 
         # Protected state
@@ -1425,6 +1431,14 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             )
             return
         self._parser.carry_power_state = True
+        # Written down, not just remembered: this is a property of the module
+        # in front of us, and a restart that forgot it would put the unit
+        # through the same shutdowns again to learn the same thing.
+        entry = self.config_entry
+        assert entry is not None  # always constructed with one - see options
+        self._hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_CARRY_POWER_STATE: True}
+        )
         _LOGGER.warning(
             "[%s] switched off in the same request in which we asked it for "
             "operation data. That request carries no settings, so this module "

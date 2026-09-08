@@ -19,6 +19,7 @@ from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.mitsubishi_wf_rac.const import (
+    CONF_CARRY_POWER_STATE,
     CONF_OVERSHOOT_COOL,
     CONF_OVERSHOOT_DRY,
     CONF_OVERSHOOT_HEAT,
@@ -2048,6 +2049,8 @@ async def test_a_unit_that_stops_on_our_request_twice_gets_its_power_state_carri
     would be the wrong thing to gate on. Twice, because the signal cannot
     separate us from another client on the same network.
     """
+    # Registered, so the entry can actually be written to - see _set_options.
+    device.config_entry.add_to_hass(device.hass)
     device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
     assert device.airco.Operation is True
@@ -2062,6 +2065,30 @@ async def test_a_unit_that_stops_on_our_request_twice_gets_its_power_state_carri
     await device.update()
     await _run_service_data_request(device, monkeypatch)
     assert device._parser.carry_power_state is True
+    # Written down, so the next start does not put the unit through the same
+    # shutdowns to learn the same thing (#329, reported again after an update
+    # had reset it).
+    assert device.config_entry.data[CONF_CARRY_POWER_STATE] is True
+
+
+async def test_a_learned_power_state_quirk_survives_a_restart(hass):
+    """A module that needs the power state has always needed it.
+
+    The flag used to live only in memory, so every restart and every reload
+    started the count from zero - and the unit paid for it again each time.
+    """
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_CARRY_POWER_STATE: True})
+    entry.add_to_hass(hass)
+    device = Device(
+        hass, entry, "Test AC", "127.0.0.1", 51443, "device-id", "operator-id",
+        "airco-id", swing_selects_enabled_default=True,
+        carry_power_state=bool(entry.data.get(CONF_CARRY_POWER_STATE, False)),
+    )
+    device._api = AsyncMock()
+
+    assert device._parser.carry_power_state is True
+
+    await device.async_shutdown()
 
 
 async def test_a_single_stop_during_our_request_is_not_enough(device, monkeypatch):
