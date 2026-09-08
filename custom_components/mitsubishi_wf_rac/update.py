@@ -56,7 +56,7 @@ class FirmwareUpdateEntity(WfRacEntity, UpdateEntity):
     def __init__(self, device: Device) -> None:
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-firmware-update"
-        self._update_state()
+        self._apply_state()
 
     def _update_state(self) -> None:
         self._attr_installed_version = self._device.wireless_firmware_version

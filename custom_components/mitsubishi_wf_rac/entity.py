@@ -23,8 +23,8 @@ _LOGGER = logging.getLogger(__name__)
 class WfRacEntity(CoordinatorEntity[Device]):
     """Wires an entity to the shared Device coordinator.
 
-    Subclasses keep their existing _update_state() (called once at the end of
-    their own __init__ for the initial state, as before); this base class
+    Subclasses implement _update_state() and call _apply_state() once at the
+    end of their own __init__ for the initial state; this base class
     re-invokes it whenever the coordinator notifies listeners - either from
     its own poll or from Device.async_set_updated_data() right after a
     command completes.
@@ -82,11 +82,28 @@ class WfRacEntity(CoordinatorEntity[Device]):
         implementation."""
         raise NotImplementedError
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
+    def _apply_state(self) -> None:
+        """Read the current frame into this entity, or mark the device down.
+
+        Every read goes through here, the very first one included. A frame can
+        decode cleanly and still carry a value an entity cannot translate, and
+        letting that escape a constructor is not the same failure as letting it
+        escape a poll: the platform never finishes setting up, so the config
+        entry loads without a single one of its entities and only a traceback
+        to say why. The same value arriving one frame later merely takes the
+        device unavailable until it reads again.
+        """
         try:
             self._update_state()
         except (IndexError, KeyError, AttributeError, ValueError):
-            _LOGGER.warning("Could not update %s", self.entity_id)
+            # entity_id is only assigned once the entity is added, so on the
+            # first read the unique id is all there is to name it by.
+            _LOGGER.warning(
+                "Could not update %s", self.entity_id or self._attr_unique_id
+            )
             self._device.set_available(False)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._apply_state()
         self.async_write_ha_state()

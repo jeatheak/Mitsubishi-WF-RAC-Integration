@@ -68,3 +68,36 @@ async def test_base_entity_marks_device_unavailable_when_state_update_fails(devi
     entity._handle_coordinator_update()
 
     set_available.assert_called_once_with(False)
+
+
+async def test_apply_state_swallows_a_first_read_that_fails(device, monkeypatch):
+    """A constructor read must fail like a poll, not like a setup error.
+
+    Before this, every platform called _update_state() straight from its
+    __init__. A frame that decodes cleanly can still carry a value an entity
+    cannot translate, and there the exception took the whole platform down:
+    the config entry loaded without a single entity of that kind.
+    """
+    entity = WfRacEntity(device)
+    entity._attr_unique_id = "airco-id-something"
+    entity._update_state = MagicMock(side_effect=IndexError)
+    set_available = MagicMock()
+    monkeypatch.setattr(device, "set_available", set_available)
+
+    entity._apply_state()
+
+    set_available.assert_called_once_with(False)
+
+
+async def test_apply_state_names_the_entity_by_unique_id_before_it_is_added(
+    device, monkeypatch, caplog
+):
+    """entity_id is only assigned on add, so the first read has nothing else."""
+    entity = WfRacEntity(device)
+    entity._attr_unique_id = "airco-id-fan-speed"
+    entity._update_state = MagicMock(side_effect=IndexError)
+    monkeypatch.setattr(device, "set_available", MagicMock())
+
+    entity._apply_state()
+
+    assert "airco-id-fan-speed" in caplog.text

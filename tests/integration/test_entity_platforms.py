@@ -31,7 +31,7 @@ from custom_components.mitsubishi_wf_rac.const import (
     SWING_MODE_TRANSLATION,
 )
 from custom_components.mitsubishi_wf_rac.coordinator import Device
-from pywfrac import AirconCommands, HomeLeaveModeSetting
+from pywfrac import AIRFLOW_UNKNOWN, AirconCommands, HomeLeaveModeSetting
 
 from ..unit.live_captures import LIVE_CAPTURES
 
@@ -406,3 +406,19 @@ async def test_update_version_states(platform_device, available, latest):
     entity = update.FirmwareUpdateEntity(platform_device)
     assert entity.installed_version == "1.0"
     assert entity.latest_version == (latest if available else "1.0")
+
+
+async def test_fan_speed_select_recognises_an_unreadable_fan_step(platform_device, monkeypatch):
+    """Same marker as the climate entity's fan mode, same first-read guard.
+
+    FanSpeedSelect indexes FAN_MODE_TRANSLATION from its own __init__, so an
+    AIRFLOW_UNKNOWN nibble used to take the whole select platform with it.
+    """
+    platform_device.airco.AirFlow = AIRFLOW_UNKNOWN
+    set_available = MagicMock()
+    monkeypatch.setattr(platform_device, "set_available", set_available)
+
+    fan = select.FanSpeedSelect(platform_device)
+
+    assert fan.current_option is None
+    set_available.assert_called_once_with(False)

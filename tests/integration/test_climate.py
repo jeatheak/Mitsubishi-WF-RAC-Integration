@@ -24,6 +24,7 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.restore_state import RestoredExtraData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.mitsubishi_wf_rac import climate as climate_module
 from custom_components.mitsubishi_wf_rac.climate import AircoClimate
 from custom_components.mitsubishi_wf_rac.sensor import TemperatureSensor
 from custom_components.mitsubishi_wf_rac.const import (
@@ -35,13 +36,14 @@ from custom_components.mitsubishi_wf_rac.const import (
     CONF_TARGET_OFFSET_COOL,
     CONF_TARGET_OFFSET_HEAT,
     DOMAIN,
+    FAN_MODE_TRANSLATION,
     HOME_LEAVE_TEMP_COOL,
     HOME_LEAVE_TEMP_HEAT,
     HVAC_TRANSLATION,
     NORMAL_TEMP,
 )
 from custom_components.mitsubishi_wf_rac.coordinator import Device
-from pywfrac import AirconCommands
+from pywfrac import AIRFLOW_UNKNOWN, AirconCommands
 from pywfrac.parser import (
     SERVICE_DATA_INDOOR_COIL_RAW,
 )
@@ -768,3 +770,41 @@ async def test_set_preset_none_restores_a_normal_setpoint(device):
 
     sent = device.async_queue_command.call_args.args[0]
     assert sent == {AirconCommands.PresetTemp: NORMAL_TEMP}
+
+
+# --- an unreadable fan step ---------------------------------------------
+#
+# pywfrac 0.1.3 reports a fan nibble it cannot decode as AIRFLOW_UNKNOWN,
+# one past the end of FAN_MODE_TRANSLATION. Up to 0.1.1 the same nibble
+# arrived as -1 and the list index quietly returned the last mode, so the
+# pin is what makes this reachable at all.
+
+
+async def test_unknown_fan_step_leaves_the_entity_constructed(device, monkeypatch):
+    device.airco.AirFlow = AIRFLOW_UNKNOWN
+    set_available = MagicMock()
+    monkeypatch.setattr(device, "set_available", set_available)
+
+    # Constructing must not raise: the platform would never finish setting up
+    # and the entry would load without a climate entity at all.
+    AircoClimate(device)
+
+    set_available.assert_called_once_with(False)
+
+
+async def test_unknown_fan_step_is_recognised_by_name(device, monkeypatch):
+    """Not left to the list index: a sixth fan mode would swallow the marker.
+
+    AIRFLOW_UNKNOWN is one past the end of today's five modes, so indexing
+    happens to raise. Add a mode and it stops - the marker would read as a
+    real fan step and the unknown state would disappear without a sound.
+    """
+    monkeypatch.setattr(
+        climate_module,
+        "FAN_MODE_TRANSLATION",
+        {**FAN_MODE_TRANSLATION, "sixth": 5},
+    )
+    device.airco.AirFlow = AIRFLOW_UNKNOWN
+
+    with pytest.raises(IndexError):
+        AircoClimate(device)._update_state()

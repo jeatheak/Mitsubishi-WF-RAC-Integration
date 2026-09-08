@@ -217,7 +217,7 @@ class DiagnosticsSensor(WfRacEntity, SensorEntity):
             "cool_hot_judge": "cool_hot_judge",
         }
         self._attr_translation_key = type_map.get(custom_type, custom_type)
-        self._update_state()
+        self._apply_state()
 
     def _update_state(self) -> None:
         if self._custom_type == CONF_OPERATOR_ID:
@@ -273,7 +273,7 @@ class TemperatureSensor(WfRacEntity, SensorEntity):
             "target_temperature": "target"
         }
         self._attr_translation_key = type_map.get(custom_type, custom_type)
-        self._update_state()
+        self._apply_state()
 
     def _update_state(self) -> None:
         if self._custom_type == ATTR_INSIDE_TEMPERATURE:
@@ -309,7 +309,7 @@ class EnergySensor(WfRacEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-energy-sensor"
-        self._update_state()
+        self._apply_state()
 
     def _update_state(self) -> None:
         self._attr_native_value = self._device.airco.Electric
@@ -401,7 +401,7 @@ class EnergyTotalSensor(WfRacEntity, RestoreSensor):
             )
         )
 
-        self._update_state()
+        self._apply_state()
         self.async_write_ha_state()
 
     def _update_state(self) -> None:
@@ -480,7 +480,7 @@ class ServiceDataSensor(WfRacEntity, SensorEntity):
         elif custom_type in (ATTR_INDOOR_COIL_TEMP, ATTR_INDOOR_COIL_OUTLET_TEMP):
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
             self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-        self._update_state()
+        self._apply_state()
 
     def _update_state(self) -> None:
         self._attr_native_value = getattr(self._device.airco, self._FIELD_BY_TYPE[self._custom_type])

@@ -12,7 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .entity import WfRacEntity
-from pywfrac import AirconCommands, HomeLeaveModeSetting
+from pywfrac import AIRFLOW_UNKNOWN, AirconCommands, HomeLeaveModeSetting
 from .coordinator import Device
 from .const import (
     DOMAIN,
@@ -194,9 +194,14 @@ class FanSpeedSelect(WfRacEntity, SelectEntity):
         self._attr_options = SUPPORTED_FAN_MODES
         self._attr_icon = "mdi:fan"
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-fan-speed"
-        self._update_state()
+        self._apply_state()
 
     def _update_state(self) -> None:
+        # Same marker check as the climate entity's fan mode: the library
+        # reports an unreadable fan step by name, and a sixth option here
+        # would otherwise make it look like a real one.
+        if self._device.airco.AirFlow == AIRFLOW_UNKNOWN:
+            raise IndexError("the unit reported a fan step pywfrac cannot read")
         self.select_option(list(FAN_MODE_TRANSLATION.keys())[self._device.airco.AirFlow])
 
     def select_option(self, option: str) -> None:
@@ -237,7 +242,7 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
             HOME_LEAVE_MODE_AWAY_HEAT,
         ]
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-home-leave-mode"
-        self._update_state()
+        self._apply_state()
 
     def _update_state(self) -> None:
         airco = self._device.airco
@@ -312,7 +317,7 @@ class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-home-leave-{mode}-air-flow-select"
         )
-        self._update_state()
+        self._apply_state()
 
     def _current_setting(self) -> HomeLeaveModeSetting | None:
         return (
