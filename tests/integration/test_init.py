@@ -7,6 +7,9 @@ them at runtime any more - the migration's job is to leave no trace of them.
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+from pywfrac import WfRacConnectionError, WfRacError
+
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
@@ -20,6 +23,7 @@ from custom_components.mitsubishi_wf_rac import (
 )
 from custom_components.mitsubishi_wf_rac.config_flow import WfRacConfigFlow
 from custom_components.mitsubishi_wf_rac.const import (
+    CONF_CONNECTION_METHOD,
     CONF_AVAILABILITY_CHECK,
     CONF_AVAILABILITY_RETRY_LIMIT,
     DOMAIN,
@@ -188,3 +192,94 @@ async def test_an_entry_from_before_the_host_moved_still_sets_up(hass: HomeAssis
     assert entry.version == _CURRENT_VERSION
     assert entry.data[CONF_HOST] == "192.168.1.50"
     assert CONF_HOST not in entry.options
+
+
+async def test_a_unit_that_is_unreachable_at_startup_gets_retried(hass: HomeAssistant):
+    """update() reports failure through .available rather than raising.
+
+    ConfigEntryNotReady is what buys HA's retry-with-backoff; without it the
+    entry would sit there "loaded" with entities that never get a reading.
+    """
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
+
+    repository = AsyncMock()
+    repository.get_aircon_stats.side_effect = WfRacConnectionError("no route")
+    with patch(
+        "custom_components.mitsubishi_wf_rac.coordinator.Repository",
+        return_value=repository,
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_the_connection_method_is_remembered(
+    hass: HomeAssistant, repository: AsyncMock
+):
+    """Protocol discovery costs a round-trip on every start otherwise."""
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
+
+    with patch(
+        "custom_components.mitsubishi_wf_rac.coordinator.Repository",
+        return_value=repository,
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert entry.data[CONF_CONNECTION_METHOD] is not None
+
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.NOT_LOADED
+
+
+async def test_a_failed_platform_unload_keeps_the_coordinator(
+    hass: HomeAssistant, repository: AsyncMock
+):
+    """Entities that stayed loaded must keep the coordinator that feeds them.
+
+    Shutting it down anyway would leave a loaded entry that never updates
+    again.
+    """
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
+
+    with patch(
+        "custom_components.mitsubishi_wf_rac.coordinator.Repository",
+        return_value=repository,
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        device = entry.runtime_data.device
+
+        with patch.object(
+            hass.config_entries, "async_unload_platforms", return_value=False
+        ):
+            assert not await hass.config_entries.async_unload(entry.entry_id)
+            await hass.async_block_till_done()
+
+        assert device.last_update_success
+
+        await device.async_shutdown()
+
+
+async def test_removal_says_so_when_the_slot_is_not_released(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+):
+    """The module keeps a small account table, and it can refuse to free ours.
+
+    Nothing here can fix that - the slot has to be freed from the official
+    app - so the removal goes through and says what was left behind.
+    """
+    entry = _entry(hass, _CURRENT_VERSION, {**_DATA, CONF_HOST: "192.168.1.50"}, {})
+
+    repository = AsyncMock()
+    repository.del_account_info.side_effect = WfRacError("no answer")
+    with patch(
+        "custom_components.mitsubishi_wf_rac.coordinator.Repository",
+        return_value=repository,
+    ):
+        await async_remove_entry(hass, entry)
+
+    assert "Could not delete operator ID" in caplog.text

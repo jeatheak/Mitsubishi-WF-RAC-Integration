@@ -68,9 +68,6 @@
     "command_failed": {
       "message": "Nepavyko nusiųsti komandos kondicionieriui adresu {device}: {error}"
     },
-    "temperature_required": {
-      "message": "Būtina nurodyti norimą temperatūrą."
-    },
     "temperature_below_minimum": {
       "message": "{temperature} °C yra žemiau hvac_mode {hvac_mode} minimumo ({min_temp} °C). Nurodykite hvac_mode tame pačiame kvietime, kad būtų tikrinama pagal režimą, į kurį persijungiate."
     },

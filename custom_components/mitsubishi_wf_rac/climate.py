@@ -363,14 +363,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
-        set_temp = kwargs.get(ATTR_TEMPERATURE)
-        if set_temp is None:
-            raise ServiceValidationError(
-                "Temperature is required",
-                translation_domain=DOMAIN,
-                translation_key="temperature_required",
-            )
-
+        set_temp = kwargs[ATTR_TEMPERATURE]
         # If this call also switches hvac_mode, the minimum must reflect the mode
         # being switched to, not the (still stale until the next poll) current one.
         target_hvac_mode = kwargs.get("hvac_mode", self._attr_hvac_mode)
@@ -406,14 +399,13 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
                 },
             )
 
-        # The AC unit's own thermostat logic uses its own indoor sensor reading,
-        # subject to the same calibration bias CONF_INDOOR_OFFSET corrects for
-        # display (see sensor.py). To make the unit actually reach the
-        # user-requested real room temperature despite that bias, the offset is
-        # subtracted from the commanded setpoint before sending - the displayed
-        # target_temperature itself is unaffected. Resolved against the mode
-        # the unit will be in after this command (target_hvac_mode), since
-        # cooling and heating have opposite-sign return-air bias.
+        # The unit regulates against its own return-air reading, which is
+        # biased against the room. The target offset compensates that on the
+        # wire while the displayed target_temperature stays what was asked
+        # for - CONF_INDOOR_OFFSET is a separate, display-only correction and
+        # is not what is subtracted here. Resolved against the mode the unit
+        # will be in after this command, since cooling and heating have
+        # opposite-sign bias.
         target_offset = self._resolve_target_offset(target_hvac_mode)
         target_temp = set_temp - target_offset
         target_temp = max(min_temp, min(max_temp, target_temp))

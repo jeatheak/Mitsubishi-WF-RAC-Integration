@@ -21,3 +21,16 @@ async def platform_device(hass):
     device._api.get_aircon_stats.return_value = {"numOfAccount": 1, "airconStat": LIVE_CAPTURES["on_cool"][0]}
     await device.update()
     return device
+
+
+@pytest.fixture
+def repository() -> AsyncMock:
+    """A module that answers every poll with one parsed live capture."""
+    api = AsyncMock()
+    api.get_aircon_stats.return_value = {
+        "numOfAccount": 1,
+        "airconStat": LIVE_CAPTURES["on_cool"][0],
+    }
+    # Persisted into entry.data, so it has to be storable.
+    api.method = "https"
+    return api

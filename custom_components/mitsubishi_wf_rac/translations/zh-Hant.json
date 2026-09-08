@@ -68,9 +68,6 @@
     "command_failed": {
       "message": "向 {device} 上的空調傳送命令失敗：{error}"
     },
-    "temperature_required": {
-      "message": "需要指定目標溫度。"
-    },
     "temperature_below_minimum": {
       "message": "{temperature}°C 低於 hvac_mode {hvac_mode} 的最低溫度 {min_temp}°C。在同一次呼叫中一併給出 hvac_mode，即可依你要切換到的模式來判斷。"
     },

@@ -68,9 +68,6 @@
     "command_failed": {
       "message": "{device} のエアコンへのコマンド送信に失敗しました: {error}"
     },
-    "temperature_required": {
-      "message": "目標温度を指定してください。"
-    },
     "temperature_below_minimum": {
       "message": "{temperature}°Cは hvac_mode {hvac_mode} の最低温度{min_temp}°Cを下回っています。同じ呼び出しで hvac_mode を指定すると、切り替え先のモードで判定されます。"
     },
