@@ -402,6 +402,10 @@ async def test_reconfigure_flow_rejects_a_different_unit(hass: HomeAssistant):
     assert result["reason"] == "wrong_device"
     assert entry.data["host"] == "192.168.1.50"
     assert entry.data[CONF_AIRCO_ID] == "airco-1"
+    # Registering claims one of the few account slots the module has. The
+    # stranger must not lose one to our typo, so the abort comes before the
+    # write, not after it.
+    repo.update_account_info.assert_not_awaited()
 
 
 async def test_reconfigure_flow_rejects_another_entrys_host(hass: HomeAssistant):

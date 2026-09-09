@@ -1073,19 +1073,17 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         task that deliberately swallows its errors.
         """
         await asyncio.sleep(self.service_data_offset.total_seconds())
-        # What this frame is built from matters on a carrying module and
-        # barely anywhere else: without the quirk the block holds no set-bits
-        # and the unit applies none of it (see
-        # RacParser.status_request_to_byte), with it the block is a full
-        # command. Byte 5 is written either way, having no set-bit to leave
-        # out - an active external temperature override rides along here, and
-        # that is the point: this is the frame that keeps it alive between
-        # commands. That also makes the request a write in the strict sense,
-        # which is what the backdated timestamp below trades away part of the
-        # lock for. The offset stays because it is about spacing requests, not
-        # about what they contain - a second request too soon after the poll is
-        # what the module refuses.
-        if self._parser.status_request_carries_state and not await self._async_read_before_echo():
+        # What the frame carries depends on the module: no set-bits at all
+        # without the #329 quirk, a full command with it (see
+        # RacParser.status_request_to_byte). Byte 5 goes out either way,
+        # having no set-bit to leave out, which is how an active external
+        # temperature override stays alive between commands - and what makes
+        # this request a write in the strict sense, for which the backdated
+        # timestamp below gives back part of the lock.
+        if (
+            self._parser.status_request_carries_state
+            and not await self._async_read_before_echo()
+        ):
             return
         if not self._power_state_is_safe_to_carry():
             # Re-checked after the sleep, not only when the request was
@@ -1627,10 +1625,12 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         a setting up to a poll old and undo whatever was done at the unit since
         - including switching a unit off that somebody just turned on.
         """
-        if self._parser.status_request_carries_state and not await self._async_read_before_echo():
-            # A read failure is not a reason to send the old state anyway: on
-            # this module that is a write. The caller asked for a reading, so
-            # say that it did not happen rather than failing silently.
+        if (
+            self._parser.status_request_carries_state
+            and not await self._async_read_before_echo()
+        ):
+            # Sending the state we have would be a write on this module, and
+            # the caller asked for a reading.
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="status_request_read_failed",

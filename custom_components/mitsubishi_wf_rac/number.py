@@ -20,8 +20,9 @@ from .const import DOMAIN
 # spaces every request.
 PARALLEL_UPDATES = 0
 
-# Same bounds as the temp_rule_*/temp_setting_* fields in services.yaml's
-# set_home_leave_mode action.
+# What the box offers. The wire carries 0-127.5 (see services.py) and the
+# set_home_leave_mode selectors are narrower again; these are the values a
+# thermostat threshold plausibly takes.
 HOME_LEAVE_TEMP_MIN = 10.0
 HOME_LEAVE_TEMP_MAX = 50.0
 HOME_LEAVE_TEMP_STEP = 0.5

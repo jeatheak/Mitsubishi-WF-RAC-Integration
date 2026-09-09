@@ -91,11 +91,17 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data: dict[str, Any],
             exclude_entry_id: str | None = None,
             allow_port_fallback: bool = False,
+            expected_airco_id: str | None = None,
     ) -> dict[str, Any]:
         """Validate the user input allows us to connect, and register with the airco device.
 
         allow_port_fallback belongs to discovery only: a port the module
         announced may be wrong, a port a person typed is their decision.
+
+        expected_airco_id aborts before the registration request when some
+        other unit answers - registering takes one of the few account slots
+        the module has, and a reconfigure that lands on the wrong address has
+        no business spending one.
         """
         if len(data[CONF_HOST]) < 3:
             raise InvalidHost
@@ -155,21 +161,27 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data[CONF_AIRCO_ID] = airco_id
         if not airco_id:
             raise CannotConnect(reason="unknown reason")
+        if (
+            expected_airco_id is not None
+            and airco_id.lower() != expected_airco_id.lower()
+        ):
+            raise AbortFlow("wrong_device")
 
         _LOGGER.debug("Registering this controller on airco [%s]", airco_id)
         try:
-            result = await repository.update_account_info(airco_id, hass.config.time_zone)
-            if not result:
-                raise CannotConnect(reason="no answer to the registration request")
-            registration_result = int(result["result"])
+            result = await repository.update_account_info(
+                airco_id, hass.config.time_zone
+            )
         except (WfRacError, KeyError, TypeError, ValueError) as register_failed:
-            # Same treatment as the query above: this is the second request of
-            # the two, and the module answers only one caller at a time, so a
-            # timeout here is an ordinary outcome and belongs in the form, not
-            # in "unexpected error". ValueError covers a body that is not the
-            # JSON we expect - what a wrong IP with some other HTTP service
-            # behind it returns.
+            # ValueError covers a body that is not the JSON we expect - what a
+            # wrong address with some other HTTP service behind it returns.
             raise CannotConnect(reason=str(register_failed)) from register_failed
+        if not result:
+            raise CannotConnect(reason="no answer to the registration request")
+        try:
+            registration_result = int(result["result"])
+        except (KeyError, TypeError, ValueError) as unreadable:
+            raise CannotConnect(reason="unreadable registration answer") from unreadable
         if registration_result == 2:
             raise TooManyDevicesRegistered
 
@@ -372,16 +384,16 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data[CONF_OPERATOR_ID] = reconfigure_entry.data[CONF_OPERATOR_ID]
                 data[CONF_DEVICE_ID] = reconfigure_entry.data[CONF_DEVICE_ID]
 
-                info = await self._async_register_airco(
-                    self.hass, data, exclude_entry_id=reconfigure_entry.entry_id
+                # The address may change, the unit behind it may not: every
+                # entity's unique id is built from the airco id, so following
+                # a typo to the next unit renames them all, orphans the
+                # originals, and leaves discovery able to place neither.
+                await self._async_register_airco(
+                    self.hass,
+                    data,
+                    exclude_entry_id=reconfigure_entry.entry_id,
+                    expected_airco_id=reconfigure_entry.data[CONF_AIRCO_ID],
                 )
-
-                # The address changed, the unit behind it must not: every
-                # entity's unique id is built from the airco id, so writing a
-                # different one here renames them all, orphans the originals
-                # and leaves discovery unable to recognise either unit.
-                await self.async_set_unique_id(info[CONF_AIRCO_ID].lower())
-                self._abort_if_unique_id_mismatch(reason="wrong_device")
 
                 new_data = {**reconfigure_entry.data, **data}
 

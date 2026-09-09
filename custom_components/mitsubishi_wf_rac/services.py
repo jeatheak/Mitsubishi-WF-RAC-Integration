@@ -28,11 +28,9 @@ from .const import (
     SERVICE_SET_VERTICAL_SWING_MODE,
 )
 
-# Home Leave thresholds go on the wire as int(value * 2) in a single byte and
-# come back as raw / 2, so this is the whole range the unit can hold and hand
-# back unchanged. Unbounded, a mistyped 200 was masked to 144 and written as
-# 72 °C without a word (services.yaml's selectors are narrower still, but a
-# selector is a UI hint and validates nothing).
+# Home Leave thresholds go out as int(value * 2) in a single byte, masked
+# rather than refused, so anything outside this comes back as a different
+# temperature.
 _home_leave_temperature = vol.All(vol.Coerce(float), vol.Range(min=0, max=127.5))
 
 

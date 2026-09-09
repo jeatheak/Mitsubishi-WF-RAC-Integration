@@ -60,8 +60,9 @@ async def test_actions_exist_without_a_working_device(hass: HomeAssistant):
 async def test_set_home_leave_mode_rejects_a_temperature_the_unit_cannot_hold(
     hass: HomeAssistant, field: str
 ):
-    """The thresholds go out as int(value * 2) in a single byte. Unchecked, a
-    mistyped 200 was masked to 144 and written back as 72 °C without a word.
+    """The thresholds go out as int(value * 2) in a single byte, masked rather
+    than refused - anything outside the range reaches the unit as a different
+    temperature.
     """
     assert await async_setup_component(hass, DOMAIN, {})
     await hass.async_block_till_done()
@@ -86,9 +87,8 @@ async def test_set_home_leave_mode_rejects_a_temperature_the_unit_cannot_hold(
 
 
 async def test_set_external_temperature_takes_a_numeric_string(hass: HomeAssistant):
-    """Every other numeric field in this file coerces first; this one went
-    straight to vol.Range, where a string is not orderable against a float -
-    so a templated value, which renders as a string, was rejected.
+    """A templated value renders as a string, and a string is not orderable
+    against a float - so the schema has to coerce before it compares.
     """
     assert await async_setup_component(hass, DOMAIN, {})
     await hass.async_block_till_done()
