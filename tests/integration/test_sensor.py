@@ -34,7 +34,7 @@ async def test_setting_the_total_on_the_wrong_sensor_says_which(
     exactly this: targeting any other sensor has to name the entity instead
     of failing with an AttributeError.
     """
-    wrong = DiagnosticsSensor(platform_device, "Error", "error")
+    wrong = DiagnosticsSensor(platform_device, "error")
     wrong.entity_id = "sensor.living_room_error"
 
     with pytest.raises(ServiceValidationError, match="sensor.living_room_error"):
@@ -73,7 +73,7 @@ async def test_the_judge_reports_nothing_when_it_means_nothing(
     """
     platform_device.airco.Operation = operation
     platform_device.airco.OperationMode = operation_mode
-    sensor = DiagnosticsSensor(platform_device, "Judge", ATTR_COOL_HOT_JUDGE)
+    sensor = DiagnosticsSensor(platform_device, ATTR_COOL_HOT_JUDGE)
 
     sensor._update_state()
 

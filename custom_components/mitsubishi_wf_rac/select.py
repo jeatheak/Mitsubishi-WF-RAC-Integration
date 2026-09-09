@@ -29,13 +29,8 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-# Zero, not one, although this platform writes: the serialisation the module
-# needs already lives in the coordinator, which holds a send lock around the
-# request and spaces requests by MIN_TIME_BETWEEN_REQUESTS. A platform
-# semaphore on top of that only stops actions issued together - a scene, an
-# automation step that fans out - from reaching the coordinator's
-# consolidation window together, and those are exactly the ones worth
-# merging into a single frame.
+# Zero although this platform writes: the coordinator already serialises and
+# spaces every request.
 PARALLEL_UPDATES = 0
 
 HOME_LEAVE_MODE_OFF = "off"
@@ -57,7 +52,7 @@ async def async_setup_entry(
     """Setup select entries"""
 
     device: Device = entry.runtime_data.device
-    _LOGGER.info("Setup Fan, Horizontal and Vertical Select: %s, %s", device.device_name, device.airco_id)
+    _LOGGER.debug("Setup selects for: %s, %s", device.device_name, device.airco_id)
     entities = [HorizontalSwingSelect(device), VerticalSwingSelect(device), FanSpeedSelect(device)]
 
     # Same VacantProperty capability gate as OccupancyBinarySensor in
@@ -74,17 +69,18 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+# HACS only: the climate entity already exposes horizontal swing, vertical
+# swing and fan speed. These three are a second, flatter control surface for
+# dashboards; core takes the climate entity alone.
 class HorizontalSwingSelect(WfRacEntity, SelectEntity):
     """Select component to set the horizontal swing direction of the airco"""
 
     _attr_translation_key = "horizontal_swing"
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
         self._attr_entity_registry_enabled_default = device.swing_selects_enabled_default
         self._attr_options = SUPPORT_SWING_HORIZONTAL_MODES
-        self._attr_icon = "mdi:weather-dust"
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-horizontal-swing-direction"
         )
@@ -96,6 +92,9 @@ class HorizontalSwingSelect(WfRacEntity, SelectEntity):
                 self._device.airco.WindDirectionLR
             ]
         )
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         self.select_option(
@@ -133,13 +132,11 @@ class VerticalSwingSelect(WfRacEntity, SelectEntity):
     """Select component to set the vertical swing direction of the airco"""
 
     _attr_translation_key = "vertical_swing"
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
         self._attr_entity_registry_enabled_default = device.swing_selects_enabled_default
         self._attr_options = SUPPORT_SWING_MODES
-        self._attr_icon = "mdi:weather-dust"
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-vertical-swing-direction"
         )
@@ -150,6 +147,9 @@ class VerticalSwingSelect(WfRacEntity, SelectEntity):
                 self._device.airco.WindDirectionUD
             ]
         )
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         self.select_option(
@@ -186,15 +186,16 @@ class FanSpeedSelect(WfRacEntity, SelectEntity):
     """Select component to set the fan speed of the airco"""
 
     _attr_translation_key = "fan_speed"
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
         self._attr_entity_registry_enabled_default = device.swing_selects_enabled_default
         self._attr_options = SUPPORTED_FAN_MODES
-        self._attr_icon = "mdi:fan"
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-fan-speed"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         # Same marker check as the climate entity's fan mode: the library
@@ -231,8 +232,6 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
     """
 
     _attr_translation_key = "home_leave_mode"
-    _attr_has_entity_name: bool = True
-    _attr_icon = "mdi:home-export-outline"
 
     def __init__(self, device: Device) -> None:
         super().__init__(device)
@@ -243,6 +242,9 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
         ]
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-home-leave-mode"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         airco = self._device.airco
@@ -307,7 +309,6 @@ class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
     # niche away-mode feature, not everyone with a HomeLeaveMode-capable
     # model wants extra entities on their device page.
     _attr_entity_registry_enabled_default = False
-    _attr_has_entity_name: bool = True
 
     def __init__(self, device: Device, mode: str) -> None:
         super().__init__(device)
@@ -325,6 +326,9 @@ class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
             if self._mode == "cooling"
             else self._device.airco.HomeLeaveModeForHeating
         )
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_current_option = None
 
     def _update_state(self) -> None:
         setting = self._current_setting()

@@ -194,7 +194,7 @@
     },
     "select": {
       "horizontal_swing": {
-        "name": "Horizontal Swing Direction",
+        "name": "Horizontal swing direction",
         "state": {
           "left_right_auto": "Left/Right Auto",
           "left_left": "Left-Left",
@@ -208,7 +208,7 @@
         }
       },
       "vertical_swing": {
-        "name": "Vertical Swing Direction",
+        "name": "Vertical swing direction",
         "state": {
           "up_down_auto": "Up/Down Auto",
           "highest": "Highest",
@@ -219,7 +219,7 @@
         }
       },
       "fan_speed": {
-        "name": "Fan Speed",
+        "name": "Fan speed",
         "state": {
           "auto": "Auto",
           "quiet": "Quiet",
@@ -229,7 +229,7 @@
         }
       },
       "home_leave_mode": {
-        "name": "Home Leave Mode",
+        "name": "Home Leave mode",
         "state": {
           "off": "Off",
           "away_cool": "Away Cooling",
@@ -237,7 +237,7 @@
         }
       },
       "home_leave_cooling_air_flow": {
-        "name": "Home Leave Cooling Air Flow",
+        "name": "Home Leave cooling air flow",
         "state": {
           "auto": "Auto",
           "1": "1",
@@ -247,7 +247,7 @@
         }
       },
       "home_leave_heating_air_flow": {
-        "name": "Home Leave Heating Air Flow",
+        "name": "Home Leave heating air flow",
         "state": {
           "auto": "Auto",
           "1": "1",
@@ -259,16 +259,16 @@
     },
     "number": {
       "home_leave_cooling_temp_rule": {
-        "name": "Home Leave Cooling Outdoor Temp. Threshold"
+        "name": "Home Leave cooling outdoor temperature threshold"
       },
       "home_leave_cooling_temp_setting": {
-        "name": "Home Leave Cooling Target Room Temp."
+        "name": "Home Leave cooling target room temperature"
       },
       "home_leave_heating_temp_rule": {
-        "name": "Home Leave Heating Outdoor Temp. Threshold"
+        "name": "Home Leave heating outdoor temperature threshold"
       },
       "home_leave_heating_temp_setting": {
-        "name": "Home Leave Heating Target Room Temp."
+        "name": "Home Leave heating target room temperature"
       }
     },
     "sensor": {
@@ -291,82 +291,86 @@
         "name": "Device ID"
       },
       "host": {
-        "name": "IP"
+        "name": "IP address"
       },
       "connected_accounts": {
-        "name": "Accounts"
+        "name": "Connected accounts"
       },
       "error": {
         "name": "Error"
       },
       "updated_by": {
-        "name": "Updated By"
+        "name": "Updated by"
       },
       "account_expires": {
-        "name": "Account Expires"
+        "name": "Account expires"
       },
       "led_status": {
-        "name": "LED Status"
+        "name": "LED status"
       },
       "auto_heating": {
-        "name": "Auto Heating"
+        "name": "Auto heating"
       },
       "model_nr": {
-        "name": "Model Nr"
+        "name": "Model number"
       },
       "cool_hot_judge": {
-        "name": "Cool Hot Judge"
+        "name": "Cool hot judge",
+        "state": {
+          "cooling": "Cooling",
+          "heating": "Heating"
+        }
       },
       "energy_usage": {
-        "name": "Energy Usage (current run)"
+        "name": "Energy usage (current run)"
       },
       "energy_usage_total": {
-        "name": "Energy Usage Total"
+        "name": "Energy usage total"
       },
       "compressor_frequency": {
-        "name": "Compressor Frequency"
+        "name": "Compressor frequency"
       },
       "compressor_frequency_raw": {
-        "name": "Compressor Frequency (raw)"
+        "name": "Compressor frequency (raw)"
       },
       "operating_current": {
-        "name": "Operating Current"
+        "name": "Operating current"
       },
       "operating_current_raw": {
-        "name": "Operating Current (raw)"
+        "name": "Operating current (raw)"
       },
       "hot_gas_temp": {
-        "name": "Hot Gas Temperature"
+        "name": "Hot gas temperature"
       },
       "hot_gas_temp_raw": {
-        "name": "Hot Gas Temperature (raw)"
+        "name": "Hot gas temperature (raw)"
       },
       "eev_pulses": {
-        "name": "EEV Pulses"
+        "name": "EEV pulses"
       },
       "eev_position": {
-        "name": "EEV Position"
+        "name": "EEV position"
       },
       "indoor_coil_temp": {
-        "name": "Indoor Coil Temperature"
+        "name": "Indoor coil temperature"
       },
       "indoor_coil_outlet_temp": {
-        "name": "Indoor Coil Outlet Temperature"
+        "name": "Indoor coil outlet temperature"
       },
       "indoor_coil_raw": {
-        "name": "Indoor Coil Temperature (raw)"
+        "name": "Indoor coil temperature (raw)"
       },
       "indoor_coil_outlet_raw": {
-        "name": "Indoor Coil Outlet Temperature (raw)"
+        "name": "Indoor coil outlet temperature (raw)"
       },
       "outdoor_coil_raw": {
-        "name": "Outdoor Coil Temperature (raw)"
+        "name": "Outdoor coil temperature (raw)"
       },
       "discharge_superheat_raw": {
-        "name": "Discharge Superheat (raw)"
+        "name": "Discharge superheat (raw)"
       },
       "protection_raw": {
-        "name": "Protection Number (raw)"
+        "name": "Protection number (raw)"
       }
     },
     "binary_sensor": {
@@ -377,10 +381,10 @@
         "name": "Presence"
       },
       "compressor": {
-        "name": "Compressor Demand"
+        "name": "Compressor demand"
       },
       "external_control": {
-        "name": "External Control"
+        "name": "External control"
       },
       "external_temperature_active": {
         "name": "Indoor temperature override"
@@ -389,12 +393,12 @@
     "switch": {},
     "update": {
       "firmware_update": {
-        "name": "Firmware Update"
+        "name": "Firmware update"
       }
     },
     "button": {
       "reset_energy_total": {
-        "name": "Reset Energy Usage Total"
+        "name": "Reset energy usage total"
       }
     }
   }

@@ -18,13 +18,8 @@ from pywfrac import HomeLeaveModeSetting
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-# Zero, not one, although this platform writes: the serialisation the module
-# needs already lives in the coordinator, which holds a send lock around the
-# request and spaces requests by MIN_TIME_BETWEEN_REQUESTS. A platform
-# semaphore on top of that only stops actions issued together - a scene, an
-# automation step that fans out - from reaching the coordinator's
-# consolidation window together, and those are exactly the ones worth
-# merging into a single frame.
+# Zero although this platform writes: the coordinator already serialises and
+# spaces every request.
 PARALLEL_UPDATES = 0
 
 # Same bounds as the temp_rule_*/temp_setting_* fields in services.yaml's
@@ -73,9 +68,7 @@ class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
     # diagnostic sensors. Disabled by default though, same as those sensors
     # were: a niche away-mode feature, not everyone with a HomeLeaveMode-
     # capable model wants six extra entities on their device page.
-    _attr_entity_category = None
     _attr_entity_registry_enabled_default = False
-    _attr_has_entity_name: bool = True
     _attr_device_class = NumberDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_native_min_value = HOME_LEAVE_TEMP_MIN
@@ -102,6 +95,9 @@ class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
             if self._mode == "cooling"
             else self._device.airco.HomeLeaveModeForHeating
         )
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_native_value = None
 
     def _update_state(self) -> None:
         # WfRacEntity.available reflects device connectivity, not per-value

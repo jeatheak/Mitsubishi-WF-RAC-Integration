@@ -21,6 +21,7 @@ from homeassistant.helpers.device_registry import (
     format_mac,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import (
     AC_CERT_FILENAME,
@@ -314,6 +315,10 @@ class _ServiceDataParser(RacParser):
 class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instance-attributes
     """Device Class"""
 
+    # Narrowed from the base class's optional: this integration never builds a
+    # Device without one.
+    config_entry: ConfigEntry
+
     def __init__(  # pylint: disable=too-many-arguments
             self,
             hass: HomeAssistant,
@@ -344,7 +349,6 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # state has always needed it, and relearning costs the unit the same
         # shutdowns every time (see _check_request_stopped_unit).
         self._parser.carry_power_state = carry_power_state
-        self._hass = hass
 
         # Protected state
         self._airco = Aircon()
@@ -429,19 +433,12 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     @property
     def options(self) -> Mapping[str, Any]:
-        """Options of the config entry that owns this device.
-
-        DataUpdateCoordinator.config_entry is typed as optional because a
-        coordinator need not have one - this integration always constructs a
-        Device with one, passed to super().__init__() above.
-        """
-        assert self.config_entry is not None
+        """Options of the config entry that owns this device."""
         return self.config_entry.options
 
     @property
     def entry_id(self) -> str:
         """Id of the config entry that owns this device - see options above."""
-        assert self.config_entry is not None
         return self.config_entry.entry_id
 
     @property
@@ -777,14 +774,14 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             return
         if not self._firm_type or not self._wireless_firmware_ver:
             return
-        now = datetime.now()
+        now = dt_util.utcnow()
         if (
             self._last_firmware_check is not None
             and now - self._last_firmware_check < FIRMWARE_CHECK_INTERVAL
         ):
             return
         self._last_firmware_check = now
-        self._hass.async_create_task(
+        self.hass.async_create_task(
             self._async_check_firmware_update(
                 self._firm_type, self._wireless_firmware_ver
             )
@@ -795,7 +792,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     ) -> None:
         """Compare the locally-reported wireless firmware version against the
         manufacturer's latest for this firmType."""
-        latest = await fetch_latest_firmware(self._hass, firm_type)
+        latest = await fetch_latest_firmware(self.hass, firm_type)
         if latest is None or latest.get("wireless") is None:
             return
 
@@ -870,8 +867,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     def _note_foreign_write(self, evidence: str) -> None:
         if self._foreign_activity_since is None:
-            self._foreign_activity_since = datetime.now()
-        self._foreign_activity_until = datetime.now() + FOREIGN_ACTIVITY_BACKOFF
+            self._foreign_activity_since = dt_util.utcnow()
+        self._foreign_activity_until = dt_util.utcnow() + FOREIGN_ACTIVITY_BACKOFF
         _LOGGER.debug("Another client wrote to [%s]: %s", self.device_name, evidence)
 
     def _settings_snapshot(self) -> dict[str, Any] | None:
@@ -984,7 +981,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             return WRITE_LOCK_RETRY_DELAY.total_seconds()
         # The module compares whole seconds and refuses while `expires` still
         # equals the current one, so land on the far side of the lapse.
-        remaining = expires - datetime.now().timestamp() + 1
+        remaining = expires - dt_util.utcnow().timestamp() + 1
         return max(0.0, min(remaining, WRITE_LOCK_MAX_WAIT.total_seconds()))
 
     def _report_foreign_activity(self) -> None:
@@ -1042,7 +1039,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         are still standing down - see FOREIGN_ACTIVITY_BACKOFF."""
         return (
             self._foreign_activity_until is not None
-            and datetime.now() < self._foreign_activity_until
+            and dt_util.utcnow() < self._foreign_activity_until
         )
 
     def _power_state_is_safe_to_carry(self) -> bool:
@@ -1083,7 +1080,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             # A retry from the previous cycle is still in flight; piling a
             # second request on top is exactly the crowding this avoids.
             return
-        now = datetime.now()
+        now = dt_util.utcnow()
         if (
             self._last_service_data_request is not None
             and now - self._last_service_data_request < SERVICE_DATA_MIN_SPACING
@@ -1096,7 +1093,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # Background task, not a plain one: it spends most of its life asleep
         # waiting out the offset, and HA cancels background tasks at shutdown
         # instead of waiting for them.
-        self._service_data_task = self._hass.async_create_background_task(
+        self._service_data_task = self.hass.async_create_background_task(
             self._async_request_service_data(service_data_codes),
             name=f"{DOMAIN} service data request {self._airco_id}",
         )
@@ -1116,7 +1113,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         cycle.
         """
         if self._last_command_at is not None and (
-            datetime.now() - self._last_command_at < MIN_TIME_BETWEEN_UPDATES
+            dt_util.utcnow() - self._last_command_at < MIN_TIME_BETWEEN_UPDATES
         ):
             return timedelta(0)
         return SERVICE_DATA_STAMP_BACKDATE
@@ -1234,7 +1231,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         if self._airco is None:
             return
         self._settle_service_data_pause()
-        now = datetime.now()
+        now = dt_util.utcnow()
         if any(getattr(new_airco, name) is not None for name in SERVICE_DATA_FIELDS):
             self._last_service_data_response = now
             if self._service_data_expired:
@@ -1306,7 +1303,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         """Add account (operator id) from the airco"""
         try:
             result = await self._api.update_account_info(
-                self._airco_id, self._hass.config.time_zone
+                self._airco_id, self.hass.config.time_zone
             )
         except (WfRacError, KeyError, TypeError):
             _LOGGER.warning("Could not add account from airco %s", self._airco_id)
@@ -1435,8 +1432,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # in front of us, and a restart that forgot it would put the unit
         # through the same shutdowns again to learn the same thing.
         entry = self.config_entry
-        assert entry is not None  # always constructed with one - see options
-        self._hass.config_entries.async_update_entry(
+        self.hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_CARRY_POWER_STATE: True}
         )
         _LOGGER.warning(
@@ -1449,7 +1445,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             self.device_name,
         )
         ir.async_create_issue(
-            self._hass,
+            self.hass,
             DOMAIN,
             request_stops_unit_issue_id(self.entry_id),
             is_fixable=False,
@@ -1460,7 +1456,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     def _report_registration_full(self) -> None:
         ir.async_create_issue(
-            self._hass,
+            self.hass,
             DOMAIN,
             registration_full_issue_id(self.entry_id),
             is_fixable=False,
@@ -1471,7 +1467,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
     def _clear_registration_full_issue(self) -> None:
         ir.async_delete_issue(
-            self._hass, DOMAIN, registration_full_issue_id(self.entry_id)
+            self.hass, DOMAIN, registration_full_issue_id(self.entry_id)
         )
 
     async def set_airco(
@@ -1700,7 +1696,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # A real, set-bit command: mark it so the next operation-data request
         # stamps honestly and renews this command's lock rather than trimming
         # it (see _service_data_stamp_backdate).
-        self._last_command_at = datetime.now()
+        self._last_command_at = dt_util.utcnow()
         try:
             await self.set_airco(params)
         except (WfRacError, KeyError, TypeError, ValueError) as ex:

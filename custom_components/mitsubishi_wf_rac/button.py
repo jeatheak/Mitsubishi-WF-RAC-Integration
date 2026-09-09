@@ -37,6 +37,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+# HACS only: it resets EnergyTotalSensor, so it goes wherever that goes.
 class EnergyTotalResetButton(WfRacEntity, ButtonEntity):
     """Resets the accumulated Energy Usage Total back to zero.
 
@@ -48,7 +49,6 @@ class EnergyTotalResetButton(WfRacEntity, ButtonEntity):
 
     _attr_translation_key = "reset_energy_total"
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_has_entity_name = True
 
     def __init__(self, device: Device) -> None:
         """Initialize the button."""
@@ -62,6 +62,9 @@ class EnergyTotalResetButton(WfRacEntity, ButtonEntity):
             f"{SIGNAL_SET_ENERGY_TOTAL}_{self._device.airco_id}",
             0.0,
         )
+
+    def _mark_state_unknown(self) -> None:
+        """A button carries no state, so there is nothing to drop."""
 
     def _update_state(self) -> None:
         """No state to reflect - the button has none."""

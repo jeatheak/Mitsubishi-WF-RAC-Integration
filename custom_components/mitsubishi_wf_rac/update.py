@@ -1,4 +1,8 @@
-"""for update integration (firmware-update-available indicator)."""
+"""for update integration (firmware-update-available indicator).
+
+HACS only: it reports what firmware_check.py finds, so it goes wherever
+that goes.
+"""
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations
@@ -45,7 +49,6 @@ class FirmwareUpdateEntity(WfRacEntity, UpdateEntity):
     itself while switched off, so triggering an install isn't offered here.
     """
 
-    _attr_has_entity_name = True
     _attr_translation_key = "firmware_update"
     _attr_device_class = UpdateDeviceClass.FIRMWARE
     # Reports only; installing is the module's own business (see the class
@@ -57,6 +60,10 @@ class FirmwareUpdateEntity(WfRacEntity, UpdateEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-firmware-update"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_installed_version = None
+        self._attr_latest_version = None
 
     def _update_state(self) -> None:
         self._attr_installed_version = self._device.wireless_firmware_version

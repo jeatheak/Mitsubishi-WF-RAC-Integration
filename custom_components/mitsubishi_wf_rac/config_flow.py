@@ -21,7 +21,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import section
+from homeassistant.data_entry_flow import AbortFlow, section
 from homeassistant.helpers import entity_registry as er, selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
@@ -64,9 +64,9 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # Assistant skips migration entirely once entry.version equals this, so a
     # new step that is not reflected here never runs.
     VERSION = 7
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
-    _discovery_info: dict[str, Any] = {}
     DOMAIN = DOMAIN
+    # Annotated, not assigned: a dict here would be shared by every flow.
+    _discovery_info: dict[str, Any]
 
     def is_matching(self, other_flow: "WfRacConfigFlow") -> bool:
         """Return True if two flows are attempting to configure the same device."""
@@ -156,11 +156,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not airco_id:
             raise CannotConnect(reason="unknown reason")
 
-        _LOGGER.info(
-            "Trying to register OperatorId[%s] on Airco[%s]",
-            data[CONF_OPERATOR_ID],
-            data[CONF_AIRCO_ID],
-        )
+        _LOGGER.debug("Registering this controller on airco [%s]", airco_id)
         result = await repository.update_account_info(airco_id, hass.config.time_zone)
         if not result:
             raise CannotConnect(reason="no answer to the registration request")
@@ -242,12 +238,15 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors, placeholders = error.get_errors_and_placeholders(
                     data_schema.schema
                 )
-                errors.update(errors)
                 for key, value in placeholders.items():
                     if isinstance(value, dict):
                         description_placeholders[key] = str(value)
                     else:
                         description_placeholders[key] = value
+            except AbortFlow:
+                # An abort is the flow working as intended - already
+                # configured, already in progress - not an unexpected error.
+                raise
             except Exception:  # pylint: disable=broad-except
                 # Intentionally broad: this is the outermost boundary of the config
                 # flow step, so any bug here should show the user a graceful
@@ -380,6 +379,10 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 description_placeholders.update(
                     {k: str(v) for k, v in placeholders.items()}
                 )
+            except AbortFlow:
+                # An abort is the flow working as intended - already
+                # configured, already in progress - not an unexpected error.
+                raise
             except Exception:  # pylint: disable=broad-except
                 # Same outermost boundary as _async_create_common: a bug here
                 # should surface as "unexpected_error", not crash the flow.
@@ -437,11 +440,9 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlowWithReload):
 
     OptionsFlowWithReload rather than OptionsFlow: every option here is read
     once while the device is built (see create_device_from_entry), so a change
-    only takes effect after a reload. Letting the flow do that itself is what
-    replaced the entry update listener - HA deprecated combining a listener
-    with the config flow's own reloading methods (async_update_reload_and_abort
-    and _abort_if_unique_id_configured), which this flow uses, because the two
-    reload the entry twice and race each other.
+    only takes effect after a reload. An update listener must not be combined
+    with the flow's own reloading methods - the two reload the entry twice and
+    race each other.
     """
 
     def _own_entity_ids(self) -> list[str]:

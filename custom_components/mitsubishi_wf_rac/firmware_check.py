@@ -1,5 +1,8 @@
 """Cloud check for available WF-RAC wireless-module firmware updates.
 
+HACS only: an undocumented manufacturer endpoint reached with an imitated
+user agent. Not defensible in a core review, and not ported.
+
 Queries the manufacturer's `server/getFirmware` endpoint - unauthenticated,
 no account/Cognito token involved, same call the official app makes before
 showing "update available". Field names come from the app's own

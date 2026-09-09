@@ -17,7 +17,6 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: MitsubishiWfRacConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    del hass
     device = entry.runtime_data.device
 
     diagnostics = {
@@ -42,9 +41,8 @@ async def async_get_config_entry_diagnostics(
             "auto_heating": device.auto_heating,
             "port": device.port,
         },
-        # Refusals are logged at debug now (see Repository._report_result_code),
-        # so this is where a report shows whether the unit has been declining
-        # commands and how often.
+        # Refusals only reach the log at debug level, so this is where a
+        # report shows whether the unit has been declining commands.
         "result_codes": device.result_codes,
         "aircon": asdict(device.airco),
     }

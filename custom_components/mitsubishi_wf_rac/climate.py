@@ -36,7 +36,6 @@ from pywfrac import AIRFLOW_UNKNOWN, Aircon, AirconCommands, HomeLeaveModeSettin
 from pywfrac.parser import (
     EXTERNAL_TEMPERATURE_MAX,
     EXTERNAL_TEMPERATURE_MIN,
-    is_external_temperature_mode,
 )
 from .const import (
     DOMAIN,
@@ -60,13 +59,8 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-# Zero, not one, although this platform writes: the serialisation the module
-# needs already lives in the coordinator, which holds a send lock around the
-# request and spaces requests by MIN_TIME_BETWEEN_REQUESTS. A platform
-# semaphore on top of that only stops actions issued together - a scene, an
-# automation step that fans out - from reaching the coordinator's
-# consolidation window together, and those are exactly the ones worth
-# merging into a single frame.
+# Zero although this platform writes: the coordinator already serialises and
+# spaces every request.
 PARALLEL_UPDATES = 0
 
 # The modes whose setpoint the unit actually regulates on. Off and fan-only
@@ -81,7 +75,7 @@ async def async_setup_entry(
 ) -> None:
     """Setup climate entities"""
     device: Device = entry.runtime_data.device
-    _LOGGER.info("Setup climate for: %s, %s", device.device_name, device.airco_id)
+    _LOGGER.debug("Setup climate for: %s, %s", device.device_name, device.airco_id)
     async_add_entities([AircoClimate(device)])
 
 
@@ -119,8 +113,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
     _attr_hvac_modes: list[HVACMode] = SUPPORTED_HVAC_MODES
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
-    _attr_hvac_mode: HVACMode = HVACMode.OFF
-    _attr_hvac_action: HVACAction | None = None
     _attr_fan_mode: str = FAN_AUTO
     _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
@@ -138,11 +130,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     _attr_preset_modes: list[str] | None = None
     _attr_preset_mode: str | None = None
     _attr_translation_key = "mitsubishi_wf_rac"
-    # The unit itself, so it carries the device's name and adds nothing of its
-    # own - the same shape every other platform here already uses. It displayed
-    # the device name before too, by copying it into _attr_name; the difference
-    # is that a renamed device now reaches it without a reload.
-    _attr_has_entity_name: bool = True
+    # The unit itself: it carries the device's name and adds nothing of its own.
     _attr_name: str | None = None
 
     def __init__(self, device: Device) -> None:
@@ -358,7 +346,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             max(self._max_temp_for_mode(mode) for mode in REGULATING_HVAC_MODES),
         )
 
-    def _writing_mode(self, hvac_mode: HVACMode) -> HVACMode:
+    def _writing_mode(self, hvac_mode: HVACMode | None) -> HVACMode:
         """The mode a setpoint for this hvac_mode is actually written in.
 
         A call naming a regulating mode switches to it. Off leaves the unit on
@@ -370,11 +358,13 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             return hvac_mode
         return self._hvac_mode_from_operation
 
-    def _offset_for_target(self, hvac_mode: HVACMode) -> float:
+    def _offset_for_target(self, hvac_mode: HVACMode | None) -> float:
         """The target offset a setpoint for this mode is written with."""
         return self._resolve_target_offset(self._writing_mode(hvac_mode))
 
-    def _displayed_setpoint_range(self, hvac_mode: HVACMode) -> tuple[float, float]:
+    def _displayed_setpoint_range(
+        self, hvac_mode: HVACMode | None
+    ) -> tuple[float, float]:
         """The setpoint range in the numbers the card shows.
 
         The device is held to _setpoint_range_for_mode(); what the user sets
@@ -661,6 +651,9 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
                 AirFlow=air_flow_heating,
             ),
         )
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_hvac_mode = None
 
     def _update_state(self) -> None:
         """Private update attributes"""

@@ -53,7 +53,6 @@ class ProblemBinarySensor(WfRacEntity, BinarySensorEntity):
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_has_entity_name = True
     _attr_translation_key = "problem"
 
     def __init__(self, device: Device) -> None:
@@ -61,6 +60,9 @@ class ProblemBinarySensor(WfRacEntity, BinarySensorEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-problem"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
 
     def _update_state(self) -> None:
         code = self._device.airco.ErrorCode
@@ -85,7 +87,6 @@ class CompressorBinarySensor(WfRacEntity, BinarySensorEntity):
     a sibling unit while this reads off, so it is demand, not compressor state."""
 
     _attr_device_class = BinarySensorDeviceClass.RUNNING
-    _attr_has_entity_name = True
     _attr_translation_key = "compressor"
 
     def __init__(self, device: Device) -> None:
@@ -93,6 +94,9 @@ class CompressorBinarySensor(WfRacEntity, BinarySensorEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-compressor"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
 
     def _update_state(self) -> None:
         self._attr_is_on = self._device.airco.CompressorRunning
@@ -110,7 +114,6 @@ class ExternalControlBinarySensor(WfRacEntity, BinarySensorEntity):
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_has_entity_name = True
     _attr_translation_key = "external_control"
 
     def __init__(self, device: Device) -> None:
@@ -118,6 +121,9 @@ class ExternalControlBinarySensor(WfRacEntity, BinarySensorEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-external-control"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
 
     def _update_state(self) -> None:
         self._attr_is_on = self._device.foreign_activity
@@ -128,13 +134,10 @@ class ExternalTemperatureActiveBinarySensor(WfRacEntity, BinarySensorEntity):
 
     Armed is not the same as in effect: nothing is written while the unit is
     off or in fan_only (see is_external_temperature_mode), and after a restart
-    the value waits for the next outgoing frame. Both cases used to be visible
-    only in the README, which is where people went looking after their
-    override appeared to do nothing.
+    the value waits for the next outgoing frame.
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_has_entity_name = True
     _attr_translation_key = "external_temperature_active"
 
     def __init__(self, device: Device) -> None:
@@ -142,6 +145,9 @@ class ExternalTemperatureActiveBinarySensor(WfRacEntity, BinarySensorEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-external-temperature-active"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
 
     def _update_state(self) -> None:
         self._attr_is_on = self._device.external_temperature_applied
@@ -151,7 +157,6 @@ class OccupancyBinarySensor(WfRacEntity, BinarySensorEntity):
     """Reports the occupancy state of the unit (VacantProperty-capable models only)."""
 
     _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
-    _attr_has_entity_name = True
     _attr_translation_key = "occupancy"
 
     def __init__(self, device: Device) -> None:
@@ -159,6 +164,9 @@ class OccupancyBinarySensor(WfRacEntity, BinarySensorEntity):
         super().__init__(device)
         self._attr_unique_id = f"{DOMAIN}-{device.airco_id}-occupancy"
         self._apply_state()
+
+    def _mark_state_unknown(self) -> None:
+        self._attr_is_on = None
 
     def _update_state(self) -> None:
         # Vacant == True means nobody is present.

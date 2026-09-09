@@ -1,12 +1,9 @@
 """Entity service actions of the WF-RAC integration.
 
-Registered from async_setup rather than from the platforms themselves: with
-the platform-level API the actions only existed once a config entry had
-finished setting up its climate/sensor platform, so a device that was
-unreachable at startup left the actions missing from the UI and from any
-automation that referenced them. Registering here makes them independent of
-that - the entities a call resolves to are still restricted to this
-integration's own, the helper takes care of that.
+Registered from async_setup, not from the platforms: an action registered by
+a platform is missing from the UI and from automations until a config entry
+finishes setting that platform up, which a device unreachable at startup
+never does. Calls still resolve only to this integration's entities.
 """
 
 from __future__ import annotations
@@ -15,12 +12,13 @@ import voluptuous as vol
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.service import async_register_platform_entity_service
 
 from pywfrac.parser import EXTERNAL_TEMPERATURE_MAX, EXTERNAL_TEMPERATURE_MIN
 
 from .const import (
+    SUPPORT_SWING_HORIZONTAL_MODES,
+    SUPPORT_SWING_MODES,
     DOMAIN,
     SERVICE_REQUEST_HOME_LEAVE_MODE_STATUS,
     SERVICE_SET_ENERGY_TOTAL,
@@ -39,13 +37,16 @@ def async_setup_services(hass: HomeAssistant) -> None:
     # is a cycle, by the time async_setup runs it is not.
     from .sensor import async_set_energy_total  # noqa: PLC0415  pylint: disable=import-outside-toplevel
 
+    # HACS only: climate.set_swing_mode and climate.set_swing_horizontal_mode
+    # already do this, and binding func= directly skips the base class's own
+    # mode validation - hence vol.In here, which it would otherwise do.
     async_register_platform_entity_service(
         hass,
         DOMAIN,
         SERVICE_SET_HORIZONTAL_SWING_MODE,
         entity_domain=Platform.CLIMATE,
         func="async_set_swing_horizontal_mode",
-        schema={vol.Required("swing_mode"): cv.string},
+        schema={vol.Required("swing_mode"): vol.In(SUPPORT_SWING_HORIZONTAL_MODES)},
     )
 
     async_register_platform_entity_service(
@@ -54,7 +55,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_SET_VERTICAL_SWING_MODE,
         entity_domain=Platform.CLIMATE,
         func="async_set_swing_mode",
-        schema={vol.Required("swing_mode"): cv.string},
+        schema={vol.Required("swing_mode"): vol.In(SUPPORT_SWING_MODES)},
     )
 
     # HomeLeaveMode (Tag 248, capability index 7) - deliberately actions, not
