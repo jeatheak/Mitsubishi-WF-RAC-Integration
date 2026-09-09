@@ -127,7 +127,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             airco_id = await repository.get_airco_id()
-        except (WfRacError, KeyError, TypeError, ValueError) as query_failed:
+        except (
+            WfRacError,
+            KeyError,
+            TypeError,
+            ValueError,
+            AttributeError,
+            OSError,
+        ) as query_failed:
             # A discovery announcement has been seen carrying a port the module
             # does not serve. The port is fixed in the firmware and not
             # user-settable, so rather than failing on a value the device
@@ -154,7 +161,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             try:
                 airco_id = await repository.get_airco_id()
-            except (WfRacError, KeyError, TypeError, ValueError) as retry_failed:
+            except (
+                WfRacError,
+                KeyError,
+                TypeError,
+                ValueError,
+                AttributeError,
+                OSError,
+            ) as retry_failed:
                 raise CannotConnect(reason=str(retry_failed)) from retry_failed
             data[CONF_PORT] = DEFAULT_PORT
 
@@ -172,9 +186,18 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             result = await repository.update_account_info(
                 airco_id, hass.config.time_zone
             )
-        except (WfRacError, KeyError, TypeError, ValueError) as register_failed:
-            # ValueError covers a body that is not the JSON we expect - what a
-            # wrong address with some other HTTP service behind it returns.
+        except (
+            WfRacError,
+            KeyError,
+            TypeError,
+            ValueError,
+            AttributeError,
+            OSError,
+        ) as register_failed:
+            # Everything a wrong address can answer with counts as not
+            # reaching the unit: a body that is not JSON (ValueError), one
+            # that is JSON but not an object (AttributeError), or a TLS
+            # handshake that never got that far (OSError).
             raise CannotConnect(reason=str(register_failed)) from register_failed
         if not result:
             raise CannotConnect(reason="no answer to the registration request")

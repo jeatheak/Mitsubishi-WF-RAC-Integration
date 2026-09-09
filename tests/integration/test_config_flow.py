@@ -234,12 +234,23 @@ async def test_user_flow_unreadable_registration_answer_is_cannot_connect(
     assert result["errors"] == {"base": "cannot_connect"}
 
 
-async def test_user_flow_non_json_answer_is_cannot_connect(hass: HomeAssistant):
+@pytest.mark.parametrize(
+    "answer",
+    [
+        ValueError("Expecting value: line 1 column 1"),
+        AttributeError("'list' object has no attribute 'get'"),
+        OSError("[SSL] PEM lib"),
+    ],
+    ids=["not json", "json but not an object", "no tls handshake"],
+)
+async def test_user_flow_non_json_answer_is_cannot_connect(
+    hass: HomeAssistant, answer: Exception
+):
     """Typing the address of some other HTTP service in the house is a
-    connection problem from where the user stands. The library lets
-    json.loads' ValueError through, so the flow has to catch it."""
+    connection problem from where the user stands. None of these leave the
+    library as a WfRacError, so the flow has to name them itself."""
     repo = _mock_repository()
-    repo.get_airco_id.side_effect = ValueError("Expecting value: line 1 column 1")
+    repo.get_airco_id.side_effect = answer
     with _patch_repository(repo):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
