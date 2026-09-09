@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "Vorhandene Konfiguration aktualisiert.",
       "already_configured": "Klima ist bereits konfiguriert",
-      "reconfigure_successful": "Neukonfiguration erfolgreich"
+      "reconfigure_successful": "Neukonfiguration erfolgreich",
+      "wrong_device": "Hinter dieser Adresse antwortet ein anderes Klimagerät als das, für das dieser Eintrag angelegt wurde. Trage wieder die Adresse des ursprünglichen Geräts ein, oder lege für das andere einen eigenen Eintrag an."
     },
     "step": {
       "user": {

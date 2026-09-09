@@ -48,7 +48,8 @@
     "abort": {
       "existing_instance_updated": "Updated existing configuration.",
       "already_configured": "[%key:common::config_flow::abort::already_configured_service%]",
-      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]"
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]",
+      "wrong_device": "This is a different air conditioner than the one this entry was set up for. Point it back at the original unit, or add the other one as its own entry."
     }
   },
   "issues": {

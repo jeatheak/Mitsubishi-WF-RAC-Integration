@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "既存の設定が更新されました。",
       "already_configured": "エアコンは既に設定されています。",
-      "reconfigure_successful": "再設定が完了しました"
+      "reconfigure_successful": "再設定が完了しました",
+      "wrong_device": "このアドレスでは、このエントリーを作成したときとは別のエアコンが応答しています。元の機器のアドレスに戻すか、別の機器として新しいエントリーを追加してください。"
     },
     "step": {
       "user": {

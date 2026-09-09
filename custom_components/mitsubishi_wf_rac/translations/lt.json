@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "Esami nustatymai atnaujinti.",
       "already_configured": "Kondicionierius jau nustatytas",
-      "reconfigure_successful": "Perkonfigūravimas sėkmingas"
+      "reconfigure_successful": "Perkonfigūravimas sėkmingas",
+      "wrong_device": "Šiuo adresu atsiliepia kitas oro kondicionierius nei tas, kuriam buvo sukurtas šis įrašas. Įveskite pradinio įrenginio adresą arba pridėkite kitą įrenginį kaip atskirą įrašą."
     },
     "step": {
       "user": {

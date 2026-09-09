@@ -10,6 +10,9 @@ longer depend on a platform having come up.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+import voluptuous as vol
+
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
@@ -48,6 +51,64 @@ async def test_actions_exist_without_a_working_device(hass: HomeAssistant):
 
     for action in _ACTIONS:
         assert hass.services.has_service(DOMAIN, action), action
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["temp_rule_cooling", "temp_setting_cooling", "temp_rule_heating", "temp_setting_heating"],
+)
+async def test_set_home_leave_mode_rejects_a_temperature_the_unit_cannot_hold(
+    hass: HomeAssistant, field: str
+):
+    """The thresholds go out as int(value * 2) in a single byte. Unchecked, a
+    mistyped 200 was masked to 144 and written back as 72 °C without a word.
+    """
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    data = {
+        "temp_rule_cooling": 35.0,
+        "temp_setting_cooling": 33.0,
+        "air_flow_cooling": 0,
+        "temp_rule_heating": 5.0,
+        "temp_setting_heating": 10.0,
+        "air_flow_heating": 0,
+    }
+    data[field] = 200.0
+
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_HOME_LEAVE_MODE,
+            {**data, "entity_id": "climate.not_here"},
+            blocking=True,
+        )
+
+
+async def test_set_external_temperature_takes_a_numeric_string(hass: HomeAssistant):
+    """Every other numeric field in this file coerces first; this one went
+    straight to vol.Range, where a string is not orderable against a float -
+    so a templated value, which renders as a string, was rejected.
+    """
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    # Passes validation; there is no entity to run it against, which the
+    # service layer reports as a warning rather than raising.
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_EXTERNAL_TEMPERATURE,
+        {"temperature": "21.5", "entity_id": "climate.not_here"},
+        blocking=True,
+    )
+
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_EXTERNAL_TEMPERATURE,
+            {"temperature": "99", "entity_id": "climate.not_here"},
+            blocking=True,
+        )
 
 
 async def test_options_flow_reloads_itself(hass: HomeAssistant):

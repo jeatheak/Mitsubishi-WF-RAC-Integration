@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "已更新现有配置。",
       "already_configured": "空调已配置",
-      "reconfigure_successful": "重新配置成功"
+      "reconfigure_successful": "重新配置成功",
+      "wrong_device": "此地址上响应的空调与创建此条目时的设备不同。请改回原设备的地址，或将另一台设备添加为独立条目。"
     },
     "step": {
       "user": {

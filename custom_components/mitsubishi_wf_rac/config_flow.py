@@ -121,7 +121,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             airco_id = await repository.get_airco_id()
-        except (WfRacError, KeyError, TypeError) as query_failed:
+        except (WfRacError, KeyError, TypeError, ValueError) as query_failed:
             # A discovery announcement has been seen carrying a port the module
             # does not serve. The port is fixed in the firmware and not
             # user-settable, so rather than failing on a value the device
@@ -148,7 +148,7 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             try:
                 airco_id = await repository.get_airco_id()
-            except (WfRacError, KeyError, TypeError) as retry_failed:
+            except (WfRacError, KeyError, TypeError, ValueError) as retry_failed:
                 raise CannotConnect(reason=str(retry_failed)) from retry_failed
             data[CONF_PORT] = DEFAULT_PORT
 
@@ -157,10 +157,20 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             raise CannotConnect(reason="unknown reason")
 
         _LOGGER.debug("Registering this controller on airco [%s]", airco_id)
-        result = await repository.update_account_info(airco_id, hass.config.time_zone)
-        if not result:
-            raise CannotConnect(reason="no answer to the registration request")
-        if int(result["result"]) == 2:
+        try:
+            result = await repository.update_account_info(airco_id, hass.config.time_zone)
+            if not result:
+                raise CannotConnect(reason="no answer to the registration request")
+            registration_result = int(result["result"])
+        except (WfRacError, KeyError, TypeError, ValueError) as register_failed:
+            # Same treatment as the query above: this is the second request of
+            # the two, and the module answers only one caller at a time, so a
+            # timeout here is an ordinary outcome and belongs in the form, not
+            # in "unexpected error". ValueError covers a body that is not the
+            # JSON we expect - what a wrong IP with some other HTTP service
+            # behind it returns.
+            raise CannotConnect(reason=str(register_failed)) from register_failed
+        if registration_result == 2:
             raise TooManyDevicesRegistered
 
         return data
@@ -365,6 +375,13 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await self._async_register_airco(
                     self.hass, data, exclude_entry_id=reconfigure_entry.entry_id
                 )
+
+                # The address changed, the unit behind it must not: every
+                # entity's unique id is built from the airco id, so writing a
+                # different one here renames them all, orphans the originals
+                # and leaves discovery unable to recognise either unit.
+                await self.async_set_unique_id(info[CONF_AIRCO_ID].lower())
+                self._abort_if_unique_id_mismatch(reason="wrong_device")
 
                 new_data = {**reconfigure_entry.data, **data}
 

@@ -28,6 +28,13 @@ from .const import (
     SERVICE_SET_VERTICAL_SWING_MODE,
 )
 
+# Home Leave thresholds go on the wire as int(value * 2) in a single byte and
+# come back as raw / 2, so this is the whole range the unit can hold and hand
+# back unchanged. Unbounded, a mistyped 200 was masked to 144 and written as
+# 72 °C without a word (services.yaml's selectors are narrower still, but a
+# selector is a UI hint and validates nothing).
+_home_leave_temperature = vol.All(vol.Coerce(float), vol.Range(min=0, max=127.5))
+
 
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
@@ -77,16 +84,16 @@ def async_setup_services(hass: HomeAssistant) -> None:
         entity_domain=Platform.CLIMATE,
         func="async_set_home_leave_mode",
         schema={
-            vol.Required("temp_rule_cooling"): vol.Coerce(float),
-            vol.Required("temp_setting_cooling"): vol.Coerce(float),
+            vol.Required("temp_rule_cooling"): _home_leave_temperature,
+            vol.Required("temp_setting_cooling"): _home_leave_temperature,
             # The select selector in services.yaml submits its value as a
             # string ("0".."4") - coerce before checking range so both that
             # and a programmatic int call work.
             vol.Required("air_flow_cooling"): vol.All(
                 vol.Coerce(int), vol.In([0, 1, 2, 3, 4])
             ),
-            vol.Required("temp_rule_heating"): vol.Coerce(float),
-            vol.Required("temp_setting_heating"): vol.Coerce(float),
+            vol.Required("temp_rule_heating"): _home_leave_temperature,
+            vol.Required("temp_setting_heating"): _home_leave_temperature,
             vol.Required("air_flow_heating"): vol.All(
                 vol.Coerce(int), vol.In([0, 1, 2, 3, 4])
             ),
@@ -101,7 +108,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
         func="async_set_external_temperature",
         schema={
             vol.Optional("temperature"): vol.Any(
-                vol.Range(min=EXTERNAL_TEMPERATURE_MIN, max=EXTERNAL_TEMPERATURE_MAX),
+                vol.All(
+                    vol.Coerce(float),
+                    vol.Range(
+                        min=EXTERNAL_TEMPERATURE_MIN, max=EXTERNAL_TEMPERATURE_MAX
+                    ),
+                ),
                 None,
             ),
         },
