@@ -602,6 +602,7 @@ async def test_set_external_temperature_refuses_values_with_configured_source(de
     with pytest.raises(ServiceValidationError) as refused:
         await entity.async_set_external_temperature(temperature=20.0)
     assert refused.value.translation_key == "external_temperature_source_configured"
+    assert refused.value.generate_message is True
 
 
 async def test_set_external_temperature_allows_clearing_with_configured_source(device):

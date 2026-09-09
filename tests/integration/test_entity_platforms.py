@@ -261,6 +261,11 @@ async def test_climate_commands_and_state_branches(platform_device):
     # would pass just as well if the key were wrong.
     assert below.value.translation_key == "temperature_below_minimum"
     assert above.value.translation_key == "temperature_above_maximum"
+    # generate_message, not just the key: HomeAssistantError only renders
+    # the translation when it is constructed without a message of its own,
+    # and the key alone is set either way.
+    assert below.value.generate_message is True
+    assert above.value.generate_message is True
     # The message names the mode the range came from - without the
     # placeholder it renders as a literal {hvac_mode} and the one useful part
     # of the message is gone.
@@ -281,6 +286,7 @@ async def test_climate_commands_and_state_branches(platform_device):
     with pytest.raises(ServiceValidationError) as too_low:
         await entity.async_set_temperature(temperature=16)
     assert too_low.value.translation_key == "temperature_below_minimum"
+    assert too_low.value.generate_message is True
     entity._attr_hvac_mode = HVACMode.COOL
 
     platform_device.airco.Operation = True
@@ -299,6 +305,7 @@ async def test_climate_commands_and_state_branches(platform_device):
     with pytest.raises(ServiceValidationError) as unsupported:
         await entity.async_request_home_leave_mode_status()
     assert unsupported.value.translation_key == "home_leave_mode_not_supported"
+    assert unsupported.value.generate_message is True
     platform_device.airco.Capabilities = replace(platform_device.airco.Capabilities, home_leave_mode=True)
     platform_device.async_request_home_leave_mode_status = AsyncMock()
     platform_device.async_set_home_leave_mode = AsyncMock()
@@ -357,6 +364,7 @@ async def test_select_command_and_state_branches(hass, platform_device):
     with pytest.raises(HomeAssistantError) as unknown:
         await airflow.async_select_option("2")
     assert unknown.value.translation_key == "home_leave_mode_status_unknown"
+    assert unknown.value.generate_message is True
     platform_device.airco.HomeLeaveModeForCooling = HomeLeaveModeSetting(12, 31, 0)
     platform_device.airco.HomeLeaveModeForHeating = HomeLeaveModeSetting(13, 10, 1)
     platform_device.async_set_home_leave_mode = AsyncMock()
@@ -401,6 +409,7 @@ async def test_home_leave_controls_require_known_settings_and_preserve_other_sid
     with pytest.raises(HomeAssistantError) as unknown:
         await control.async_set_native_value(15)
     assert unknown.value.translation_key == "home_leave_mode_status_unknown"
+    assert unknown.value.generate_message is True
     platform_device.airco.HomeLeaveModeForCooling = HomeLeaveModeSetting(12, 31, 0)
     platform_device.airco.HomeLeaveModeForHeating = HomeLeaveModeSetting(13, 10, 1)
     await control.async_set_native_value(15)
@@ -443,6 +452,62 @@ async def test_home_leave_air_flow_select_recognises_an_unreadable_step(
     platform_device._set_availability(True)
 
     entity = select.HomeLeaveAirFlowSelect(platform_device, "cooling")
+
+    assert entity.current_option is None
+    assert platform_device.available is True
+
+
+async def test_marking_the_climate_state_unknown_clears_all_of_it(platform_device):
+    """state: unknown next to a fresh temperature and a stale action is worse
+    than either. _update_state() writes the setpoint and the room reading
+    before it reaches a field that can fail, so the hook has to undo the lot.
+    """
+    entity = climate.AircoClimate(platform_device)
+    assert entity.hvac_action is not None
+    assert entity.target_temperature is not None
+
+    entity._mark_state_unknown()
+
+    assert entity.hvac_mode is None
+    assert entity.hvac_action is None
+    assert entity.target_temperature is None
+    assert entity.current_temperature is None
+    assert entity.fan_mode is None
+    assert entity.swing_mode is None
+    assert entity.swing_horizontal_mode is None
+    assert entity.preset_mode is None
+
+
+async def test_marking_the_problem_state_unknown_drops_the_error_code(platform_device):
+    """The code is part of the state. Left behind, state_attr() keeps
+    answering with the last fault while the entity says it knows nothing."""
+    platform_device.airco.ErrorCode = "E7"
+    entity = binary_sensor.ProblemBinarySensor(platform_device)
+    assert entity.extra_state_attributes["error_code"] == "E7"
+
+    entity._mark_state_unknown()
+
+    assert entity.is_on is None
+    assert not entity.extra_state_attributes
+
+
+@pytest.mark.parametrize(
+    ("cls", "field"),
+    [
+        (select.HorizontalSwingSelect, "WindDirectionLR"),
+        (select.VerticalSwingSelect, "WindDirectionUD"),
+    ],
+)
+async def test_a_swing_select_survives_a_vane_value_it_cannot_read(
+    platform_device, cls, field
+):
+    """Both used to decode in __init__ instead of going through
+    _apply_state(), so one unreadable vane byte took the whole platform down
+    and the entry came up with no selects at all."""
+    setattr(platform_device.airco, field, 99)
+    platform_device.airco.Entrust = False
+
+    entity = cls(platform_device)
 
     assert entity.current_option is None
     assert platform_device.available is True

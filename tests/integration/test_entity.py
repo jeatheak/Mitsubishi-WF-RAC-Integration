@@ -6,6 +6,7 @@ offline with it - needs the `hass` fixture (Device is a
 DataUpdateCoordinator), hence tests/integration/ rather than tests/unit/.
 """
 
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -32,17 +33,17 @@ async def device(hass):
     return dev
 
 
-async def test_coordinator_update_does_not_report_failure(device):
+async def test_coordinator_update_does_not_report_failure(device, caplog):
+    """EnergyTotalResetButton had no _update_state() at all, so every
+    coordinator update raised AttributeError inside it."""
     entity = EnergyTotalResetButton(device)
     entity.async_write_ha_state = lambda: None
-    # A device starts out unavailable and becomes available with its first
-    # successful poll; this one has none, so say so up front.
-    device._set_availability(True)
 
-    for _ in range(AVAILABILITY_FAILURE_LIMIT_MIN + 1):
+    with caplog.at_level(logging.WARNING):
         entity._handle_coordinator_update()
 
-    assert device.available is True
+    assert "Could not update" not in caplog.text
+    assert entity._state_unreadable is False
 
 
 async def test_coordinator_contexts_include_only_contextual_entities(device):
