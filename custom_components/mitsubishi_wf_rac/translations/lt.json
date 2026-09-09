@@ -82,6 +82,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "Išvykimo režimas veikia tik vėsinant arba šildant, o ne režimu {hvac_mode}. Pirma perjunkite įrenginį į vėsinimą ar šildymą arba pasirinkite kryptį per „Išvykimo režimas“."
+    },
+    "status_request_read_failed": {
+      "message": "Nepavyko nuskaityti oro kondicionieriaus {device} būsenos, todėl būsenos užklausa nebuvo išsiųsta."
     }
   },
   "issues": {

@@ -82,6 +82,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "离家模式仅在制冷或制热时可用，当前为 {hvac_mode}。请先将设备切换到制冷或制热，或直接用“离家模式”选择项指定离家制冷 / 离家制热。"
+    },
+    "status_request_read_failed": {
+      "message": "无法读取空调 {device} 的状态，因此未发送状态请求。"
     }
   },
   "issues": {

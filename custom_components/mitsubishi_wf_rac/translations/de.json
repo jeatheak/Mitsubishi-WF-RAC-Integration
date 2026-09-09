@@ -82,6 +82,9 @@
     },
     "external_temperature_source_configured": {
       "message": "Die Innentemperatur wird von der eingerichteten Quell-Entität bestimmt."
+    },
+    "status_request_read_failed": {
+      "message": "Der Zustand des Klimageräts {device} ließ sich nicht lesen, die Statusanfrage wurde deshalb nicht gesendet."
     }
   },
   "issues": {
