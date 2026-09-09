@@ -13,7 +13,7 @@
     "pywfrac"
   ],
   "requirements": [
-    "pywfrac==0.1.3"
+    "pywfrac==0.1.4"
   ],
   "version": "2026.9.9-beta6",
   "zeroconf": [
