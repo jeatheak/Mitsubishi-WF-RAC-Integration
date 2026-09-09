@@ -113,7 +113,7 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
     _attr_hvac_modes: list[HVACMode] = SUPPORTED_HVAC_MODES
     _attr_fan_modes: list[str] = SUPPORTED_FAN_MODES
-    _attr_fan_mode: str = FAN_AUTO
+    _attr_fan_mode: str | None = FAN_AUTO
     _attr_swing_mode: str | None = SWING_VERTICAL_AUTO
     _attr_swing_modes: list[str] | None = SUPPORT_SWING_MODES
     _attr_swing_horizontal_mode: str | None = SWING_HORIZONTAL_AUTO
@@ -162,10 +162,8 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
                     self.hass, source, self._handle_external_temperature_source_change
                 )
             )
-        # No async_write_ha_state() of its own here: the platform writes the
-        # state itself once this returns. (The source path above goes through
-        # _set_external_temperature_override, whose write is harmless for the
-        # same reason.)
+        # No async_write_ha_state() here: the platform writes the state itself
+        # once this returns.
         self._apply_state()
 
     @property
@@ -368,20 +366,16 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         """The setpoint range in the numbers the card shows.
 
         The device is held to _setpoint_range_for_mode(); what the user sets
-        and reads back is that value plus the target offset, so the bounds move
-        with it. Advertising the device's own range instead let a setpoint at
-        the edge pass validation, get clamped on the wire and come back one
-        offset away from what was asked for - with a +1 offset, a requested 16
-        became 15, was clamped back to 16 and displayed as 17.
+        and reads back is that value plus the target offset, so the bounds have
+        to move with it, or a setpoint at the edge passes validation and comes
+        back one offset away from what was asked for.
 
         For a mode with no range of its own the shift happens per mode and the
-        union comes after, because each mode carries its own offset. Shifting
-        the union by one mode's offset instead would reject a setpoint that is
-        legal in the mode the call switches to - and Home Assistant reads
-        min_temp/max_temp and rejects on its own before the entity ever sees
-        the call, so there is no second chance to get it right. That pre-check
-        still measures a mode-switching call against the mode the unit is in
-        right now, which no integration can help.
+        union comes after, because each mode carries its own offset. Home
+        Assistant reads min_temp/max_temp and rejects on its own before the
+        entity sees the call, so a union shifted by one mode's offset would
+        reject a setpoint that is legal in the mode the call switches to, with
+        no second chance to correct it.
         """
         if hvac_mode in REGULATING_HVAC_MODES:
             offset = self._resolve_target_offset(hvac_mode)
@@ -422,7 +416,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         # rejection and a fix.
         if set_temp < min_temp:
             raise ServiceValidationError(
-                f"Temperature {set_temp} is below minimum {min_temp}",
                 translation_domain=DOMAIN,
                 translation_key="temperature_below_minimum",
                 translation_placeholders={
@@ -434,7 +427,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
 
         if set_temp > max_temp:
             raise ServiceValidationError(
-                f"Temperature {set_temp} is above maximum {max_temp}",
                 translation_domain=DOMAIN,
                 translation_key="temperature_above_maximum",
                 translation_placeholders={
@@ -555,7 +547,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             # Two writers would make the service result immediately temporary
             # and leave users guessing which one controls the unit.
             raise ServiceValidationError(
-                "External temperature is controlled by the configured source entity",
                 translation_domain=DOMAIN,
                 translation_key="external_temperature_source_configured",
             )
@@ -600,7 +591,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
             away_temp = HOME_LEAVE_TEMP_HEAT
         else:
             raise ServiceValidationError(
-                f"Home Leave mode needs cooling or heating, not {self._attr_hvac_mode}",
                 translation_domain=DOMAIN,
                 translation_key="preset_away_needs_cool_or_heat",
                 translation_placeholders={"hvac_mode": str(self._attr_hvac_mode)},
@@ -617,7 +607,6 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
     def _require_home_leave_mode_capability(self) -> None:
         if not self._device.airco.Capabilities.home_leave_mode:
             raise ServiceValidationError(
-                "This model does not report the HomeLeaveMode capability",
                 translation_domain=DOMAIN,
                 translation_key="home_leave_mode_not_supported",
             )
@@ -653,7 +642,18 @@ class AircoClimate(WfRacEntity, ClimateEntity, RestoreEntity):
         )
 
     def _mark_state_unknown(self) -> None:
+        # All of it, not just hvac_mode: _update_state() writes the setpoint
+        # and the room reading before it reaches the fields that can fail, so
+        # leaving the rest in place would show a freshly updated temperature
+        # and a stale action next to a state the entity itself calls unknown.
         self._attr_hvac_mode = None
+        self._attr_hvac_action = None
+        self._attr_target_temperature = None
+        self._attr_current_temperature = None
+        self._attr_fan_mode = None
+        self._attr_swing_mode = None
+        self._attr_swing_horizontal_mode = None
+        self._attr_preset_mode = None
 
     def _update_state(self) -> None:
         """Private update attributes"""

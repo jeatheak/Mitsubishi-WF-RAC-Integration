@@ -172,25 +172,25 @@
           },
           "swing_mode": {
             "state": {
-              "up_down_auto": "Up/Down Auto",
+              "up_down_auto": "Up/down auto",
               "highest": "Highest",
               "middle": "Middle",
               "normal": "Normal",
               "lowest": "Lowest",
-              "3d_auto": "3D Auto"
+              "3d_auto": "3D auto"
             }
           },
           "swing_horizontal_mode": {
             "state": {
-              "left_right_auto": "Left/Right Auto",
-              "left_left": "Left-Left",
-              "left_center": "Left-Center",
-              "center_center": "Center-Center",
-              "center_right": "Center-Right",
-              "right_right": "Right-Right",
-              "left_right": "Left-Right",
-              "right_left": "Right-Left",
-              "3d_auto": "3D Auto"
+              "left_right_auto": "Left/right auto",
+              "left_left": "Left-left",
+              "left_center": "Left-center",
+              "center_center": "Center-center",
+              "center_right": "Center-right",
+              "right_right": "Right-right",
+              "left_right": "Left-right",
+              "right_left": "Right-left",
+              "3d_auto": "3D auto"
             }
           }
         }
@@ -200,26 +200,26 @@
       "horizontal_swing": {
         "name": "Horizontal swing direction",
         "state": {
-          "left_right_auto": "Left/Right Auto",
-          "left_left": "Left-Left",
-          "left_center": "Left-Center",
-          "center_center": "Center-Center",
-          "center_right": "Center-Right",
-          "right_right": "Right-Right",
-          "left_right": "Left-Right",
-          "right_left": "Right-Left",
-          "3d_auto": "3D Auto"
+          "left_right_auto": "Left/right auto",
+          "left_left": "Left-left",
+          "left_center": "Left-center",
+          "center_center": "Center-center",
+          "center_right": "Center-right",
+          "right_right": "Right-right",
+          "left_right": "Left-right",
+          "right_left": "Right-left",
+          "3d_auto": "3D auto"
         }
       },
       "vertical_swing": {
         "name": "Vertical swing direction",
         "state": {
-          "up_down_auto": "Up/Down Auto",
+          "up_down_auto": "Up/down auto",
           "highest": "Highest",
           "middle": "Middle",
           "normal": "Normal",
           "lowest": "Lowest",
-          "3d_auto": "3D Auto"
+          "3d_auto": "3D auto"
         }
       },
       "fan_speed": {
@@ -236,8 +236,8 @@
         "name": "Home Leave mode",
         "state": {
           "off": "Off",
-          "away_cool": "Away Cooling",
-          "away_heat": "Away Heating"
+          "away_cool": "Away cooling",
+          "away_heat": "Away heating"
         }
       },
       "home_leave_cooling_air_flow": {

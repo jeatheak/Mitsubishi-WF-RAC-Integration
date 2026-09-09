@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 from dataclasses import replace
-import logging
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.const import UnitOfTemperature
@@ -17,7 +16,6 @@ from .coordinator import Device
 from pywfrac import HomeLeaveModeSetting
 from .const import DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
 # Zero although this platform writes: the coordinator already serialises and
 # spaces every request.
 PARALLEL_UPDATES = 0
@@ -50,10 +48,6 @@ async def async_setup_entry(
 class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
     """Editable Home Leave Mode temperature threshold/setting (Tag 248).
 
-    Replaces the former read-only home_leave_* diagnostic sensors in
-    sensor.py - same values, but directly writable from the device's
-    Controls section instead of only via the set_home_leave_mode action.
-
     Stays unavailable until Device.async_request_home_leave_mode_status()
     has been called at least once (see the climate entity's "Request Home
     Leave Mode status" action) - the unit omits the Tag-248 extension segment
@@ -63,11 +57,9 @@ class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
     overwriting real settings with defaults.
     """
 
-    # None (not DIAGNOSTIC) so these land in the device page's main Controls
-    # section, directly editable - the whole point of replacing the former
-    # diagnostic sensors. Disabled by default though, same as those sensors
-    # were: a niche away-mode feature, not everyone with a HomeLeaveMode-
-    # capable model wants six extra entities on their device page.
+    # No entity category, so these land in the device page's main Controls
+    # section and stay editable. Off by default all the same: a niche
+    # away-mode feature is not worth six extra entities on every device page.
     _attr_entity_registry_enabled_default = False
     _attr_device_class = NumberDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
@@ -114,9 +106,6 @@ class HomeLeaveModeNumber(WfRacEntity, NumberEntity):
         heating = self._device.airco.HomeLeaveModeForHeating
         if cooling is None or heating is None:
             raise HomeAssistantError(
-                "Home Leave Mode values are unknown yet - call the climate "
-                "entity's 'Request Home Leave Mode status' action once "
-                "first, the unit doesn't include them in a plain poll.",
                 translation_domain=DOMAIN,
                 translation_key="home_leave_mode_status_unknown",
             )

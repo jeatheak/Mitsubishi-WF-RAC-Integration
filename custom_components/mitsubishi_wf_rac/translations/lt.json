@@ -315,7 +315,11 @@
         "name": "Modelio Nr."
       },
       "cool_hot_judge": {
-        "name": "Cool Hot Judge"
+        "name": "Cool Hot Judge",
+        "state": {
+          "cooling": "Vėsinimas",
+          "heating": "Šildymas"
+        }
       },
       "energy_usage": {
         "name": "Energijos suvartojimas (dabartinis ciklas)"

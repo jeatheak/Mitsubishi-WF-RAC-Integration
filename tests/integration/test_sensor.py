@@ -37,10 +37,17 @@ async def test_setting_the_total_on_the_wrong_sensor_says_which(
     wrong = DiagnosticsSensor(platform_device, "error")
     wrong.entity_id = "sensor.living_room_error"
 
-    with pytest.raises(ServiceValidationError, match="sensor.living_room_error"):
+    with pytest.raises(ServiceValidationError) as wrong_sensor:
         await async_set_energy_total(
             wrong, MagicMock(spec=ServiceCall, data={"value": 12.0})
         )
+    assert wrong_sensor.value.translation_key == "entity_not_energy_total_sensor"
+    # The entity id is the whole point of the message and reaches it through
+    # the placeholder, not through the text.
+    assert (
+        wrong_sensor.value.translation_placeholders["entity_id"]
+        == "sensor.living_room_error"
+    )
 
 
 async def test_setting_the_total_reanchors_the_meter(

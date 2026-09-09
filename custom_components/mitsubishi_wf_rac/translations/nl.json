@@ -315,7 +315,11 @@
         "name": "Modelnummer"
       },
       "cool_hot_judge": {
-        "name": "Koel-/verwarmingsstatus"
+        "name": "Koel-/verwarmingsstatus",
+        "state": {
+          "cooling": "Koelen",
+          "heating": "Verwarmen"
+        }
       },
       "energy_usage": {
         "name": "Energieverbruik (huidige cyclus)"

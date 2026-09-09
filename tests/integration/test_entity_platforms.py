@@ -8,7 +8,7 @@ import pytest
 
 from homeassistant.components.climate.const import HVACAction, HVACMode
 from homeassistant.const import EntityCategory
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEntityPlatform
 
@@ -251,11 +251,16 @@ async def test_climate_commands_and_state_branches(platform_device):
     await entity.async_set_swing_horizontal_mode(horizontal)
     assert platform_device.async_queue_command.await_args.args[0][AirconCommands.Entrust] is False
 
-    with pytest.raises(ServiceValidationError, match="below minimum") as below:
+    with pytest.raises(ServiceValidationError) as below:
         await entity.async_set_temperature(temperature=9, hvac_mode=HVACMode.HEAT)
-    with pytest.raises(ServiceValidationError, match="above maximum") as above:
+    with pytest.raises(ServiceValidationError) as above:
         await entity.async_set_temperature(temperature=34, hvac_mode=HVACMode.COOL)
 
+    # Asserted on the key, not on the rendered text: the message the user
+    # reads comes from strings.json, and matching the English wording here
+    # would pass just as well if the key were wrong.
+    assert below.value.translation_key == "temperature_below_minimum"
+    assert above.value.translation_key == "temperature_above_maximum"
     # The message names the mode the range came from - without the
     # placeholder it renders as a literal {hvac_mode} and the one useful part
     # of the message is gone.
@@ -273,8 +278,9 @@ async def test_climate_commands_and_state_branches(platform_device):
     assert entity.min_temp == 16
     entity._attr_hvac_mode = HVACMode.HEAT
     assert entity.min_temp == 18
-    with pytest.raises(ServiceValidationError, match="below minimum"):
+    with pytest.raises(ServiceValidationError) as too_low:
         await entity.async_set_temperature(temperature=16)
+    assert too_low.value.translation_key == "temperature_below_minimum"
     entity._attr_hvac_mode = HVACMode.COOL
 
     platform_device.airco.Operation = True
@@ -290,8 +296,9 @@ async def test_climate_commands_and_state_branches(platform_device):
     assert entity.hvac_action == HVACAction.HEATING
 
     platform_device.airco.Capabilities = replace(platform_device.airco.Capabilities, home_leave_mode=False)
-    with pytest.raises(Exception, match="does not report"):
+    with pytest.raises(ServiceValidationError) as unsupported:
         await entity.async_request_home_leave_mode_status()
+    assert unsupported.value.translation_key == "home_leave_mode_not_supported"
     platform_device.airco.Capabilities = replace(platform_device.airco.Capabilities, home_leave_mode=True)
     platform_device.async_request_home_leave_mode_status = AsyncMock()
     platform_device.async_set_home_leave_mode = AsyncMock()
@@ -347,8 +354,9 @@ async def test_select_command_and_state_branches(hass, platform_device):
         select.HomeLeaveAirFlowSelect(platform_device, "heating"),
         "select.home_leave_heating_air_flow",
     )
-    with pytest.raises(Exception, match="unknown yet"):
+    with pytest.raises(HomeAssistantError) as unknown:
         await airflow.async_select_option("2")
+    assert unknown.value.translation_key == "home_leave_mode_status_unknown"
     platform_device.airco.HomeLeaveModeForCooling = HomeLeaveModeSetting(12, 31, 0)
     platform_device.airco.HomeLeaveModeForHeating = HomeLeaveModeSetting(13, 10, 1)
     platform_device.async_set_home_leave_mode = AsyncMock()
@@ -390,8 +398,9 @@ async def test_home_leave_controls_require_known_settings_and_preserve_other_sid
         number.HomeLeaveModeNumber(platform_device, mode, attribute),
         f"number.home_leave_{mode}_{attribute.lower()}",
     )
-    with pytest.raises(Exception, match="unknown yet"):
+    with pytest.raises(HomeAssistantError) as unknown:
         await control.async_set_native_value(15)
+    assert unknown.value.translation_key == "home_leave_mode_status_unknown"
     platform_device.airco.HomeLeaveModeForCooling = HomeLeaveModeSetting(12, 31, 0)
     platform_device.airco.HomeLeaveModeForHeating = HomeLeaveModeSetting(13, 10, 1)
     await control.async_set_native_value(15)
@@ -409,20 +418,19 @@ async def test_update_version_states(platform_device, available, latest):
     assert entity.latest_version == (latest if available else "1.0")
 
 
-async def test_fan_speed_select_recognises_an_unreadable_fan_step(platform_device, monkeypatch):
+async def test_fan_speed_select_recognises_an_unreadable_fan_step(platform_device):
     """Same marker as the climate entity's fan mode, same first-read guard.
 
     FanSpeedSelect indexes FAN_MODE_TRANSLATION from its own __init__, so an
     AIRFLOW_UNKNOWN nibble used to take the whole select platform with it.
     """
     platform_device.airco.AirFlow = AIRFLOW_UNKNOWN
-    set_available = MagicMock()
-    monkeypatch.setattr(platform_device, "set_available", set_available)
+    platform_device._set_availability(True)
 
     fan = select.FanSpeedSelect(platform_device)
 
     assert fan.current_option is None
-    set_available.assert_not_called()
+    assert platform_device.available is True
 
 
 async def test_home_leave_air_flow_select_recognises_an_unreadable_step(
@@ -432,13 +440,12 @@ async def test_home_leave_air_flow_select_recognises_an_unreadable_step(
     platform_device.airco.HomeLeaveModeForCooling = HomeLeaveModeSetting(
         TempRule=35.0, TempSetting=33.0, AirFlow=AIRFLOW_UNKNOWN
     )
-    set_available = MagicMock()
-    platform_device.set_available = set_available
+    platform_device._set_availability(True)
 
     entity = select.HomeLeaveAirFlowSelect(platform_device, "cooling")
 
     assert entity.current_option is None
-    set_available.assert_not_called()
+    assert platform_device.available is True
 
 
 async def test_the_climate_entity_is_the_device_itself(platform_device):

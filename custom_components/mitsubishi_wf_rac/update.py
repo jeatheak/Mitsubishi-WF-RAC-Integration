@@ -6,7 +6,6 @@ that goes.
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations
-import logging
 
 from homeassistant.components.update import UpdateDeviceClass, UpdateEntity
 from homeassistant.const import EntityCategory
@@ -18,7 +17,6 @@ from .entity import WfRacEntity
 from .coordinator import Device
 from .const import DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
 # Read-only as far as the device is concerned: the coordinator does the
 # polling, and nothing on this platform sends a request of its own.
 PARALLEL_UPDATES = 0

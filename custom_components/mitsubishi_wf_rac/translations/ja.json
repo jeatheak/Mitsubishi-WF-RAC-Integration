@@ -315,7 +315,11 @@
         "name": "モデル番号"
       },
       "cool_hot_judge": {
-        "name": "Cool Hot Judge"
+        "name": "Cool Hot Judge",
+        "state": {
+          "cooling": "冷房",
+          "heating": "暖房"
+        }
       },
       "energy_usage": {
         "name": "エネルギー使用量 (今回の運転)"

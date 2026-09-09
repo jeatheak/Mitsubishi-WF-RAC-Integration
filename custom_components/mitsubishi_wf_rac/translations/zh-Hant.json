@@ -315,7 +315,11 @@
         "name": "型號編號"
       },
       "cool_hot_judge": {
-        "name": "冷熱判斷"
+        "name": "冷熱判斷",
+        "state": {
+          "cooling": "製冷",
+          "heating": "製熱"
+        }
       },
       "energy_usage": {
         "name": "能耗（目前運轉）"

@@ -5,10 +5,9 @@ import logging
 import re
 from collections import deque
 from collections.abc import Mapping
-from contextlib import suppress
 from datetime import datetime, timedelta
 from collections.abc import Callable
-from typing import Any, override
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -424,30 +423,19 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         self._sync_external_temperature_carrier()
 
     async def async_shutdown(self) -> None:
-        """Release the override's own operation-data subscription along with
-        the coordinator. A listener outstanding after unload would keep the
-        refresh timer alive for an entry that no longer exists.
+        """Release the subscription and both tasks along with the coordinator.
 
-        The consolidation task is created on hass rather than owned by
-        DataUpdateCoordinator, so it has to be cancelled here too: a command
-        queued moments before the entry unloads would otherwise still be sent
-        afterwards and publish data to entities that are already gone.
+        Neither task is owned by DataUpdateCoordinator, and hass only cancels
+        background tasks when hass itself stops - which an entry unload is
+        not. The operation-data one matters most: it spends most of its life
+        asleep waiting out its offset, so a reload catches it mid-sleep and
+        its request would go out from the old entry through a second
+        Repository while the new one is already polling. Two connections at
+        once is what the module will not take.
 
-        The operation-data task needs the same, and more urgently: it spends
-        most of its life asleep waiting out its offset (up to
-        SERVICE_DATA_REQUEST_OFFSET), so an unload almost always catches one
-        mid-sleep. hass cancels background tasks when *hass* stops, which a
-        config-entry unload is not - and on a reload the request would go out
-        from the old entry while the new one is already polling, through a
-        second Repository whose request spacing knows nothing about the
-        first. Two connections at once is what the module will not take.
-
-        Whatever either task was doing, its outcome stops mattering here, and
-        an unload that raises leaves entities loaded on an entry that no
-        longer updates. So a failure is logged and swallowed rather than
-        allowed out: a flush reports its own errors to the caller that queued
-        it (see _async_flush_queued_command), and the operation-data request
-        is optional by construction.
+        Failures are logged and swallowed: an unload that raises leaves
+        entities loaded on an entry that no longer updates, and both tasks
+        report what matters elsewhere.
         """
         self._release_external_temperature_carrier()
         for task in (self._consolidation_task, self._service_data_task):
@@ -848,37 +836,26 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     def _note_unexpected_settings(self, someone_wrote: bool) -> None:
         """Notice a setting that changed without us changing it.
 
-        The third and least deniable signal, and the only one our own traffic
-        cannot erase. `expires` and `updatedBy` both record who wrote last and
-        are overwritten by our next write, so either is masked when a request
-        of ours lands in the same gap - and half of every gap is ours. A
-        setting is not a record of a write, it is the result of one, and
-        nothing we send afterwards puts it back.
+        The only signal our own traffic cannot erase: `expires` and
+        `updatedBy` are overwritten by our next write, a changed setting is
+        not. It adds the case no write lock was taken for - only a
+        setAirconStat moves `expires`, so a setting that moved while `expires`
+        stood still was not changed over the network at all, but at the IR
+        remote, by a timer, or by one of the unit's own modes. No lock is held
+        there, so this only reports; the stand-down stays with the writes.
 
-        What it adds is the case no write lock was taken for. Only a
-        setAirconStat moves `expires`, so a setting that changed while
-        `expires` stood still was not changed over the network at all: that is
-        the IR remote, a timer in the unit, or one of the unit's own modes.
-        Standing down for three minutes would be pointless there - nobody
-        holds the lock we would be avoiding - so this only says so, and the
-        stand-down stays with the writes it was built for.
+        someone_wrote asks whether a set-bit could have been sent in this gap,
+        not whether any frame was - our own operation-data request moves
+        `expires` every cycle while changing nothing. The price is a wrong
+        label rather than a missing message: a foreign client writing in the
+        same gap as one of our requests reads as the unit itself, the module
+        offering no second record to tell them apart.
 
-        One case is invisible here by construction, and it is ours: while the
-        operation-data request carries the power state back to a unit that
-        needs it, a change we undo inside that same gap leaves the value
-        exactly where we expect it.
-
-        The someone_wrote argument asks whether a set-bit could have been sent
-        in this gap, not whether any frame was: our own operation-data request
-        moves `expires` every cycle while changing nothing, and counting it
-        would leave nothing to attribute. The price is one wrong label rather
-        than one missing message - a foreign client writing in the same gap as
-        one of our requests reads as the unit itself here, because the module
-        gives us no second record of the write to tell them apart.
-
-        Not every one of these is somebody's doing: the unit resets its own
+        Not every one of these is somebody's doing - the unit resets its own
         setpoint after a power cycle, and Vacant and self-clean move settings
-        with nobody asking.
+        with nobody asking. And one case is invisible by construction: a
+        change we undo while carrying the power state back leaves the value
+        exactly where we expect it.
         """
         current = self._settings_snapshot()
         expected = self._expected_settings
@@ -996,16 +973,11 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     def _power_state_is_safe_to_carry(self) -> bool:
         """Whether an operation-data request may go out right now.
 
-        Only ever False on a unit whose request has to carry its state
-        (#329), and only while we believe that unit is off. On such a module
-        the block is applied rather than ignored, so the request is a write in
-        all but name.
-
-        Skipped rather than sent empty: without the state this module reads
-        the zeros as a command to clear the settings, which is the original
-        fault. And a reading taken while the unit is off is worth little
-        anyway - the compressor is stopped and the valve is closed - so
-        nothing is lost by waiting for the poll that finds it running.
+        Only False on a unit that carries its state (#329) while we believe it
+        is off, because there the block is applied rather than ignored. Sending
+        it empty instead is the original fault - the module reads the zeros as
+        a command to clear the settings - and a reading taken while the unit is
+        off is worth little, so it waits for a poll that finds it running.
         """
         return not self._parser.status_request_carries_state or bool(
             self._airco is not None and self._airco.Operation
@@ -1762,10 +1734,6 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             _LOGGER.debug(
                 "Could not reach the airco [%s]: %s", self.device_name, error
             )
-
-    def set_available(self, available: bool) -> None:
-        """Set available status"""
-        self._set_availability(available)
 
     @property
     def device_info(self) -> DeviceInfo:

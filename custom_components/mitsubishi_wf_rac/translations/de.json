@@ -319,7 +319,11 @@
         "name": "Modellnummer"
       },
       "cool_hot_judge": {
-        "name": "Kühl-/Heiz-Status"
+        "name": "Kühl-/Heiz-Status",
+        "state": {
+          "cooling": "Kühlen",
+          "heating": "Heizen"
+        }
       },
       "energy_usage": {
         "name": "Energieverbrauch (aktueller Lauf)"

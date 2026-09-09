@@ -715,9 +715,8 @@ class KnownError(exceptions.HomeAssistantError):
     ) -> tuple[dict[str, str], dict[str, str]]:
         """Return dicts of errors and description_placeholders, for adding to async_show_form"""
         key = self.applies_to_field
-        # Errors will only be displayed to the user if the key is actually in the form (or
-        # CONF_BASE for a general error), so we'll check the schema (seems weird there
-        # isn't a more efficient way to do this...)
+        # An error only shows if its key is in the form; anything else falls
+        # back to CONF_BASE.
         if key not in {k.schema for k in schema}:
             key = CONF_BASE
         return ({key: self.error_name}, self._extra_info or {})

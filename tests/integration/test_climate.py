@@ -599,8 +599,9 @@ async def test_set_external_temperature_refuses_values_with_configured_source(de
     _with_external_temperature_source(device)
     entity = _service_entity(device)
 
-    with pytest.raises(ServiceValidationError, match="configured source"):
+    with pytest.raises(ServiceValidationError) as refused:
         await entity.async_set_external_temperature(temperature=20.0)
+    assert refused.value.translation_key == "external_temperature_source_configured"
 
 
 async def test_set_external_temperature_allows_clearing_with_configured_source(device):
@@ -776,10 +777,9 @@ async def test_set_preset_none_restores_a_normal_setpoint(device):
 # pin is what makes this reachable at all.
 
 
-async def test_unknown_fan_step_leaves_the_entity_constructed(device, monkeypatch):
+async def test_unknown_fan_step_leaves_the_entity_constructed(device):
     device.airco.AirFlow = AIRFLOW_UNKNOWN
-    set_available = MagicMock()
-    monkeypatch.setattr(device, "set_available", set_available)
+    device._set_availability(True)
 
     # Constructing must not raise: the platform would never finish setting up
     # and the entry would load without a climate entity at all.
@@ -788,7 +788,7 @@ async def test_unknown_fan_step_leaves_the_entity_constructed(device, monkeypatc
     # The unit answered and still takes commands, so only this entity's state
     # is unknown - the device stays as available as it was.
     assert entity.hvac_mode is None
-    set_available.assert_not_called()
+    assert device.available is True
 
 
 async def test_unknown_fan_step_is_recognised_by_name(device, monkeypatch):
