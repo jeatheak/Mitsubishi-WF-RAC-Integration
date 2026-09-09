@@ -425,6 +425,22 @@ async def test_fan_speed_select_recognises_an_unreadable_fan_step(platform_devic
     set_available.assert_not_called()
 
 
+async def test_home_leave_air_flow_select_recognises_an_unreadable_step(
+    platform_device,
+):
+    """Same marker as the fan speed select, one decode path further in."""
+    platform_device.airco.HomeLeaveModeForCooling = HomeLeaveModeSetting(
+        TempRule=35.0, TempSetting=33.0, AirFlow=AIRFLOW_UNKNOWN
+    )
+    set_available = MagicMock()
+    platform_device.set_available = set_available
+
+    entity = select.HomeLeaveAirFlowSelect(platform_device, "cooling")
+
+    assert entity.current_option is None
+    set_available.assert_not_called()
+
+
 async def test_the_climate_entity_is_the_device_itself(platform_device):
     """It carries the device's name and adds nothing of its own.
 

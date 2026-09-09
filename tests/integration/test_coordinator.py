@@ -75,6 +75,7 @@ from homeassistant.util import dt as dt_util
 
 OFF_PAYLOAD, _ = LIVE_CAPTURES["off"]
 ON_COOL_PAYLOAD, _ = LIVE_CAPTURES["on_cool"]
+FAN_SPEED_4_PAYLOAD, _ = LIVE_CAPTURES["on_cool_fanspeed4"]
 ON_HEAT_PAYLOAD, _ = LIVE_CAPTURES["on_heat"]
 
 
@@ -2026,17 +2027,17 @@ async def test_a_unit_that_stops_on_our_request_twice_gets_its_power_state_carri
     device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
     assert device.airco.Operation is True
-    assert device._parser.carry_power_state is False
+    assert device._parser.status_request_carries_state is False
 
     # The unit answers our own request having switched itself off.
     device._api.send_airco_command = AsyncMock(return_value=OFF_PAYLOAD)
     await _run_service_data_request(device, monkeypatch)
-    assert device._parser.carry_power_state is False
+    assert device._parser.status_request_carries_state is False
 
     device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
     await _run_service_data_request(device, monkeypatch)
-    assert device._parser.carry_power_state is True
+    assert device._parser.status_request_carries_state is True
     # Written down, so the next start does not put the unit through the same
     # shutdowns to learn the same thing (#329, reported again after an update
     # had reset it).
@@ -2054,11 +2055,11 @@ async def test_a_learned_power_state_quirk_survives_a_restart(hass):
     device = Device(
         hass, entry, "Test AC", "127.0.0.1", 51443, "device-id", "operator-id",
         "airco-id", swing_selects_enabled_default=True,
-        carry_power_state=bool(entry.data.get(CONF_CARRY_POWER_STATE, False)),
+        status_request_carries_state=bool(entry.data.get(CONF_CARRY_POWER_STATE, False)),
     )
     device._api = AsyncMock()
 
-    assert device._parser.carry_power_state is True
+    assert device._parser.status_request_carries_state is True
 
     await device.async_shutdown()
 
@@ -2083,7 +2084,7 @@ async def test_a_single_stop_during_our_request_is_not_enough(device, monkeypatc
     await device.update()
     await _run_service_data_request(device, monkeypatch)
 
-    assert device._parser.carry_power_state is False
+    assert device._parser.status_request_carries_state is False
 
 
 async def test_a_unit_started_by_remote_is_still_detected(device, monkeypatch):
@@ -2104,7 +2105,7 @@ async def test_a_unit_started_by_remote_is_still_detected(device, monkeypatch):
         await device.update()
         await _run_service_data_request(device, monkeypatch)
 
-    assert device._parser.carry_power_state is True
+    assert device._parser.status_request_carries_state is True
 
 
 async def test_a_unit_switched_off_at_the_unit_is_not_blamed_on_us(
@@ -2124,7 +2125,7 @@ async def test_a_unit_switched_off_at_the_unit_is_not_blamed_on_us(
     await device.update()
     await _run_service_data_request(device, monkeypatch)
 
-    assert device._parser.carry_power_state is False
+    assert device._parser.status_request_carries_state is False
 
 
 async def test_no_request_goes_out_while_a_carrying_unit_is_believed_off(
@@ -2138,7 +2139,7 @@ async def test_no_request_goes_out_while_a_carrying_unit_is_believed_off(
     """
     device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
     await device.update()
-    device._parser.carry_power_state = True
+    device._parser.status_request_carries_state = True
     device.set_airco = set_airco = AsyncMock()
 
     await _run_service_data_request(device, monkeypatch)
@@ -2153,16 +2154,65 @@ async def test_no_request_goes_out_while_a_carrying_unit_is_believed_off(
     set_airco.assert_awaited()
 
 
-async def test_a_unit_switched_off_inside_the_offset_gets_no_request(
-    device, monkeypatch
-):
-    """The check is repeated after the wait, not only when the request was
-    scheduled: the offset is up to half a minute, and the unit going off inside
-    it is exactly the window this protects.
+async def test_a_carrying_request_echoes_what_it_just_read(device, monkeypatch):
+    """The state is written back, so it has to be the unit's current one.
+
+    Anything changed at the unit since the last poll would otherwise be undone
+    by the very frame meant to read from it.
     """
     device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
-    device._parser.carry_power_state = True
+    device._parser.status_request_carries_state = True
+    stale_fan = device.airco.AirFlow
+    device.set_airco = AsyncMock()
+
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=30)
+    )
+    monkeypatch.setattr(coordinator_module, "SERVICE_DATA_MIN_SPACING", timedelta(0))
+    monkeypatch.setattr(device, "async_contexts", lambda: {SERVICE_DATA_EEV_PULSES})
+    device._service_data_offset = timedelta(milliseconds=30)
+    device._maybe_request_service_data()
+
+    # Somebody reaches for the remote while the request waits out its offset.
+    device._api.get_aircon_stats.return_value = _stats_response(FAN_SPEED_4_PAYLOAD)
+    await asyncio.sleep(0.1)
+
+    device.set_airco.assert_awaited()
+    assert device.airco.AirFlow != stale_fan
+
+
+async def test_a_request_that_does_not_carry_state_reads_nothing_extra(
+    device, monkeypatch
+):
+    """A unit that ignores the empty block is not worth an extra request."""
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device.set_airco = AsyncMock()
+
+    monkeypatch.setattr(
+        coordinator_module, "SERVICE_DATA_REQUEST_OFFSET", timedelta(milliseconds=30)
+    )
+    monkeypatch.setattr(coordinator_module, "SERVICE_DATA_MIN_SPACING", timedelta(0))
+    monkeypatch.setattr(device, "async_contexts", lambda: {SERVICE_DATA_EEV_PULSES})
+    device._service_data_offset = timedelta(milliseconds=30)
+    device._api.get_aircon_stats.reset_mock()
+    device._maybe_request_service_data()
+    await asyncio.sleep(0.1)
+
+    device._api.get_aircon_stats.assert_not_awaited()
+
+
+async def test_a_unit_switched_off_inside_the_offset_gets_no_request(
+    device, monkeypatch
+):
+    """The read taken just before the echo decides, not the last poll: the
+    offset is up to half a minute, and the unit going off inside it is exactly
+    the window this protects.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._parser.status_request_carries_state = True
     device.set_airco = set_airco = AsyncMock()
 
     monkeypatch.setattr(
@@ -2174,32 +2224,33 @@ async def test_a_unit_switched_off_inside_the_offset_gets_no_request(
     device._maybe_request_service_data()
 
     # ... and the unit goes off while the request is still waiting out its
-    # offset.
-    device._airco.Operation = False
+    # offset, which is what the read before the echo finds.
+    device._api.get_aircon_stats.return_value = _stats_response(OFF_PAYLOAD)
     await asyncio.sleep(0.1)
 
     set_airco.assert_not_awaited()
 
 
-async def test_carrying_the_power_state_sets_the_set_bit_with_the_value(device):
-    """Bit 0 is the value, bit 1 the set-bit that makes it count. Without the
-    set-bit the value is what a well-behaved unit ignores - and what the
-    affected one applies.
+async def test_a_carrying_request_writes_the_settings_back_instead_of_zeros(device):
+    """The empty block writes a zero into every field an affected module
+    applies; the carrying one writes the unit's own settings back instead.
     """
     device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
     await device.update()
     stat = AirconStat.from_aircon(device.airco)
     stat.ServiceDataStatusRequest = (SERVICE_DATA_EEV_PULSES,)
 
-    assert device._parser.status_request_to_byte(stat)[2] == 0
+    empty = device._parser.status_request_to_byte(stat)
 
-    device._parser.carry_power_state = True
-    assert device._parser.status_request_to_byte(stat)[2] == 3
+    device._parser.status_request_carries_state = True
+    carried = device._parser.status_request_to_byte(stat)
 
-    # And "off" is never carried: that state is up to a poll old, so it is not
-    # a confirmation but a shutdown for a unit switched on in the meantime.
-    stat.Operation = False
-    assert device._parser.status_request_to_byte(stat)[2] == 0
+    # Power and mode, fan step, setpoint, and the horizontal vane: each of
+    # these is a setting the affected unit cleared on every request.
+    for index in (2, 3, 4, 12):
+        assert empty[index] == 0
+        assert carried[index] != 0
+    assert carried == device._parser.command_to_byte(stat)
 
 
 async def test_the_request_moves_back_towards_the_poll_while_it_keeps_landing(

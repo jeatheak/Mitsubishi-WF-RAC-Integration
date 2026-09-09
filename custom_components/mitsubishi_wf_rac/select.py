@@ -332,9 +332,15 @@ class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
 
     def _update_state(self) -> None:
         setting = self._current_setting()
-        self._attr_current_option = (
-            HOME_LEAVE_AIRFLOW_OPTIONS[setting.AirFlow] if setting is not None else None
-        )
+        if setting is None:
+            self._attr_current_option = None
+            return
+        # Named rather than left to the list index, for the same reason as the
+        # fan speed select: a sixth option would make the marker look like a
+        # real fan step.
+        if setting.AirFlow == AIRFLOW_UNKNOWN:
+            raise IndexError("the unit reported a fan step pywfrac cannot read")
+        self._attr_current_option = HOME_LEAVE_AIRFLOW_OPTIONS[setting.AirFlow]
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""

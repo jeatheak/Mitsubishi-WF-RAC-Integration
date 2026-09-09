@@ -211,13 +211,15 @@ async def create_device_from_entry(entry: ConfigEntry, hass: HomeAssistant) -> D
         CONF_AVAILABILITY_RETRY_LIMIT, AVAILABILITY_FAILURE_LIMIT_MIN
     )
     connection_method: str | None = entry.data.get(CONF_CONNECTION_METHOD)
-    carry_power_state: bool = bool(entry.data.get(CONF_CARRY_POWER_STATE, False))
+    # The stored key predates the fix and named only the power bit; the flag
+    # it sets now decides whether the whole state is carried.
+    carries_state: bool = bool(entry.data.get(CONF_CARRY_POWER_STATE, False))
     _device = Device(hass, entry, name, device, port, device_id, operator_id, airco_id,
                      swing_selects_enabled_default,
                      availability_failure_limit=availability_failure_limit,
                      firmware_update_check_enabled=firmware_update_check_enabled,
                      connection_method=connection_method,
-                     carry_power_state=carry_power_state)
+                     status_request_carries_state=carries_state)
     return _device
 
 
