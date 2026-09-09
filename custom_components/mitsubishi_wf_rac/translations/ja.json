@@ -81,6 +81,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "留守モードは冷房または暖房のときだけ使えます（現在は {hvac_mode}）。先に冷房か暖房へ切り替えるか、「留守モード」の選択エンティティで留守冷房・留守暖房を直接指定してください。"
+    },
+    "status_request_read_failed": {
+      "message": "エアコン {device} の状態を読み取れなかったため、ステータス要求は送信されませんでした。"
     }
   },
   "issues": {

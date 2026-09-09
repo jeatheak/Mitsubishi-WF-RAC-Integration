@@ -767,8 +767,8 @@ async def test_home_leave_mode_status_request_does_not_swallow_a_queued_command(
     async_queue_command(), so if it landed in the same consolidation window as
     a real command, both were merged into one AirconStat. to_base64() then
     saw HomeLeaveModeStatusRequest set and picked status_request_to_byte(),
-    which carries no set-bits at all - so the real command (here: a setpoint
-    change) went out unset and was silently ignored by the unit. Sending the
+    which on this module carries no set-bits at all - so the real command
+    (here: a setpoint change) went out unset and was silently ignored. Sending the
     status request directly through set_airco() keeps it out of that merge.
     """
     monkeypatch.setattr(coordinator_module, "UPDATE_CONSOLIDATION_PERIOD", timedelta(milliseconds=5))
@@ -2229,6 +2229,59 @@ async def test_a_unit_switched_off_inside_the_offset_gets_no_request(
     await asyncio.sleep(0.1)
 
     set_airco.assert_not_awaited()
+
+
+async def test_the_home_leave_status_request_echoes_a_fresh_read(device):
+    """The Home Leave status request is a carrying frame too.
+
+    On an affected module RacParser encodes any status request as a full
+    command block, so this action writes every field it holds - and a state
+    left over from the last poll would undo whatever was done at the unit
+    since.
+    """
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._parser.status_request_carries_state = True
+    stale_fan = device.airco.AirFlow
+    device.set_airco = set_airco = AsyncMock()
+
+    # Somebody reaches for the remote between the poll and the action.
+    device._api.get_aircon_stats.return_value = _stats_response(FAN_SPEED_4_PAYLOAD)
+    await device.async_request_home_leave_mode_status()
+
+    set_airco.assert_awaited()
+    assert device.airco.AirFlow != stale_fan
+
+
+async def test_the_home_leave_status_request_does_not_send_a_state_it_could_not_read(
+    device,
+):
+    """Sending the old state anyway is a write on this module. The caller
+    asked for a reading, so the failure has to reach it."""
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device._parser.status_request_carries_state = True
+    device.set_airco = set_airco = AsyncMock()
+    device._api.get_aircon_stats.side_effect = WfRacError("boom")
+
+    with pytest.raises(HomeAssistantError):
+        await device.async_request_home_leave_mode_status()
+
+    set_airco.assert_not_awaited()
+
+
+async def test_a_plain_home_leave_status_request_reads_nothing_extra(device):
+    """Without the quirk the block holds no set-bits, so there is nothing to
+    echo and no reason to spend a second round trip."""
+    device._api.get_aircon_stats.return_value = _stats_response(ON_COOL_PAYLOAD)
+    await device.update()
+    device.set_airco = set_airco = AsyncMock()
+    device._api.get_aircon_stats.reset_mock()
+
+    await device.async_request_home_leave_mode_status()
+
+    set_airco.assert_awaited()
+    device._api.get_aircon_stats.assert_not_awaited()
 
 
 async def test_a_carrying_request_writes_the_settings_back_instead_of_zeros(device):

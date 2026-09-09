@@ -81,6 +81,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "Afwezigheidsmodus werkt alleen tijdens koelen of verwarmen, niet in {hvac_mode}. Zet de unit eerst op koelen of verwarmen, of kies de richting rechtstreeks met de selectie Afwezigheidsmodus."
+    },
+    "status_request_read_failed": {
+      "message": "De staat van de airco {device} kon niet worden gelezen, daarom is de statusaanvraag niet verstuurd."
     }
   },
   "issues": {

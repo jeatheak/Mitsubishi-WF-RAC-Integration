@@ -151,6 +151,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "Home Leave mode is only available while cooling or heating, not in {hvac_mode}. Switch the unit to cool or heat first, or use the Home Leave Mode select to name the direction."
+    },
+    "status_request_read_failed": {
+      "message": "Could not read the state of the Airco at {device}, so the status request was not sent."
     }
   },
   "entity": {

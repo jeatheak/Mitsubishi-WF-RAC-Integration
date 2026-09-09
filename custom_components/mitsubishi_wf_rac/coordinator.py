@@ -71,10 +71,12 @@ UPDATE_CONSOLIDATION_PERIOD = timedelta(milliseconds=500)
 FIRMWARE_CHECK_INTERVAL = timedelta(hours=24)
 
 # Operation data is requested for active operation-data entities and costs a
-# second request per poll. It stays on the local network and changes nothing on
-# the unit (see RacParser.status_request_to_byte) - but it is a setAirconStat,
-# so it takes the module's 60-second write lock all the same, and while we hold
-# that lock no one else can control the unit at all.
+# second request per poll. It stays on the local network, and on most modules
+# its block carries no set-bits (see RacParser.status_request_to_byte) - but it
+# is a setAirconStat, so it takes the module's 60-second write lock all the
+# same, and while we hold that lock no one else can control the unit at all.
+# On a module that needs its state carried (#329) the block is a full command
+# and the request really does write.
 #
 # The lock's deadline is `now + 60`, where `now` is the `timestamp` field of
 # the request that took it - the module has no RTC and reads its clock from
@@ -1080,8 +1082,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             new_airco = self._parser.translate_bytes(response["airconStat"])
         except (WfRacError, KeyError, TypeError, ValueError) as ex:
             _LOGGER.debug(
-                "Could not read [%s] before the operation-data request, "
-                "skipping this cycle: %s",
+                "Could not read [%s] before echoing its state back, "
+                "skipping the request: %s",
                 self.device_name,
                 ex,
             )
@@ -1099,16 +1101,18 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         task that deliberately swallows its errors.
         """
         await asyncio.sleep(self.service_data_offset.total_seconds())
-        # The state this is built from is almost irrelevant: a status request
-        # carries no set-bits, so the unit applies none of it (see
-        # RacParser.status_request_to_byte). Byte 5 is the one exception, since
-        # it has no set-bit to leave out - an active external temperature
-        # override rides along here, and that is the point: this is the frame
-        # that keeps it alive between commands. Note that this also makes the
-        # request a write in the strict sense, which is what the backdated
-        # timestamp below trades away part of the lock for. The offset stays
-        # because it is about spacing requests, not about what they contain -
-        # a second request too soon after the poll is what the module refuses.
+        # What this frame is built from matters on a carrying module and
+        # barely anywhere else: without the quirk the block holds no set-bits
+        # and the unit applies none of it (see
+        # RacParser.status_request_to_byte), with it the block is a full
+        # command. Byte 5 is written either way, having no set-bit to leave
+        # out - an active external temperature override rides along here, and
+        # that is the point: this is the frame that keeps it alive between
+        # commands. That also makes the request a write in the strict sense,
+        # which is what the backdated timestamp below trades away part of the
+        # lock for. The offset stays because it is about spacing requests, not
+        # about what they contain - a second request too soon after the poll is
+        # what the module refuses.
         if self._parser.status_request_carries_state and not await self._async_read_before_echo():
             return
         if not self._power_state_is_safe_to_carry():
@@ -1640,11 +1644,26 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
         Sent directly through set_airco() rather than async_queue_command():
         the latter coalesces this with any command queued in the same
-        window, and since this request's own block carries no set-bits (see
+        window, and on a module whose status request holds no set-bits (see
         RacParser.status_request_to_byte), a coalesced real command - e.g. a
         setpoint change - would go out in that same block without its
         set-bit and be silently ignored by the unit.
+
+        On a module that carries its state (#329) the block is a full command
+        instead, so the state it is built from is read fresh first, exactly as
+        the operation-data path does. Without that this action would write back
+        a setting up to a poll old and undo whatever was done at the unit since
+        - including switching a unit off that somebody just turned on.
         """
+        if self._parser.status_request_carries_state and not await self._async_read_before_echo():
+            # A read failure is not a reason to send the old state anyway: on
+            # this module that is a write. The caller asked for a reading, so
+            # say that it did not happen rather than failing silently.
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="status_request_read_failed",
+                translation_placeholders={"device": self.device_name},
+            )
         await self.set_airco(
             {AirconCommands.HomeLeaveModeStatusRequest: True},
             is_status_request=True,
