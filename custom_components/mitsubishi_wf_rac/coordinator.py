@@ -261,57 +261,6 @@ def registration_full_issue_id(entry_id: str) -> str:
     return f"too_many_devices_{entry_id}"
 
 
-class _ServiceDataParser(RacParser):
-    """RacParser whose operation-data request can carry the unit's own power
-    state back to it.
-
-    The request is built with no set-bits, which on the hardware this was
-    developed against changes nothing (see RacParser.status_request_to_byte).
-    On at least one module - firmType WCBN4612L, issue #329 - the zero in
-    command[2] is applied anyway and reads as "power off", so the unit stops
-    the second the request arrives and again every 60s after that.
-
-    Carrying the current power value together with its set-bit makes the frame
-    confirm the state instead of changing it. Measured against the two indoor
-    units here: result 0, full operation-data trailer, nothing altered, with
-    the unit running and with it switched off.
-
-    Off by default and switched on per device by _note_unit_stopped_on_request(),
-    because it costs something the empty frame does not: the state it carries
-    is up to a poll old, so on a unit that honours set-bits properly this turns
-    a read into a real power write. Which is why only "on" is ever carried, and
-    only while the unit is believed to be running: a confirmation that is wrong
-    can then only fail to change anything.
-    """
-
-    carry_power_state = False
-
-    @override
-    def status_request_to_byte(self, aircon_stat: AirconStat) -> bytearray:
-        stat_byte = super().status_request_to_byte(aircon_stat)
-        if self.carry_power_state and aircon_stat.Operation:
-            # Same encoding as command_to_byte(): bit 0 the value, bit 1 the
-            # set-bit that makes the value count. Only ever "on": the state
-            # this carries is as old as the last poll, and a stale "off" here
-            # is not a confirmation but a shutdown command for a unit somebody
-            # switched on in the meantime (#329). A unit believed off gets no
-            # request at all - see _power_state_is_safe_to_carry - so this is
-            # the second lock on the same door, not the first.
-            stat_byte[2] |= 3
-        # BETA DEBUG (#329) - remove before the final release. The whole
-        # question in that issue is what this frame contains, and reconstructing
-        # it from the base64 in the request log is a step nobody should have to
-        # take twice.
-        _LOGGER.debug(
-            "Operation-data request block: %s (carrying power state: %s, "
-            "unit is %s)",
-            bytes(stat_byte).hex(" "),
-            self.carry_power_state,
-            "on" if aircon_stat.Operation else "off",
-        )
-        return stat_byte
-
-
 class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instance-attributes
     """Device Class"""
 
@@ -333,7 +282,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             availability_failure_limit: int = AVAILABILITY_FAILURE_LIMIT_MIN,
             firmware_update_check_enabled: bool = False,
             connection_method: str | None = None,
-            carry_power_state: bool = False,
+            status_request_carries_state: bool = False,
     ) -> None:
         self._api = Repository(
             async_get_clientsession(hass),
@@ -344,11 +293,11 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             method=connection_method,
             cert_path=hass.config.path(AC_CERT_FILENAME),
         )
-        self._parser = _ServiceDataParser()
-        # Carried over from a previous run: a module that needs the power
-        # state has always needed it, and relearning costs the unit the same
-        # shutdowns every time (see _check_request_stopped_unit).
-        self._parser.carry_power_state = carry_power_state
+        self._parser = RacParser()
+        # Carried over from a previous run: a module that applies a frame it
+        # was not asked to apply has always done so, and relearning costs the
+        # unit the same disturbance every time.
+        self._parser.status_request_carries_state = status_request_carries_state
 
         # Protected state
         self._airco = Aircon()
@@ -1045,20 +994,18 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     def _power_state_is_safe_to_carry(self) -> bool:
         """Whether an operation-data request may go out right now.
 
-        Only ever False on a unit that needs the power state carried (#329),
-        and only while we believe that unit is off. On such a module the field
-        is applied rather than ignored, so the request is a power write in all
-        but name - and the state it would write is as old as the last poll. A
-        unit switched on with the remote inside that window would be switched
-        straight back off by the very frame meant to confirm its state.
+        Only ever False on a unit whose request has to carry its state
+        (#329), and only while we believe that unit is off. On such a module
+        the block is applied rather than ignored, so the request is a write in
+        all but name.
 
-        Skipped rather than sent with the field left out: without the field
-        this module reads the zero in the block as "off" too, which is the
-        original fault. And a reading taken while the unit is off is worth
-        little anyway - the compressor is stopped and the valve is closed - so
-        nothing much is lost by waiting for the poll that finds it running.
+        Skipped rather than sent empty: without the state this module reads
+        the zeros as a command to clear the settings, which is the original
+        fault. And a reading taken while the unit is off is worth little
+        anyway - the compressor is stopped and the valve is closed - so
+        nothing is lost by waiting for the poll that finds it running.
         """
-        return not self._parser.carry_power_state or bool(
+        return not self._parser.status_request_carries_state or bool(
             self._airco is not None and self._airco.Operation
         )
 
@@ -1118,6 +1065,32 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             return timedelta(0)
         return SERVICE_DATA_STAMP_BACKDATE
 
+    async def _async_read_before_echo(self) -> bool:
+        """Read the unit's state immediately before sending it back.
+
+        A carrying request writes every field it contains, so anything changed
+        at the unit since the last poll would be undone by a state that old.
+        Reading here narrows that window from a poll cycle to one round trip.
+        Only the state is taken: availability, foreign-activity attribution and
+        the firmware fields belong to the poll, and running them from here
+        would attribute this read's own effects to somebody else.
+        """
+        try:
+            response = await self._api.get_aircon_stats(self._airco_id)
+            new_airco = self._parser.translate_bytes(response["airconStat"])
+        except (WfRacError, KeyError, TypeError, ValueError) as ex:
+            _LOGGER.debug(
+                "Could not read [%s] before the operation-data request, "
+                "skipping this cycle: %s",
+                self.device_name,
+                ex,
+            )
+            return False
+        self._carry_forward_home_leave_mode(new_airco)
+        self._carry_forward_service_data(new_airco)
+        self._airco = new_airco
+        return True
+
     async def _async_request_service_data(self, service_data_codes: tuple[int, ...]) -> None:
         """Ask the unit for operation-data segments, offset from the poll and
         retried once if the unit refuses it (see SERVICE_DATA_REQUEST_OFFSET).
@@ -1136,6 +1109,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         # timestamp below trades away part of the lock for. The offset stays
         # because it is about spacing requests, not about what they contain -
         # a second request too soon after the poll is what the module refuses.
+        if self._parser.status_request_carries_state and not await self._async_read_before_echo():
+            return
         if not self._power_state_is_safe_to_carry():
             # Re-checked after the sleep, not only when the request was
             # scheduled: the offset is up to half a minute, and the unit going
@@ -1401,7 +1376,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         at the unit, so somebody reached for the remote in the same second and
         this is not our doing.
         """
-        if not was_running or self._parser.carry_power_state:
+        if not was_running or self._parser.status_request_carries_state:
             return
         if self._airco is None or self._airco.Operation:
             self._stopped_on_request = 0
@@ -1427,7 +1402,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                 STOPPED_ON_REQUEST_BEFORE_CARRYING,
             )
             return
-        self._parser.carry_power_state = True
+        self._parser.status_request_carries_state = True
         # Written down, not just remembered: this is a property of the module
         # in front of us, and a restart that forgot it would put the unit
         # through the same shutdowns again to learn the same thing.
@@ -1574,7 +1549,7 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
                 # other - which is why the narrower flag below is a separate
                 # one and not this same value read twice.
                 self._wrote_since_last_poll = True
-                if not is_status_request or self._parser.carry_power_state:
+                if not is_status_request or self._parser.status_request_carries_state:
                     # A status request's block carries no set-bits, so nothing
                     # in it can explain a setting that moved - unless this is
                     # one of the units we carry the power state for (#329),
