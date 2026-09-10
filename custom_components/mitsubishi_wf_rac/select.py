@@ -84,31 +84,19 @@ class HorizontalSwingSelect(WfRacEntity, SelectEntity):
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-horizontal-swing-direction"
         )
-        self.select_option(
-            SWING_3D_AUTO
-            if self._device.airco.Entrust
-            else
-            list(SWING_HORIZONTAL_MODE_TRANSLATION.keys())[
-                self._device.airco.WindDirectionLR
-            ]
-        )
+        self._apply_state()
 
     def _mark_state_unknown(self) -> None:
         self._attr_current_option = None
 
     def _update_state(self) -> None:
-        self.select_option(
+        self._attr_current_option = (
             SWING_3D_AUTO
             if self._device.airco.Entrust
-            else
-            list(SWING_HORIZONTAL_MODE_TRANSLATION.keys())[
+            else list(SWING_HORIZONTAL_MODE_TRANSLATION.keys())[
                 self._device.airco.WindDirectionLR
             ]
         )
-
-    def select_option(self, option: str) -> None:
-        """Change the selected option."""
-        self._attr_current_option = option
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
@@ -126,7 +114,7 @@ class HorizontalSwingSelect(WfRacEntity, SelectEntity):
                     AirconCommands.Entrust: False,
                 }
             )
-        self.select_option(option)
+        self._attr_current_option = option
 
 class VerticalSwingSelect(WfRacEntity, SelectEntity):
     """Select component to set the vertical swing direction of the airco"""
@@ -140,29 +128,19 @@ class VerticalSwingSelect(WfRacEntity, SelectEntity):
         self._attr_unique_id = (
             f"{DOMAIN}-{self._device.airco_id}-vertical-swing-direction"
         )
-        self.select_option(
-            SWING_3D_AUTO
-            if self._device.airco.Entrust
-            else list(SWING_MODE_TRANSLATION.keys())[
-                self._device.airco.WindDirectionUD
-            ]
-        )
+        self._apply_state()
 
     def _mark_state_unknown(self) -> None:
         self._attr_current_option = None
 
     def _update_state(self) -> None:
-        self.select_option(
+        self._attr_current_option = (
             SWING_3D_AUTO
             if self._device.airco.Entrust
             else list(SWING_MODE_TRANSLATION.keys())[
                 self._device.airco.WindDirectionUD
             ]
         )
-
-    def select_option(self, option: str) -> None:
-        """Change the selected option."""
-        self._attr_current_option = option
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
@@ -180,7 +158,7 @@ class VerticalSwingSelect(WfRacEntity, SelectEntity):
                     AirconCommands.Entrust: False,
                 }
             )
-        self.select_option(option)
+        self._attr_current_option = option
 
 class FanSpeedSelect(WfRacEntity, SelectEntity):
     """Select component to set the fan speed of the airco"""
@@ -203,11 +181,8 @@ class FanSpeedSelect(WfRacEntity, SelectEntity):
         # would otherwise make it look like a real one.
         if self._device.airco.AirFlow == AIRFLOW_UNKNOWN:
             raise IndexError("the unit reported a fan step pywfrac cannot read")
-        self.select_option(list(FAN_MODE_TRANSLATION.keys())[self._device.airco.AirFlow])
+        self._attr_current_option = list(FAN_MODE_TRANSLATION.keys())[self._device.airco.AirFlow]
 
-    def select_option(self, option: str) -> None:
-        """Change the selected option."""
-        self._attr_current_option = option
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
@@ -216,7 +191,7 @@ class FanSpeedSelect(WfRacEntity, SelectEntity):
                 AirconCommands.AirFlow: FAN_MODE_TRANSLATION[option]
             }
         )
-        self.select_option(option)
+        self._attr_current_option = option
 
 
 class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
@@ -249,23 +224,20 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
     def _update_state(self) -> None:
         airco = self._device.airco
         if not airco.Vacant:
-            self.select_option(HOME_LEAVE_MODE_OFF)
+            self._attr_current_option = HOME_LEAVE_MODE_OFF
             return
         mode_from_operation = list(HVAC_TRANSLATION.keys())[airco.OperationMode]
         if mode_from_operation == HVACMode.COOL:
-            self.select_option(HOME_LEAVE_MODE_AWAY_COOL)
+            self._attr_current_option = HOME_LEAVE_MODE_AWAY_COOL
         elif mode_from_operation == HVACMode.HEAT:
-            self.select_option(HOME_LEAVE_MODE_AWAY_HEAT)
+            self._attr_current_option = HOME_LEAVE_MODE_AWAY_HEAT
         else:
             # Vacant set while running in some other mode than the two the
             # away feature itself uses - shouldn't happen, but "off" is a
             # safer fallback than silently claiming a direction that isn't
             # actually active.
-            self.select_option(HOME_LEAVE_MODE_OFF)
+            self._attr_current_option = HOME_LEAVE_MODE_OFF
 
-    def select_option(self, option: str) -> None:
-        """Change the selected option."""
-        self._attr_current_option = option
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
@@ -291,22 +263,19 @@ class HomeLeaveModeSelect(WfRacEntity, SelectEntity):
                     AirconCommands.PresetTemp: NORMAL_TEMP,
                 }
             )
-        self.select_option(option)
+        self._attr_current_option = option
 
 
 class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
     """Editable Home Leave Mode airflow level (Tag 248) for one direction.
 
-    Replaces the former read-only home_leave_{mode}_air_flow diagnostic
-    sensor in sensor.py - same value, but directly writable. Stays unknown
-    until Device.async_request_home_leave_mode_status() has been called at
-    least once, same as the TempRule/TempSetting HomeLeaveModeNumber
-    entities in number.py - see that class's docstring for why writing
-    before that is refused rather than guessed at.
+    Stays unknown until Device.async_request_home_leave_mode_status() has been
+    called at least once, same as the HomeLeaveModeNumber entities in
+    number.py - see that class for why writing before that is refused rather
+    than guessed at.
     """
 
-    # Disabled by default, same as the diagnostic sensors this replaces - a
-    # niche away-mode feature, not everyone with a HomeLeaveMode-capable
+    # A niche away-mode feature: not everyone with a HomeLeaveMode-capable
     # model wants extra entities on their device page.
     _attr_entity_registry_enabled_default = False
 
@@ -348,9 +317,6 @@ class HomeLeaveAirFlowSelect(WfRacEntity, SelectEntity):
         heating = self._device.airco.HomeLeaveModeForHeating
         if cooling is None or heating is None:
             raise HomeAssistantError(
-                "Home Leave Mode values are unknown yet - call the climate "
-                "entity's 'Request Home Leave Mode status' action once "
-                "first, the unit doesn't include them in a plain poll.",
                 translation_domain=DOMAIN,
                 translation_key="home_leave_mode_status_unknown",
             )

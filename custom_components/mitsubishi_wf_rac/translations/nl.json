@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "Huidige configuratie is geüpdatet.",
       "already_configured": "Airco is al geconfigureerd",
-      "reconfigure_successful": "Herconfiguratie geslaagd"
+      "reconfigure_successful": "Herconfiguratie geslaagd",
+      "wrong_device": "Op dit adres antwoordt een andere airco dan die waarvoor deze invoer is aangemaakt. Vul weer het adres van het oorspronkelijke apparaat in, of voeg het andere toe als eigen invoer."
     },
     "step": {
       "user": {
@@ -81,6 +82,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "Afwezigheidsmodus werkt alleen tijdens koelen of verwarmen, niet in {hvac_mode}. Zet de unit eerst op koelen of verwarmen, of kies de richting rechtstreeks met de selectie Afwezigheidsmodus."
+    },
+    "status_request_read_failed": {
+      "message": "De staat van de airco {device} kon niet worden gelezen, daarom is de statusaanvraag niet verstuurd."
     }
   },
   "issues": {
@@ -311,7 +315,11 @@
         "name": "Modelnummer"
       },
       "cool_hot_judge": {
-        "name": "Koel-/verwarmingsstatus"
+        "name": "Koel-/verwarmingsstatus",
+        "state": {
+          "cooling": "Koelen",
+          "heating": "Verwarmen"
+        }
       },
       "energy_usage": {
         "name": "Energieverbruik (huidige cyclus)"

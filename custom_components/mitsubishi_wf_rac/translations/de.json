@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "Vorhandene Konfiguration aktualisiert.",
       "already_configured": "Klima ist bereits konfiguriert",
-      "reconfigure_successful": "Neukonfiguration erfolgreich"
+      "reconfigure_successful": "Neukonfiguration erfolgreich",
+      "wrong_device": "Hinter dieser Adresse antwortet ein anderes Klimagerät als das, für das dieser Eintrag angelegt wurde. Trage wieder die Adresse des ursprünglichen Geräts ein, oder lege für das andere einen eigenen Eintrag an."
     },
     "step": {
       "user": {
@@ -81,6 +82,9 @@
     },
     "external_temperature_source_configured": {
       "message": "Die Innentemperatur wird von der eingerichteten Quell-Entität bestimmt."
+    },
+    "status_request_read_failed": {
+      "message": "Der Zustand des Klimageräts {device} ließ sich nicht lesen, die Statusanfrage wurde deshalb nicht gesendet."
     }
   },
   "issues": {
@@ -315,7 +319,11 @@
         "name": "Modellnummer"
       },
       "cool_hot_judge": {
-        "name": "Kühl-/Heiz-Status"
+        "name": "Kühl-/Heiz-Status",
+        "state": {
+          "cooling": "Kühlen",
+          "heating": "Heizen"
+        }
       },
       "energy_usage": {
         "name": "Energieverbrauch (aktueller Lauf)"

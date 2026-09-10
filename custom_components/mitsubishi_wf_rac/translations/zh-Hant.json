@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "已更新現有配置。",
       "already_configured": "空調已配置",
-      "reconfigure_successful": "重新配置成功"
+      "reconfigure_successful": "重新配置成功",
+      "wrong_device": "此位址上回應的空調與建立此項目時的裝置不同。請改回原裝置的位址，或將另一台裝置新增為獨立項目。"
     },
     "step": {
       "user": {
@@ -81,6 +82,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "離家模式僅在製冷或製熱時可用，目前為 {hvac_mode}。請先將設備切換到製冷或製熱，或直接用「離家模式」選擇項指定離家製冷／離家製熱。"
+    },
+    "status_request_read_failed": {
+      "message": "無法讀取空調 {device} 的狀態，因此未傳送狀態請求。"
     }
   },
   "issues": {
@@ -311,7 +315,11 @@
         "name": "型號編號"
       },
       "cool_hot_judge": {
-        "name": "冷熱判斷"
+        "name": "冷熱判斷",
+        "state": {
+          "cooling": "製冷",
+          "heating": "製熱"
+        }
       },
       "energy_usage": {
         "name": "能耗（目前運轉）"

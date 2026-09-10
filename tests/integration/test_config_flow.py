@@ -198,6 +198,71 @@ async def test_user_flow_update_account_info_falsy_is_cannot_connect(hass: HomeA
     assert result["errors"] == {"base": "cannot_connect"}
 
 
+async def test_user_flow_registration_failure_is_cannot_connect(hass: HomeAssistant):
+    """The registration request is the second of the two, and the module
+    answers one caller at a time - a timeout there is an ordinary outcome,
+    not an unexpected error."""
+    repo = _mock_repository()
+    repo.update_account_info.side_effect = WfRacError("timeout")
+    with _patch_repository(repo):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+async def test_user_flow_unreadable_registration_answer_is_cannot_connect(
+    hass: HomeAssistant,
+):
+    """Whatever answered is not a WF-RAC module."""
+    repo = _mock_repository()
+    repo.update_account_info.return_value = {"result": "not a number"}
+    with _patch_repository(repo):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        ValueError("Expecting value: line 1 column 1"),
+        AttributeError("'list' object has no attribute 'get'"),
+        OSError("[SSL] PEM lib"),
+    ],
+    ids=["not json", "json but not an object", "no tls handshake"],
+)
+async def test_user_flow_non_json_answer_is_cannot_connect(
+    hass: HomeAssistant, answer: Exception
+):
+    """Typing the address of some other HTTP service in the house is a
+    connection problem from where the user stands. None of these leave the
+    library as a WfRacError, so the flow has to name them itself."""
+    repo = _mock_repository()
+    repo.get_airco_id.side_effect = answer
+    with _patch_repository(repo):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"host": "192.168.1.50", "port": 51443}
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
 async def test_user_flow_too_many_devices_shows_error(hass: HomeAssistant):
     repo = _mock_repository(update_result=2)
     with _patch_repository(repo):
@@ -258,7 +323,10 @@ def _existing_entry(
 ):
     entry = MockConfigEntry(
         domain=DOMAIN,
-        version=6,
+        version=7,
+        # Every entry carries the unit's own id as its unique id since the v7
+        # migration - a reconfigure compares against it.
+        unique_id="airco-1",
         data={
             "name": name,
             "host": host,
@@ -324,6 +392,31 @@ async def test_reconfigure_flow_allows_resubmitting_the_same_host(hass: HomeAssi
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
+
+
+async def test_reconfigure_flow_rejects_a_different_unit(hass: HomeAssistant):
+    """A typo can point the entry at a second air conditioner. Every entity's
+    unique id is built from the airco id, so following it would rename them
+    all, orphan the originals, and leave discovery unable to place either
+    unit."""
+    entry = _existing_entry(hass, host="192.168.1.50")
+
+    repo = _mock_repository(airco_id="airco-2")
+    with _patch_repository(repo):
+        result = await entry.start_reconfigure_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"host": "192.168.1.99", "port": 51443},
+        )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_device"
+    assert entry.data["host"] == "192.168.1.50"
+    assert entry.data[CONF_AIRCO_ID] == "airco-1"
+    # Registering claims one of the few account slots the module has. The
+    # stranger must not lose one to our typo, so the abort comes before the
+    # write, not after it.
+    repo.update_account_info.assert_not_awaited()
 
 
 async def test_reconfigure_flow_rejects_another_entrys_host(hass: HomeAssistant):

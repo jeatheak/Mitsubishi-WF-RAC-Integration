@@ -34,7 +34,10 @@ from homeassistant.helpers import entity_registry as er
 from .entity import WfRacEntity
 from .coordinator import Device
 from pywfrac.parser import SERVICE_DATA_CODE_BY_FIELD
+from homeassistant.components.climate.const import HVACMode
+
 from .const import (
+    HVAC_TRANSLATION,
     ATTR_TARGET_TEMPERATURE,
     ATTR_COMPRESSOR_FREQUENCY,
     ATTR_COMPRESSOR_FREQUENCY_RAW,
@@ -150,7 +153,6 @@ async def async_set_energy_total(entity: SensorEntity, call: ServiceCall) -> Non
     """
     if not isinstance(entity, EnergyTotalSensor):
         raise ServiceValidationError(
-            f"{entity.entity_id} is not an Energy Usage Total sensor",
             translation_domain=DOMAIN,
             translation_key="entity_not_energy_total_sensor",
             translation_placeholders={"entity_id": entity.entity_id},
@@ -229,7 +231,9 @@ class DiagnosticsSensor(WfRacEntity, SensorEntity):
             self._attr_native_value = self._device.airco.ModelNrRaw
         elif self._custom_type == ATTR_COOL_HOT_JUDGE:
             airco = self._device.airco
-            if not airco.Operation or airco.OperationMode == 3:  # off or FAN_ONLY
+            if not airco.Operation or (
+                airco.OperationMode == HVAC_TRANSLATION[HVACMode.FAN_ONLY]
+            ):
                 self._attr_native_value = None
             else:
                 self._attr_native_value = "heating" if airco.CoolHotJudge else "cooling"
@@ -366,8 +370,11 @@ class EnergyTotalSensor(WfRacEntity, RestoreSensor):
 
     @property
     def extra_restore_state_data(self) -> EnergyTotalExtraStoredData:
+        # The running total, not native_value: an unreadable frame leaves the
+        # displayed value None, and a restart in that window would restore a
+        # lifetime meter of zero.
         return EnergyTotalExtraStoredData(
-            self.native_value, self.native_unit_of_measurement, self._last_raw
+            self._total, self.native_unit_of_measurement, self._last_raw
         )
 
     async def async_added_to_hass(self) -> None:

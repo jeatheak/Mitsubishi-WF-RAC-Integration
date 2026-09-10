@@ -2,7 +2,6 @@
 # pylint: disable = too-few-public-methods
 
 from __future__ import annotations
-import logging
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -18,7 +17,6 @@ from .coordinator import Device
 from pywfrac import describe_error_code
 from .const import DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
 # Read-only as far as the device is concerned: the coordinator does the
 # polling, and nothing on this platform sends a request of its own.
 PARALLEL_UPDATES = 0
@@ -63,17 +61,19 @@ class ProblemBinarySensor(WfRacEntity, BinarySensorEntity):
 
     def _mark_state_unknown(self) -> None:
         self._attr_is_on = None
+        # The code goes with the state. Left behind it would keep answering
+        # state_attr() with the last fault this entity read, while the entity
+        # itself says it does not know.
+        self._attr_extra_state_attributes = {}
 
     def _update_state(self) -> None:
         code = self._device.airco.ErrorCode
         self._attr_is_on = code != "00"
         attrs: dict[str, str] = {"error_code": code}
-        # Deliberately no key at all (rather than a guessed/empty value) for
-        # codes describe_error_code() doesn't recognize.
-        # NB this still reports is_on for an M<n> code, which is a protective
-        # stop the unit recovered from rather than a fault it is displaying -
-        # arguably not a "problem". Left as it was for now; changing it would
-        # alter what existing automations see.
+        # No key at all, rather than a guessed or empty value, for codes
+        # describe_error_code() does not recognize. An M<n> code reads as a
+        # problem too, though it is a protective stop the unit recovered from:
+        # narrowing that would change what existing automations see.
         description = describe_error_code(code)
         if description is not None:
             attrs["error_description"] = description

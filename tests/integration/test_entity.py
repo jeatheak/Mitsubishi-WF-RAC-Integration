@@ -1,11 +1,12 @@
 """Regression test for #219: WfRacEntity._handle_coordinator_update() must
 not report a failure for an entity whose _update_state() runs cleanly.
 EnergyTotalResetButton had no _update_state() at all, so this exact path
-raised AttributeError on every coordinator update and called
-Device.set_available(False) - needs the `hass` fixture (Device is a
+raised AttributeError on every coordinator update and took the whole device
+offline with it - needs the `hass` fixture (Device is a
 DataUpdateCoordinator), hence tests/integration/ rather than tests/unit/.
 """
 
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -15,7 +16,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.mitsubishi_wf_rac.button import EnergyTotalResetButton
 from custom_components.mitsubishi_wf_rac.const import DOMAIN
 from custom_components.mitsubishi_wf_rac.entity import WfRacEntity
-from custom_components.mitsubishi_wf_rac.coordinator import Device
+from custom_components.mitsubishi_wf_rac.coordinator import (
+    AVAILABILITY_FAILURE_LIMIT_MIN,
+    Device,
+)
 
 
 @pytest.fixture
@@ -29,15 +33,17 @@ async def device(hass):
     return dev
 
 
-async def test_coordinator_update_does_not_report_failure(device, monkeypatch):
+async def test_coordinator_update_does_not_report_failure(device, caplog):
+    """EnergyTotalResetButton had no _update_state() at all, so every
+    coordinator update raised AttributeError inside it."""
     entity = EnergyTotalResetButton(device)
     entity.async_write_ha_state = lambda: None
-    reported = []
-    monkeypatch.setattr(device, "set_available", lambda available: reported.append(available))
 
-    entity._handle_coordinator_update()
+    with caplog.at_level(logging.WARNING):
+        entity._handle_coordinator_update()
 
-    assert reported == []
+    assert "Could not update" not in caplog.text
+    assert entity._state_unreadable is False
 
 
 async def test_coordinator_contexts_include_only_contextual_entities(device):
@@ -57,22 +63,22 @@ async def test_coordinator_contexts_include_only_contextual_entities(device):
     contextless_entity._call_on_remove_callbacks()
 
 
-async def test_an_unreadable_frame_marks_the_entity_unknown_not_the_device(
-    device, monkeypatch
-):
+async def test_an_unreadable_frame_marks_the_entity_unknown_not_the_device(device):
     """The unit answered and still takes commands, so it is not unavailable."""
     entity = WfRacEntity(device)
     entity._update_state = MagicMock(side_effect=ValueError)
     entity._mark_state_unknown = MagicMock()
     entity.async_write_ha_state = lambda: None
-    set_available = MagicMock()
-    monkeypatch.setattr(device, "set_available", set_available)
+    device._set_availability(True)
 
-    entity._handle_coordinator_update()
+    # More failures in a row than it takes to declare the device unavailable:
+    # one unreadable field must not do it, and neither must a run of them.
+    for _ in range(AVAILABILITY_FAILURE_LIMIT_MIN + 1):
+        entity._handle_coordinator_update()
 
-    entity._mark_state_unknown.assert_called_once_with()
-    set_available.assert_not_called()
-    assert entity.available is device.available
+    entity._mark_state_unknown.assert_called_with()
+    assert device.available is True
+    assert entity.available is True
 
 
 async def test_apply_state_swallows_a_first_read_that_fails(device, monkeypatch):

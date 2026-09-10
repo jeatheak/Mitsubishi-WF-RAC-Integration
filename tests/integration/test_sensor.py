@@ -37,10 +37,18 @@ async def test_setting_the_total_on_the_wrong_sensor_says_which(
     wrong = DiagnosticsSensor(platform_device, "error")
     wrong.entity_id = "sensor.living_room_error"
 
-    with pytest.raises(ServiceValidationError, match="sensor.living_room_error"):
+    with pytest.raises(ServiceValidationError) as wrong_sensor:
         await async_set_energy_total(
             wrong, MagicMock(spec=ServiceCall, data={"value": 12.0})
         )
+    assert wrong_sensor.value.translation_key == "entity_not_energy_total_sensor"
+    assert wrong_sensor.value.generate_message is True
+    # The entity id is the whole point of the message and reaches it through
+    # the placeholder, not through the text.
+    assert (
+        wrong_sensor.value.translation_placeholders["entity_id"]
+        == "sensor.living_room_error"
+    )
 
 
 async def test_setting_the_total_reanchors_the_meter(
@@ -83,6 +91,27 @@ async def test_the_judge_reports_nothing_when_it_means_nothing(
 def test_a_stored_state_that_cannot_be_read_restores_nothing():
     """from_dict has to answer for anything the state store hands it."""
     assert EnergyTotalExtraStoredData.from_dict({"native_value": 3.0}) is None
+
+
+async def test_the_total_is_stored_even_while_the_frame_is_unreadable(
+    platform_device,
+):
+    """What gets written to the store is the running total, not the displayed
+    value: an unreadable frame blanks the display, and a restart in that
+    window used to bring the meter back at zero.
+    """
+    platform_device.airco.Electric = 1.0
+    sensor = EnergyTotalSensor(platform_device)
+    sensor._total = 123.5
+
+    sensor._mark_state_unknown()
+    assert sensor.native_value is None
+
+    stored = EnergyTotalExtraStoredData.from_dict(
+        sensor.extra_restore_state_data.as_dict()
+    )
+    assert stored is not None
+    assert stored.native_value == 123.5
 
 
 async def test_the_total_survives_a_restart(hass: HomeAssistant, platform_device):

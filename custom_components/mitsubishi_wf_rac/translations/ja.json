@@ -10,7 +10,8 @@
     "abort": {
       "existing_instance_updated": "既存の設定が更新されました。",
       "already_configured": "エアコンは既に設定されています。",
-      "reconfigure_successful": "再設定が完了しました"
+      "reconfigure_successful": "再設定が完了しました",
+      "wrong_device": "このアドレスでは、このエントリーを作成したときとは別のエアコンが応答しています。元の機器のアドレスに戻すか、別の機器として新しいエントリーを追加してください。"
     },
     "step": {
       "user": {
@@ -81,6 +82,9 @@
     },
     "preset_away_needs_cool_or_heat": {
       "message": "留守モードは冷房または暖房のときだけ使えます（現在は {hvac_mode}）。先に冷房か暖房へ切り替えるか、「留守モード」の選択エンティティで留守冷房・留守暖房を直接指定してください。"
+    },
+    "status_request_read_failed": {
+      "message": "エアコン {device} の状態を読み取れなかったため、ステータス要求は送信されませんでした。"
     }
   },
   "issues": {
@@ -311,7 +315,11 @@
         "name": "モデル番号"
       },
       "cool_hot_judge": {
-        "name": "Cool Hot Judge"
+        "name": "Cool Hot Judge",
+        "state": {
+          "cooling": "冷房",
+          "heating": "暖房"
+        }
       },
       "energy_usage": {
         "name": "エネルギー使用量 (今回の運転)"

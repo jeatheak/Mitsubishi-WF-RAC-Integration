@@ -91,11 +91,17 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data: dict[str, Any],
             exclude_entry_id: str | None = None,
             allow_port_fallback: bool = False,
+            expected_airco_id: str | None = None,
     ) -> dict[str, Any]:
         """Validate the user input allows us to connect, and register with the airco device.
 
         allow_port_fallback belongs to discovery only: a port the module
         announced may be wrong, a port a person typed is their decision.
+
+        expected_airco_id aborts before the registration request when some
+        other unit answers - registering takes one of the few account slots
+        the module has, and a reconfigure that lands on the wrong address has
+        no business spending one.
         """
         if len(data[CONF_HOST]) < 3:
             raise InvalidHost
@@ -121,7 +127,14 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             airco_id = await repository.get_airco_id()
-        except (WfRacError, KeyError, TypeError) as query_failed:
+        except (
+            WfRacError,
+            KeyError,
+            TypeError,
+            ValueError,
+            AttributeError,
+            OSError,
+        ) as query_failed:
             # A discovery announcement has been seen carrying a port the module
             # does not serve. The port is fixed in the firmware and not
             # user-settable, so rather than failing on a value the device
@@ -148,19 +161,51 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             try:
                 airco_id = await repository.get_airco_id()
-            except (WfRacError, KeyError, TypeError) as retry_failed:
+            except (
+                WfRacError,
+                KeyError,
+                TypeError,
+                ValueError,
+                AttributeError,
+                OSError,
+            ) as retry_failed:
                 raise CannotConnect(reason=str(retry_failed)) from retry_failed
             data[CONF_PORT] = DEFAULT_PORT
 
         data[CONF_AIRCO_ID] = airco_id
         if not airco_id:
             raise CannotConnect(reason="unknown reason")
+        if (
+            expected_airco_id is not None
+            and airco_id.lower() != expected_airco_id.lower()
+        ):
+            raise AbortFlow("wrong_device")
 
         _LOGGER.debug("Registering this controller on airco [%s]", airco_id)
-        result = await repository.update_account_info(airco_id, hass.config.time_zone)
+        try:
+            result = await repository.update_account_info(
+                airco_id, hass.config.time_zone
+            )
+        except (
+            WfRacError,
+            KeyError,
+            TypeError,
+            ValueError,
+            AttributeError,
+            OSError,
+        ) as register_failed:
+            # Everything a wrong address can answer with counts as not
+            # reaching the unit: a body that is not JSON (ValueError), one
+            # that is JSON but not an object (AttributeError), or a TLS
+            # handshake that never got that far (OSError).
+            raise CannotConnect(reason=str(register_failed)) from register_failed
         if not result:
             raise CannotConnect(reason="no answer to the registration request")
-        if int(result["result"]) == 2:
+        try:
+            registration_result = int(result["result"])
+        except (KeyError, TypeError, ValueError) as unreadable:
+            raise CannotConnect(reason="unreadable registration answer") from unreadable
+        if registration_result == 2:
             raise TooManyDevicesRegistered
 
         return data
@@ -362,8 +407,15 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data[CONF_OPERATOR_ID] = reconfigure_entry.data[CONF_OPERATOR_ID]
                 data[CONF_DEVICE_ID] = reconfigure_entry.data[CONF_DEVICE_ID]
 
-                info = await self._async_register_airco(
-                    self.hass, data, exclude_entry_id=reconfigure_entry.entry_id
+                # The address may change, the unit behind it may not: every
+                # entity's unique id is built from the airco id, so following
+                # a typo to the next unit renames them all, orphans the
+                # originals, and leaves discovery able to place neither.
+                await self._async_register_airco(
+                    self.hass,
+                    data,
+                    exclude_entry_id=reconfigure_entry.entry_id,
+                    expected_airco_id=reconfigure_entry.data[CONF_AIRCO_ID],
                 )
 
                 new_data = {**reconfigure_entry.data, **data}
@@ -698,9 +750,8 @@ class KnownError(exceptions.HomeAssistantError):
     ) -> tuple[dict[str, str], dict[str, str]]:
         """Return dicts of errors and description_placeholders, for adding to async_show_form"""
         key = self.applies_to_field
-        # Errors will only be displayed to the user if the key is actually in the form (or
-        # CONF_BASE for a general error), so we'll check the schema (seems weird there
-        # isn't a more efficient way to do this...)
+        # An error only shows if its key is in the form; anything else falls
+        # back to CONF_BASE.
         if key not in {k.schema for k in schema}:
             key = CONF_BASE
         return ({key: self.error_name}, self._extra_info or {})

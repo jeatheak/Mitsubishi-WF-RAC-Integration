@@ -5,10 +5,9 @@ import logging
 import re
 from collections import deque
 from collections.abc import Mapping
-from contextlib import suppress
 from datetime import datetime, timedelta
 from collections.abc import Callable
-from typing import Any, override
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -71,10 +70,12 @@ UPDATE_CONSOLIDATION_PERIOD = timedelta(milliseconds=500)
 FIRMWARE_CHECK_INTERVAL = timedelta(hours=24)
 
 # Operation data is requested for active operation-data entities and costs a
-# second request per poll. It stays on the local network and changes nothing on
-# the unit (see RacParser.status_request_to_byte) - but it is a setAirconStat,
-# so it takes the module's 60-second write lock all the same, and while we hold
-# that lock no one else can control the unit at all.
+# second request per poll. It stays on the local network, and on most modules
+# its block carries no set-bits (see RacParser.status_request_to_byte) - but it
+# is a setAirconStat, so it takes the module's 60-second write lock all the
+# same, and while we hold that lock no one else can control the unit at all.
+# On a module that needs its state carried (#329) the block is a full command
+# and the request really does write.
 #
 # The lock's deadline is `now + 60`, where `now` is the `timestamp` field of
 # the request that took it - the module has no RTC and reads its clock from
@@ -422,30 +423,19 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         self._sync_external_temperature_carrier()
 
     async def async_shutdown(self) -> None:
-        """Release the override's own operation-data subscription along with
-        the coordinator. A listener outstanding after unload would keep the
-        refresh timer alive for an entry that no longer exists.
+        """Release the subscription and both tasks along with the coordinator.
 
-        The consolidation task is created on hass rather than owned by
-        DataUpdateCoordinator, so it has to be cancelled here too: a command
-        queued moments before the entry unloads would otherwise still be sent
-        afterwards and publish data to entities that are already gone.
+        Neither task is owned by DataUpdateCoordinator, and hass only cancels
+        background tasks when hass itself stops - which an entry unload is
+        not. The operation-data one matters most: it spends most of its life
+        asleep waiting out its offset, so a reload catches it mid-sleep and
+        its request would go out from the old entry through a second
+        Repository while the new one is already polling. Two connections at
+        once is what the module will not take.
 
-        The operation-data task needs the same, and more urgently: it spends
-        most of its life asleep waiting out its offset (up to
-        SERVICE_DATA_REQUEST_OFFSET), so an unload almost always catches one
-        mid-sleep. hass cancels background tasks when *hass* stops, which a
-        config-entry unload is not - and on a reload the request would go out
-        from the old entry while the new one is already polling, through a
-        second Repository whose request spacing knows nothing about the
-        first. Two connections at once is what the module will not take.
-
-        Whatever either task was doing, its outcome stops mattering here, and
-        an unload that raises leaves entities loaded on an entry that no
-        longer updates. So a failure is logged and swallowed rather than
-        allowed out: a flush reports its own errors to the caller that queued
-        it (see _async_flush_queued_command), and the operation-data request
-        is optional by construction.
+        Failures are logged and swallowed: an unload that raises leaves
+        entities loaded on an entry that no longer updates, and both tasks
+        report what matters elsewhere.
         """
         self._release_external_temperature_carrier()
         for task in (self._consolidation_task, self._service_data_task):
@@ -846,37 +836,26 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     def _note_unexpected_settings(self, someone_wrote: bool) -> None:
         """Notice a setting that changed without us changing it.
 
-        The third and least deniable signal, and the only one our own traffic
-        cannot erase. `expires` and `updatedBy` both record who wrote last and
-        are overwritten by our next write, so either is masked when a request
-        of ours lands in the same gap - and half of every gap is ours. A
-        setting is not a record of a write, it is the result of one, and
-        nothing we send afterwards puts it back.
+        The only signal our own traffic cannot erase: `expires` and
+        `updatedBy` are overwritten by our next write, a changed setting is
+        not. It adds the case no write lock was taken for - only a
+        setAirconStat moves `expires`, so a setting that moved while `expires`
+        stood still was not changed over the network at all, but at the IR
+        remote, by a timer, or by one of the unit's own modes. No lock is held
+        there, so this only reports; the stand-down stays with the writes.
 
-        What it adds is the case no write lock was taken for. Only a
-        setAirconStat moves `expires`, so a setting that changed while
-        `expires` stood still was not changed over the network at all: that is
-        the IR remote, a timer in the unit, or one of the unit's own modes.
-        Standing down for three minutes would be pointless there - nobody
-        holds the lock we would be avoiding - so this only says so, and the
-        stand-down stays with the writes it was built for.
+        someone_wrote asks whether a set-bit could have been sent in this gap,
+        not whether any frame was - our own operation-data request moves
+        `expires` every cycle while changing nothing. The price is a wrong
+        label rather than a missing message: a foreign client writing in the
+        same gap as one of our requests reads as the unit itself, the module
+        offering no second record to tell them apart.
 
-        One case is invisible here by construction, and it is ours: while the
-        operation-data request carries the power state back to a unit that
-        needs it, a change we undo inside that same gap leaves the value
-        exactly where we expect it.
-
-        The someone_wrote argument asks whether a set-bit could have been sent
-        in this gap, not whether any frame was: our own operation-data request
-        moves `expires` every cycle while changing nothing, and counting it
-        would leave nothing to attribute. The price is one wrong label rather
-        than one missing message - a foreign client writing in the same gap as
-        one of our requests reads as the unit itself here, because the module
-        gives us no second record of the write to tell them apart.
-
-        Not every one of these is somebody's doing: the unit resets its own
+        Not every one of these is somebody's doing - the unit resets its own
         setpoint after a power cycle, and Vacant and self-clean move settings
-        with nobody asking.
+        with nobody asking. And one case is invisible by construction: a
+        change we undo while carrying the power state back leaves the value
+        exactly where we expect it.
         """
         current = self._settings_snapshot()
         expected = self._expected_settings
@@ -994,16 +973,11 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
     def _power_state_is_safe_to_carry(self) -> bool:
         """Whether an operation-data request may go out right now.
 
-        Only ever False on a unit whose request has to carry its state
-        (#329), and only while we believe that unit is off. On such a module
-        the block is applied rather than ignored, so the request is a write in
-        all but name.
-
-        Skipped rather than sent empty: without the state this module reads
-        the zeros as a command to clear the settings, which is the original
-        fault. And a reading taken while the unit is off is worth little
-        anyway - the compressor is stopped and the valve is closed - so
-        nothing is lost by waiting for the poll that finds it running.
+        Only False on a unit that carries its state (#329) while we believe it
+        is off, because there the block is applied rather than ignored. Sending
+        it empty instead is the original fault - the module reads the zeros as
+        a command to clear the settings - and a reading taken while the unit is
+        off is worth little, so it waits for a poll that finds it running.
         """
         return not self._parser.status_request_carries_state or bool(
             self._airco is not None and self._airco.Operation
@@ -1080,8 +1054,8 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             new_airco = self._parser.translate_bytes(response["airconStat"])
         except (WfRacError, KeyError, TypeError, ValueError) as ex:
             _LOGGER.debug(
-                "Could not read [%s] before the operation-data request, "
-                "skipping this cycle: %s",
+                "Could not read [%s] before echoing its state back, "
+                "skipping the request: %s",
                 self.device_name,
                 ex,
             )
@@ -1099,17 +1073,17 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
         task that deliberately swallows its errors.
         """
         await asyncio.sleep(self.service_data_offset.total_seconds())
-        # The state this is built from is almost irrelevant: a status request
-        # carries no set-bits, so the unit applies none of it (see
-        # RacParser.status_request_to_byte). Byte 5 is the one exception, since
-        # it has no set-bit to leave out - an active external temperature
-        # override rides along here, and that is the point: this is the frame
-        # that keeps it alive between commands. Note that this also makes the
-        # request a write in the strict sense, which is what the backdated
-        # timestamp below trades away part of the lock for. The offset stays
-        # because it is about spacing requests, not about what they contain -
-        # a second request too soon after the poll is what the module refuses.
-        if self._parser.status_request_carries_state and not await self._async_read_before_echo():
+        # What the frame carries depends on the module: no set-bits at all
+        # without the #329 quirk, a full command with it (see
+        # RacParser.status_request_to_byte). Byte 5 goes out either way,
+        # having no set-bit to leave out, which is how an active external
+        # temperature override stays alive between commands - and what makes
+        # this request a write in the strict sense, for which the backdated
+        # timestamp below gives back part of the lock.
+        if (
+            self._parser.status_request_carries_state
+            and not await self._async_read_before_echo()
+        ):
             return
         if not self._power_state_is_safe_to_carry():
             # Re-checked after the sleep, not only when the request was
@@ -1640,11 +1614,28 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
 
         Sent directly through set_airco() rather than async_queue_command():
         the latter coalesces this with any command queued in the same
-        window, and since this request's own block carries no set-bits (see
+        window, and on a module whose status request holds no set-bits (see
         RacParser.status_request_to_byte), a coalesced real command - e.g. a
         setpoint change - would go out in that same block without its
         set-bit and be silently ignored by the unit.
+
+        On a module that carries its state (#329) the block is a full command
+        instead, so the state it is built from is read fresh first, exactly as
+        the operation-data path does. Without that this action would write back
+        a setting up to a poll old and undo whatever was done at the unit since
+        - including switching a unit off that somebody just turned on.
         """
+        if (
+            self._parser.status_request_carries_state
+            and not await self._async_read_before_echo()
+        ):
+            # Sending the state we have would be a write on this module, and
+            # the caller asked for a reading.
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="status_request_read_failed",
+                translation_placeholders={"device": self.device_name},
+            )
         await self.set_airco(
             {AirconCommands.HomeLeaveModeStatusRequest: True},
             is_status_request=True,
@@ -1743,10 +1734,6 @@ class Device(DataUpdateCoordinator[Aircon]):  # pylint: disable=too-many-instanc
             _LOGGER.debug(
                 "Could not reach the airco [%s]: %s", self.device_name, error
             )
-
-    def set_available(self, available: bool) -> None:
-        """Set available status"""
-        self._set_availability(available)
 
     @property
     def device_info(self) -> DeviceInfo:
